@@ -1,0 +1,44 @@
+# Cursor / agent
+.cursor/rules/codacy.mdc
+.agent-cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.local
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.next/
+*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Secrets / local MT5
+credentials.json
+*.ex5
+*.mq5.bak
+
+# Local databases
+*.db
+*.sqlite3
