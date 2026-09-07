@@ -181,3 +181,34 @@ class InvalidationReason(StrEnum):
     TARGET_HIT = "target_hit"
     TIME_EXPIRED = "time_expired"
     MANUAL_OVERRIDE = "manual_override"
+
+
+class ReviewOutcome(StrEnum):
+    """Post-trade outcome classification."""
+
+    WIN = "win"
+    LOSS = "loss"
+    BREAKEVEN = "breakeven"
+    STATISTICAL_LOSS = "statistical_loss"  # valid trade, unfavorable outcome
+    STATISTICAL_WIN = "statistical_win"  # valid trade, favorable outcome
+
+
+class LessonStatus(StrEnum):
+    """Lifecycle of a learned lesson / hypothesis."""
+
+    PROPOSED = "proposed"
+    UNDER_VALIDATION = "under_validation"
+    VALIDATED = "validated"
+    REJECTED = "rejected"
+    STALE = "stale"
+    SUPERSEDED = "superseded"
+
+
+class ConfigurationChangeType(StrEnum):
+    """What kind of configuration a validated lesson proposes to change."""
+
+    STRATEGY_PARAMETER = "strategy_parameter"
+    RISK_PARAMETER = "risk_parameter"
+    AGENT_WEIGHT = "agent_weight"
+    THRESHOLD = "threshold"
+    EXECUTION_RULE = "execution_rule"

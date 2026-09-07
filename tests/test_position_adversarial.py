@@ -14,14 +14,16 @@ Tests the position manager under realistic market evolution:
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from mt5_platform.agents import (
+    AgentContext,
+    run_agent_network,
+)
 from mt5_platform.common.enums import (
     DataQualityLevel,
-    InvalidationReason,
     OrderSide,
     PositionDecision,
     RegimeLabel,
@@ -29,17 +31,6 @@ from mt5_platform.common.enums import (
 )
 from mt5_platform.common.events import AccountSnapshot, StrategySignal
 from mt5_platform.config import Settings, TradingMode
-from mt5_platform.historical.context_bridge import setup_from_context
-from mt5_platform.position import (
-    PositionManager,
-    PositionManagerConfig,
-    PositionState,
-    PositionDecisionModel,
-    ThesisSnapshot,
-    reconcile_position,
-    BrokerPosition,
-    ReconciliationResult,
-)
 from mt5_platform.context import (
     BreakoutState,
     Candle,
@@ -52,14 +43,17 @@ from mt5_platform.context import (
     TrendFeatures,
     VolatilityFeatures,
 )
-from mt5_platform.risk import RiskEngine, RiskContext
-from mt5_platform.agents import (
-    AgentContext,
-    DEFAULT_AGENT_NETWORK,
-    run_agent_network,
-)
 from mt5_platform.execution import MockExecutionAdapter
-
+from mt5_platform.position import (
+    BrokerPosition,
+    PositionDecisionModel,
+    PositionManager,
+    PositionManagerConfig,
+    PositionState,
+    ThesisSnapshot,
+    reconcile_position,
+)
+from mt5_platform.risk import RiskContext, RiskEngine
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,7 +106,9 @@ def _market_context(
         regime=regime,
         regime_confidence=0.8,
         regime_evidence={},
-        data_quality=DataQuality(level=data_quality, last_tick_age_s=last_tick_age_s, tick_count=200),
+        data_quality=DataQuality(
+            level=data_quality, last_tick_age_s=last_tick_age_s, tick_count=200
+        ),
         usable_for_trading=True,
     )
 
@@ -152,7 +148,9 @@ def _position(
         volume=volume,
         entry_price=entry_price,
         current_price=current_price,
-        unrealized_pnl=(current_price - entry_price) * volume * 100 if direction == OrderSide.BUY else (entry_price - current_price) * volume * 100,
+        unrealized_pnl=(current_price - entry_price) * volume * 100
+        if direction == OrderSide.BUY
+        else (entry_price - current_price) * volume * 100,
         stop_loss=stop_loss,
         take_profit=take_profit,
         opened_at=_ts(hour=1),
@@ -163,13 +161,15 @@ def _position(
 
 
 def _pm():
-    return PositionManager(config=PositionManagerConfig(
-        invalidation_buffer_pct=0.1,
-        max_stale_context_s=300.0,
-        trail_activation_pct=0.5,
-        trail_distance_atr_mult=1.5,
-        reduce_volume_pct=0.5,
-    ))
+    return PositionManager(
+        config=PositionManagerConfig(
+            invalidation_buffer_pct=0.1,
+            max_stale_context_s=300.0,
+            trail_activation_pct=0.5,
+            trail_distance_atr_mult=1.5,
+            reduce_volume_pct=0.5,
+        )
+    )
 
 
 # ===========================================================================
@@ -265,7 +265,9 @@ class TestDecisionHysteresis:
         ctx = _market_context(persist=0.35)
         decisions = [pm.evaluate(pos, ctx) for _ in range(5)]
         actions = [d.decision for d in decisions]
-        assert all(d == PositionDecision.HOLD for d in actions), f"Oscillating near threshold: {actions}"
+        assert all(d == PositionDecision.HOLD for d in actions), (
+            f"Oscillating near threshold: {actions}"
+        )
 
     def test_just_below_threshold_consistently_weakening(self):
         """Just below the threshold should consistently produce REDUCE."""
@@ -274,7 +276,9 @@ class TestDecisionHysteresis:
         ctx = _market_context(persist=0.25)
         decisions = [pm.evaluate(pos, ctx) for _ in range(5)]
         actions = [d.decision for d in decisions]
-        assert all(d == PositionDecision.REDUCE for d in actions), f"Inconsistent below threshold: {actions}"
+        assert all(d == PositionDecision.REDUCE for d in actions), (
+            f"Inconsistent below threshold: {actions}"
+        )
 
 
 # ===========================================================================
@@ -698,11 +702,6 @@ class TestFullLifecycle:
         """MarketContext → Agents → Historical Evidence → Synthesis →
         TradeThesis → Risk → Order → Execution → Position →
         Market changes → Position Intelligence → Risk → Position action."""
-        from mt5_platform.agents import (
-            AgentContext,
-            run_agent_network,
-        )
-        from mt5_platform.risk import RiskEngine, RiskContext
 
         # Step 1: Market context
         ctx = _market_context(
@@ -790,8 +789,6 @@ class TestFullLifecycle:
 
     def test_lifecycle_with_mock_execution(self):
         """Full lifecycle with mock execution adapter."""
-        from mt5_platform.agents import AgentContext, run_agent_network
-        from mt5_platform.risk import RiskEngine, RiskContext
 
         # Market context
         ctx = _market_context(
