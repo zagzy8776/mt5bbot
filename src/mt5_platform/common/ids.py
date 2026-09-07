@@ -25,3 +25,8 @@ def new_signal_id() -> str:
 def new_context_id() -> str:
     """Unique ID for one canonical MarketContext build (decision memory key)."""
     return f"ctx_{uuid.uuid4().hex}"
+
+
+def new_thesis_id() -> str:
+    """Unique ID for one trade thesis produced by the synthesis layer."""
+    return f"ths_{uuid.uuid4().hex}"
