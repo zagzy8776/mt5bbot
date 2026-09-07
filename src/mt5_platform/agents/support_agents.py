@@ -6,7 +6,7 @@ so. It will consume the Phase C evidence engine; it never invents statistics.
 
 from __future__ import annotations
 
-from mt5_platform.agents.contracts import Agent, AgentContext, AgentOpinion, Stance
+from mt5_platform.agents.contracts import Agent, AgentContext, AgentOpinion, AgentRole, Stance
 from mt5_platform.common.enums import OrderSide, RegimeLabel
 
 # Which regimes each registered strategy is structurally suited for. This is a

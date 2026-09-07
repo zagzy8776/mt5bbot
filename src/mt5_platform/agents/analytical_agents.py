@@ -6,7 +6,7 @@ disagree — that is the point.
 
 from __future__ import annotations
 
-from mt5_platform.agents.contracts import Agent, AgentContext, AgentOpinion, Stance
+from mt5_platform.agents.contracts import Agent, AgentContext, AgentOpinion, AgentRole, Stance
 from mt5_platform.common.enums import DataQualityLevel, OrderSide, RegimeLabel
 from mt5_platform.context import Candle
 
