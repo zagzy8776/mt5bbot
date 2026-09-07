@@ -93,3 +93,22 @@ class ComponentHealth(StrEnum):
     DEGRADED = "degraded"
     DOWN = "down"
     DISABLED = "disabled"
+
+
+class RegimeLabel(StrEnum):
+    """Market regime. Every label must be backed by measurable evidence."""
+
+    TRENDING = "trending"
+    RANGING = "ranging"
+    HIGH_VOLATILITY = "high_volatility"
+    LOW_VOLATILITY = "low_volatility"
+    BREAKOUT = "breakout"
+    TRANSITION = "transition"
+    ABNORMAL = "abnormal"
+    UNDEFINED = "undefined"  # insufficient evidence to classify
+
+
+class DataQualityLevel(StrEnum):
+    OK = "ok"
+    DEGRADED = "degraded"
+    CRITICAL = "critical"

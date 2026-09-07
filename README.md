@@ -65,12 +65,18 @@ src/mt5_platform/
 3. Storage + historical data
 4. Strategy / signal engine
 5. Risk engine
-6. **Mock execution engine (OrderManager + state machine + reconciliation)** ← current
-7. MT5 **demo** adapter
-8. Web dashboard
-9. Backtests + forward tests
-10. Security / reliability audit
-11. Explicitly gated **live** mode (only after validation)
+6. Mock execution engine
+7. **Market Context Engine + regime classification (Phase A of the intelligence layer)** ← current
+8. Multi-agent system + debate/synthesis + trade thesis
+9. Historical evidence engine
+10. Position intelligence
+11. Learning / decision memory
+12. Orchestrator (continuous agent cycle)
+13. MT5 **demo** adapter
+14. Web dashboard (control room)
+15. Backtests + forward validation
+16. Security / reliability audit
+17. Explicitly gated **live** mode (only after validation)
 
 ## Quick start
 

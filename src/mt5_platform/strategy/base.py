@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from mt5_platform.common.enums import OrderSide
 from mt5_platform.common.events import MarketDataEvent, StrategySignal
+
+if TYPE_CHECKING:
+    from mt5_platform.context import MarketContext
 
 
 def mid_price(event: MarketDataEvent) -> float | None:
@@ -75,4 +79,13 @@ class Strategy(ABC):
 
     def reset(self) -> None:
         """Clear internal state (tests / symbol rotation)."""
+        return None
+
+    def generate_from_context(self, context: MarketContext) -> StrategySignal | None:
+        """Context-aware hook (Phase A+).
+
+        Receives the canonical MarketContext so strategies never re-derive
+        market state themselves. Default: not context-aware (legacy tick-based
+        strategies keep working via generate_signal as candidate generators).
+        """
         return None

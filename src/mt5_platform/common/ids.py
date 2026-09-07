@@ -20,3 +20,8 @@ def new_order_id() -> str:
 
 def new_signal_id() -> str:
     return f"sig_{uuid.uuid4().hex}"
+
+
+def new_context_id() -> str:
+    """Unique ID for one canonical MarketContext build (decision memory key)."""
+    return f"ctx_{uuid.uuid4().hex}"
