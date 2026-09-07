@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import ast
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 from mt5_platform.api import create_app
 from mt5_platform.common.enums import OrderSide
@@ -249,45 +250,48 @@ def test_api_strategy_and_signal_surface() -> None:
         signal_min_confidence=0.0,
         signal_require_stop_loss=True,
     )
-    client = TestClient(create_app(settings))
+    app = create_app(settings)
 
-    status = client.get("/api/v1/status")
-    assert status.status_code == 200
-    body = status.json()
-    assert body["phase"] == 6
-    assert body["strategies"] == ["sma_crossover", "breakout"]
+    async def run() -> None:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            status = await client.get("/api/v1/status")
+            assert status.status_code == 200
+            body = status.json()
+            assert body["phase"] == 6
+            assert body["strategies"] == ["sma_crossover", "breakout"]
 
-    listed = client.get("/api/v1/strategies").json()["strategies"]
-    assert {s["name"] for s in listed} == {"sma_crossover", "breakout"}
-    assert listed[0]["stats"]["events_processed"] == 0
+            listed = (await client.get("/api/v1/strategies")).json()["strategies"]
+            assert {s["name"] for s in listed} == {"sma_crossover", "breakout"}
+            assert listed[0]["stats"]["events_processed"] == 0
 
-    available = client.get("/api/v1/strategies/available").json()["available"]
-    assert {s["name"] for s in available} == set(available_strategies())
+            available = (await client.get("/api/v1/strategies/available")).json()["available"]
+            assert {s["name"] for s in available} == set(available_strategies())
 
-    assert client.post("/api/v1/strategies/breakout/disable").json()["enabled"] is False
-    assert client.post("/api/v1/strategies/breakout/enable").json()["enabled"] is True
-    assert client.post("/api/v1/strategies/nope/enable").status_code == 404
+            assert (await client.post("/api/v1/strategies/breakout/disable")).json()["enabled"] is False
+            assert (await client.post("/api/v1/strategies/breakout/enable")).json()["enabled"] is True
+            assert (await client.post("/api/v1/strategies/nope/enable")).status_code == 404
 
-    start = datetime(2026, 9, 7, 9, 0, tzinfo=UTC)
-    # Default breakout needs 20 warmup ticks, then a break above the window high.
-    prices = [2500.0] * 20 + [2600.0]
-    for i, price in enumerate(prices):
-        resp = client.post(
-            "/api/v1/signals/evaluate",
-            json={
-                "timestamp": (start + timedelta(seconds=i)).isoformat(),
-                "source": "test",
-                "symbol": "XAUUSD",
-                "price": price,
-            },
-        )
-        assert resp.status_code == 200
+            start = datetime(2026, 9, 7, 9, 0, tzinfo=UTC)
+            # Default breakout needs 20 warmup ticks, then a break above the window high.
+            prices = [2500.0] * 20 + [2600.0]
+            for i, price in enumerate(prices):
+                resp = await client.post(
+                    "/api/v1/signals/evaluate",
+                    json={
+                        "timestamp": (start + timedelta(seconds=i)).isoformat(),
+                        "source": "test",
+                        "symbol": "XAUUSD",
+                        "price": price,
+                    },
+                )
+                assert resp.status_code == 200
 
-    stats = client.get("/api/v1/signals/stats").json()
-    assert stats["events_processed"] == len(prices)
-    assert stats["signals_generated"] >= 1
-    signals = client.get("/api/v1/signals").json()["signals"]
-    assert len(signals) >= 1
+            stats = (await client.get("/api/v1/signals/stats")).json()
+            assert stats["events_processed"] == len(prices)
+            assert stats["signals_generated"] >= 1
+            signals = (await client.get("/api/v1/signals")).json()["signals"]
+            assert len(signals) >= 1
+    asyncio.run(run())
 
 
 def test_strategy_and_signals_do_not_import_trading_layers() -> None:

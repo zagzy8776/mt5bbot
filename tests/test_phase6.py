@@ -598,25 +598,28 @@ def test_invalid_fill_ratio_rejected() -> None:
 
 
 def test_api_orders_and_executions_endpoints() -> None:
-    from fastapi.testclient import TestClient
-
+    import asyncio
+    from httpx import AsyncClient, ASGITransport
     from mt5_platform.api import create_app
+    from mt5_platform.config import Settings
 
     app = create_app(
         Settings(storage_backend="memory", execution_backend="mock")
     )
-    with TestClient(app) as client:
-        status = client.get("/api/v1/status").json()
-        assert status["phase"] == 6
-        assert status["execution_backend"] == "mock"
+    async def run() -> None:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            status = (await client.get("/api/v1/status")).json()
+            assert status["phase"] == 6
+            assert status["execution_backend"] == "mock"
 
-        health = client.get("/health").json()
-        assert health["components"]["execution"] == "up"
+            health = (await client.get("/health")).json()
+            assert health["components"]["execution"] == "up"
 
-        assert client.get("/api/v1/orders").json()["orders"] == []
-        assert client.get("/api/v1/executions").json()["executions"] == []
-        assert client.get("/api/v1/orders").json()["stats"]["total"] == 0
+            assert (await client.get("/api/v1/orders")).json()["orders"] == []
+            assert (await client.get("/api/v1/executions")).json()["executions"] == []
+            assert (await client.get("/api/v1/orders")).json()["stats"]["total"] == 0
 
-        missing = client.get("/api/v1/orders/does_not_exist")
-        assert missing.status_code == 404
+            missing = await client.get("/api/v1/orders/does_not_exist")
+            assert missing.status_code == 404
+    asyncio.run(run())
 

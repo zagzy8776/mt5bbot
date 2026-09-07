@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 from mt5_platform.api import create_app
 from mt5_platform.common.enums import OrderSide, OrderStatus, Severity
@@ -160,13 +161,17 @@ def test_api_status_reports_phase3_and_storage_backend() -> None:
         trading_mode=TradingMode.DEMO,
         storage_backend="memory",
     )
-    client = TestClient(create_app(settings))
-    status = client.get("/api/v1/status")
-    assert status.status_code == 200
-    body = status.json()
-    assert body["phase"] == 6
-    assert body["storage_backend"] == "memory"
+    app = create_app(settings)
 
-    health = client.get("/health")
-    assert health.status_code == 200
-    assert health.json()["components"]["storage"] == "up"
+    async def run() -> None:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            status = await client.get("/api/v1/status")
+            assert status.status_code == 200
+            body = status.json()
+            assert body["phase"] == 6
+            assert body["storage_backend"] == "memory"
+
+            health = await client.get("/health")
+            assert health.status_code == 200
+            assert health.json()["components"]["storage"] == "up"
+    asyncio.run(run())

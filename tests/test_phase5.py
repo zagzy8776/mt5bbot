@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import pytest
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 from mt5_platform.api import create_app
 from mt5_platform.common.audit import audit_log
@@ -206,51 +207,54 @@ def test_risk_api_surface() -> None:
         max_position_size=0.10,
         max_risk_per_trade_pct=1.0,
     )
-    client = TestClient(create_app(settings))
+    app = create_app(settings)
 
-    status = client.get("/api/v1/status").json()
-    assert status["kill_switch"] is False
-    assert status["trading_paused"] is False
-    assert status["trading_allowed"] is True
+    async def run() -> None:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            status = (await client.get("/api/v1/status")).json()
+            assert status["kill_switch"] is False
+            assert status["trading_paused"] is False
+            assert status["trading_allowed"] is True
 
-    body = client.get("/api/v1/risk/status").json()
-    assert body["kill_switch"] is False
-    assert body["settings"]["max_position_size"] == 0.10
-    assert body["stats"]["checks"] == 0
+            body = (await client.get("/api/v1/risk/status")).json()
+            assert body["kill_switch"] is False
+            assert body["settings"]["max_position_size"] == 0.10
+            assert body["stats"]["checks"] == 0
 
-    resp = client.post("/api/v1/risk/killswitch", json={"engaged": True, "reason": "test"})
-    assert resp.status_code == 200
-    assert resp.json()["kill_switch"] is True
-    assert client.get("/api/v1/status").json()["trading_allowed"] is False
+            resp = await client.post("/api/v1/risk/killswitch", json={"engaged": True, "reason": "test"})
+            assert resp.status_code == 200
+            assert resp.json()["kill_switch"] is True
+            assert (await client.get("/api/v1/status")).json()["trading_allowed"] is False
 
-    resp = client.post("/api/v1/risk/pause", json={"paused": True})
-    assert resp.json()["paused"] is True
+            resp = await client.post("/api/v1/risk/pause", json={"paused": True})
+            assert resp.json()["paused"] is True
 
-    resp = client.post("/api/v1/risk/killswitch", json={"engaged": False})
-    assert resp.json()["kill_switch"] is False
-    resp = client.post("/api/v1/risk/pause", json={"paused": False})
-    assert resp.json()["paused"] is False
+            resp = await client.post("/api/v1/risk/killswitch", json={"engaged": False})
+            assert resp.json()["kill_switch"] is False
+            resp = await client.post("/api/v1/risk/pause", json={"paused": False})
+            assert resp.json()["paused"] is False
 
-    signal = _signal().model_dump(mode="json")
-    account = _account().model_dump(mode="json")
-    resp = client.post(
-        "/api/v1/risk/evaluate",
-        json={
-            "signal": signal,
-            "account": account,
-            "context": {"proposed_volume": 0.01},
-        },
-    )
-    assert resp.status_code == 200
-    assert resp.json()["approved"] is True
+            signal = _signal().model_dump(mode="json")
+            account = _account().model_dump(mode="json")
+            resp = await client.post(
+                "/api/v1/risk/evaluate",
+                json={
+                    "signal": signal,
+                    "account": account,
+                    "context": {"proposed_volume": 0.01},
+                },
+            )
+            assert resp.status_code == 200
+            assert resp.json()["approved"] is True
 
-    bad_stop = _signal(stop_loss=None).model_dump(mode="json")
-    resp = client.post(
-        "/api/v1/risk/evaluate",
-        json={"signal": bad_stop, "account": account},
-    )
-    assert resp.json()["approved"] is False
-    assert "stop_loss_required" in resp.json()["reasons"]
+            bad_stop = _signal(stop_loss=None).model_dump(mode="json")
+            resp = await client.post(
+                "/api/v1/risk/evaluate",
+                json={"signal": bad_stop, "account": account},
+            )
+            assert resp.json()["approved"] is False
+            assert "stop_loss_required" in resp.json()["reasons"]
+    asyncio.run(run())
 
 
 def test_risk_evaluate_requires_valid_context_values() -> None:
