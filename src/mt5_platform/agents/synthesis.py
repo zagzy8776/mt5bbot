@@ -43,6 +43,7 @@ class SynthesisAgent:
         min_participation: float = 0.8,
         min_conviction: float = 1.0,
         min_alignment: float = 0.6,
+        min_net_ratio: float = 0.6,
         atr_stop_mult: float = 1.5,
         atr_target_mult: float = 3.0,
     ) -> None:
@@ -50,6 +51,7 @@ class SynthesisAgent:
         self.min_participation = min_participation
         self.min_conviction = min_conviction
         self.min_alignment = min_alignment
+        self.min_net_ratio = min_net_ratio
         self.atr_stop_mult = atr_stop_mult
         self.atr_target_mult = atr_target_mult
 
@@ -141,18 +143,32 @@ class SynthesisAgent:
             if o.stance in {Stance.BUY, Stance.SELL}
             and (OrderSide.BUY if o.stance is Stance.BUY else OrderSide.SELL) is not direction
         ]
-        alignment_ratio = len(aligned) / max(
-            len(aligned) + len(opposed) + len(cautions), 1
-        )
+        # Confidence-weighted alignment (count-based alignment hid dissent).
+        aligned_w = sum(o.confidence * role_weight(o) for o in aligned)
+        opposed_w = sum(o.confidence * role_weight(o) for o in opposed)
+        caution_w = sum(o.confidence * role_weight(o) for o in cautions)
+        total_w = aligned_w + opposed_w + caution_w
+        alignment_ratio = aligned_w / max(total_w, 1e-9)
+        # Net majority: how much of the directional weight agrees with the
+        # chosen direction. Prevents "6-vs-2 automatically means BUY".
+        net_ratio = abs(net) / max(total_directional, 1e-9)
         conviction = abs(net) * alignment_ratio
         evidence_summary = {
             "buy_weight": round(buy_w, 3),
             "sell_weight": round(sell_w, 3),
             "net": round(net, 3),
+            "net_ratio": round(net_ratio, 3),
             "alignment_ratio": round(alignment_ratio, 3),
             "conviction": round(conviction, 3),
+            "aligned": [o.agent_name for o in aligned],
+            "opposed": [o.agent_name for o in opposed],
             "cautions": [o.agent_name for o in cautions],
         }
+        if net_ratio < self.min_net_ratio:
+            return no_trade(
+                f"net majority {net_ratio:.0%} below {self.min_net_ratio:.0%} "
+                f"— minority dissent blocks thesis ({evidence_summary})"
+            )
         if alignment_ratio < self.min_alignment:
             return no_trade(
                 f"agent alignment {alignment_ratio:.2f} below {self.min_alignment} "
