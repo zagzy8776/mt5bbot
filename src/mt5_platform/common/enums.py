@@ -141,3 +141,43 @@ class TradeCause(StrEnum):
     DATA_DEGRADED = "data_degraded"
     KILL_SWITCH = "kill_switch"
     UNKNOWN = "unknown"
+
+
+class PositionDecision(StrEnum):
+    """Position management decision.
+
+    Every decision must be explicit — HOLD is not "do nothing by default".
+    """
+
+    HOLD = "hold"
+    MODIFY = "modify"
+    REDUCE = "reduce"
+    EXIT = "exit"
+    EMERGENCY_EXIT = "emergency_exit"
+    NO_ACTION = "no_action"  # position not managed (e.g., stale context)
+
+
+class ThesisStatus(StrEnum):
+    """Validity of the original trade thesis given current evidence."""
+
+    VALID = "valid"
+    WEAKENING = "weakening"
+    INVALIDATED = "invalidated"
+    UNKNOWN = "unknown"  # insufficient current context
+
+
+class InvalidationReason(StrEnum):
+    """Why a thesis was invalidated."""
+
+    TREND_REVERSAL = "trend_reversal"
+    BREAKOUT_FAILURE = "breakout_failure"
+    MOMENTUM_LOSS = "momentum_loss"
+    REGIME_CHANGE = "regime_change"
+    VOLATILITY_SPIKE = "volatility_spike"
+    DATA_DEGRADED = "data_degraded"
+    KILL_SWITCH = "kill_switch"
+    RISK_BREACH = "risk_breach"
+    STOP_HIT = "stop_hit"
+    TARGET_HIT = "target_hit"
+    TIME_EXPIRED = "time_expired"
+    MANUAL_OVERRIDE = "manual_override"
