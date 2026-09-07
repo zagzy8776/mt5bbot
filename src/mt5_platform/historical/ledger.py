@@ -12,7 +12,6 @@ accidentally sees the future.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from mt5_platform.historical.models import HistoricalOutcome
 

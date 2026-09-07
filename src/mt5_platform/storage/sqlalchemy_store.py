@@ -378,11 +378,7 @@ class SqlAlchemyMarketDataStore(MarketDataStore):
         ]
 
     async def get_account_snapshots(self, *, limit: int = 100) -> list[AccountSnapshot]:
-        stmt = (
-            select(AccountSnapshotRow)
-            .order_by(AccountSnapshotRow.timestamp.desc())
-            .limit(limit)
-        )
+        stmt = select(AccountSnapshotRow).order_by(AccountSnapshotRow.timestamp.desc()).limit(limit)
         async with self._session_factory() as session:
             rows = (await session.execute(stmt)).scalars().all()
         return [

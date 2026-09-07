@@ -8,12 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-from mt5_platform.common.enums import OrderSide, PositionDecision
-from mt5_platform.common.events import AuditEvent, utc_now
 from mt5_platform.common.audit import audit_log
-from mt5_platform.position.models import PositionState, PositionDecision as PD, POSITION_RECONCILIATION_MISMATCH
+from mt5_platform.common.enums import OrderSide
+from mt5_platform.common.events import AuditEvent
+from mt5_platform.position.models import POSITION_RECONCILIATION_MISMATCH, PositionState
 
 
 @dataclass
@@ -83,25 +82,42 @@ def reconcile_position(
 
     # Compare volumes
     if abs(internal.volume - broker_match.volume) > volume_tolerance:
-        mismatches.append(f"volume mismatch: internal={internal.volume}, broker={broker_match.volume}")
+        mismatches.append(
+            f"volume mismatch: internal={internal.volume}, broker={broker_match.volume}"
+        )
 
     # Compare entry price
     if abs(internal.entry_price - broker_match.entry_price) > price_tolerance:
-        mismatches.append(f"entry price mismatch: internal={internal.entry_price}, broker={broker_match.entry_price}")
+        mismatches.append(
+            f"entry price mismatch: internal={internal.entry_price}, "
+            f"broker={broker_match.entry_price}"
+        )
 
     # Compare stop loss
     if internal.stop_loss is not None and broker_match.stop_loss is not None:
         if abs(internal.stop_loss - broker_match.stop_loss) > price_tolerance:
-            mismatches.append(f"stop loss mismatch: internal={internal.stop_loss}, broker={broker_match.stop_loss}")
+            mismatches.append(
+                f"stop loss mismatch: internal={internal.stop_loss}, "
+                f"broker={broker_match.stop_loss}"
+            )
     elif internal.stop_loss != broker_match.stop_loss:
-        mismatches.append(f"stop loss presence mismatch: internal={internal.stop_loss}, broker={broker_match.stop_loss}")
+        mismatches.append(
+            f"stop loss presence mismatch: internal={internal.stop_loss}, "
+            f"broker={broker_match.stop_loss}"
+        )
 
     # Compare take profit
     if internal.take_profit is not None and broker_match.take_profit is not None:
         if abs(internal.take_profit - broker_match.take_profit) > price_tolerance:
-            mismatches.append(f"take profit mismatch: internal={internal.take_profit}, broker={broker_match.take_profit}")
+            mismatches.append(
+                f"take profit mismatch: internal={internal.take_profit}, "
+                f"broker={broker_match.take_profit}"
+            )
     elif internal.take_profit != broker_match.take_profit:
-        mismatches.append(f"take profit presence mismatch: internal={internal.take_profit}, broker={broker_match.take_profit}")
+        mismatches.append(
+            f"take profit presence mismatch: internal={internal.take_profit}, "
+            f"broker={broker_match.take_profit}"
+        )
 
     matched = len(mismatches) == 0
     return ReconciliationResult(
@@ -120,10 +136,16 @@ def emit_reconciliation_mismatch(result: ReconciliationResult, correlation_id: s
                 component="reconciliation",
                 event_type=POSITION_RECONCILIATION_MISMATCH,
                 severity="warning",
-                symbol=result.internal.instrument if result.internal else result.broker.symbol if result.broker else "unknown",
+                symbol=result.internal.instrument
+                if result.internal
+                else result.broker.symbol
+                if result.broker
+                else "unknown",
                 correlation_id=correlation_id,
                 payload={
-                    "internal_position_id": result.internal.position_id if result.internal else None,
+                    "internal_position_id": result.internal.position_id
+                    if result.internal
+                    else None,
                     "broker_ticket": result.broker.ticket if result.broker else None,
                     "mismatches": result.mismatches,
                 },
@@ -131,4 +153,9 @@ def emit_reconciliation_mismatch(result: ReconciliationResult, correlation_id: s
         )
 
 
-__all__ = ["BrokerPosition", "ReconciliationResult", "reconcile_position", "emit_reconciliation_mismatch"]
+__all__ = [
+    "BrokerPosition",
+    "ReconciliationResult",
+    "reconcile_position",
+    "emit_reconciliation_mismatch",
+]

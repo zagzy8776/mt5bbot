@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from httpx import AsyncClient, ASGITransport
+
+from httpx import ASGITransport, AsyncClient
 
 from mt5_platform.api import create_app
 from mt5_platform.config import Settings, TradingMode, clear_settings_cache
@@ -27,4 +28,5 @@ def test_health_and_status_report_demo_mode() -> None:
             assert status.status_code == 200
             assert status.json()["is_demo"] is True
             assert status.json()["phase"] == 6
+
     asyncio.run(run())

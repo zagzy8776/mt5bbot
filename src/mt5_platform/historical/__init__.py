@@ -12,6 +12,7 @@ Every output is explicitly marked with sample size and evidence quality.
 No probability is ever fabricated from a small sample.
 """
 
+from mt5_platform.historical.engine import EvidenceEngine, HistoricalQuery
 from mt5_platform.historical.excursion import compute_mae_mfe
 from mt5_platform.historical.ledger import InMemoryHistoricalLedger
 from mt5_platform.historical.models import (
@@ -30,7 +31,6 @@ from mt5_platform.historical.statistics import (
     calculate_stats,
     calculate_streak,
 )
-from mt5_platform.historical.engine import EvidenceEngine, HistoricalQuery
 
 __all__ = [
     "EvidenceEngine",

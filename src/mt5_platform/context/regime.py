@@ -75,16 +75,13 @@ class RegimeClassifier:
             ev["reason"] = "data_quality_critical"
             ev["quality_issues"] = data_quality.issues
             return RegimeAssessment(
-                regime=RegimeLabel.ABNORMAL, confidence=0.95, evidence=ev,
+                regime=RegimeLabel.ABNORMAL,
+                confidence=0.95,
+                evidence=ev,
                 classified_at=classified_at,
             )
 
-        if (
-            trend is None
-            or volatility is None
-            or momentum is None
-            or structure is None
-        ):
+        if trend is None or volatility is None or momentum is None or structure is None:
             return RegimeAssessment(
                 regime=RegimeLabel.UNDEFINED,
                 confidence=0.3,
@@ -97,9 +94,7 @@ class RegimeClassifier:
         ev["structure_score"] = round(trend.structure_score or 0.0, 4)
         ev["structure_trend"] = structure.structure_trend
         ev["atr_percentile"] = (
-            round(volatility.atr_percentile, 2)
-            if volatility.atr_percentile is not None
-            else None
+            round(volatility.atr_percentile, 2) if volatility.atr_percentile is not None else None
         )
         ev["roc_pct"] = round(momentum.roc_pct or 0.0, 4)
 
@@ -109,21 +104,26 @@ class RegimeClassifier:
             if extreme_move_atr_mult >= self.extreme_move_atr:
                 ev["reason"] = "extreme_tick_move"
                 return RegimeAssessment(
-                    regime=RegimeLabel.ABNORMAL, confidence=0.9, evidence=ev,
+                    regime=RegimeLabel.ABNORMAL,
+                    confidence=0.9,
+                    evidence=ev,
                     classified_at=classified_at,
                 )
 
         # 3. BREAKOUT — confirmed boundary violation
         if breakout.state == "confirmed":
             conf = _clamp(
-                0.65 + 0.08 * max(0, breakout.bars_outside - 1)
+                0.65
+                + 0.08 * max(0, breakout.bars_outside - 1)
                 - (breakout.retrace_pct or 0.0) / 200.0,
                 0.6,
                 0.9,
             )
             ev["breakout"] = breakout.model_dump(mode="json")
             return RegimeAssessment(
-                regime=RegimeLabel.BREAKOUT, confidence=conf, evidence=ev,
+                regime=RegimeLabel.BREAKOUT,
+                confidence=conf,
+                evidence=ev,
                 classified_at=classified_at,
             )
 
@@ -134,7 +134,9 @@ class RegimeClassifier:
             ev["reason"] = "failed_breakout"
             ev["breakout"] = breakout.model_dump(mode="json")
             return RegimeAssessment(
-                regime=RegimeLabel.TRANSITION, confidence=0.6, evidence=ev,
+                regime=RegimeLabel.TRANSITION,
+                confidence=0.6,
+                evidence=ev,
                 classified_at=classified_at,
             )
 
@@ -142,9 +144,7 @@ class RegimeClassifier:
         # median-ATR ratio: robust to phase alignment, unlike a raw percentile
         # of a stationary ATR series. Percentile stays in the evidence.
         ratio = volatility.atr_to_median
-        ev["atr_to_median"] = (
-            round(ratio, 3) if ratio is not None else None
-        )
+        ev["atr_to_median"] = round(ratio, 3) if ratio is not None else None
         if ratio is not None and ratio >= self.vol_high_ratio:
             conf = _clamp(
                 0.6 + (ratio - self.vol_high_ratio) / self.vol_high_ratio * 0.25,
@@ -153,7 +153,9 @@ class RegimeClassifier:
             )
             ev["reason"] = "volatility_extreme_high"
             return RegimeAssessment(
-                regime=RegimeLabel.HIGH_VOLATILITY, confidence=conf, evidence=ev,
+                regime=RegimeLabel.HIGH_VOLATILITY,
+                confidence=conf,
+                evidence=ev,
                 classified_at=classified_at,
             )
         if ratio is not None and ratio <= self.vol_low_ratio:
@@ -164,7 +166,9 @@ class RegimeClassifier:
             )
             ev["reason"] = "volatility_extreme_low"
             return RegimeAssessment(
-                regime=RegimeLabel.LOW_VOLATILITY, confidence=conf, evidence=ev,
+                regime=RegimeLabel.LOW_VOLATILITY,
+                confidence=conf,
+                evidence=ev,
                 classified_at=classified_at,
             )
 
@@ -176,22 +180,22 @@ class RegimeClassifier:
         regime, conf = self._trend_or_range(eff, struct, ev)
         regime, conf = self._apply_instability(regime, conf, recent_regimes, ev)
         return RegimeAssessment(
-            regime=regime, confidence=conf, evidence=ev,
+            regime=regime,
+            confidence=conf,
+            evidence=ev,
             classified_at=classified_at,
         )
 
     def _trend_or_range(
         self, eff: float, struct: float, ev: dict[str, Any]
     ) -> tuple[RegimeLabel, float]:
-        trending = (
-            eff >= self.trend_efficiency_min
-            and (abs(struct) >= self.structure_threshold or eff >= 0.5)
+        trending = eff >= self.trend_efficiency_min and (
+            abs(struct) >= self.structure_threshold or eff >= 0.5
         )
         ranging = eff <= self.range_efficiency_max and abs(struct) < 0.3
         if trending and not ranging:
             conf = _clamp(
-                0.55 + (eff - self.trend_efficiency_min) * 0.9
-                + min(abs(struct), 0.6) * 0.3,
+                0.55 + (eff - self.trend_efficiency_min) * 0.9 + min(abs(struct), 0.6) * 0.3,
                 0.5,
                 0.95,
             )
@@ -199,8 +203,7 @@ class RegimeClassifier:
             return RegimeLabel.TRENDING, conf
         if ranging and not trending:
             conf = _clamp(
-                0.55 + (self.range_efficiency_max - eff) * 1.2
-                + max(0.0, 0.3 - abs(struct)) * 0.3,
+                0.55 + (self.range_efficiency_max - eff) * 1.2 + max(0.0, 0.3 - abs(struct)) * 0.3,
                 0.5,
                 0.9,
             )
@@ -220,9 +223,7 @@ class RegimeClassifier:
         recent = recent_regimes[-self.flip_lookback :]
         if len(recent) < 2 or regime not in {RegimeLabel.TRENDING, RegimeLabel.RANGING}:
             return regime, conf
-        flips = sum(
-            1 for a, b in zip(recent, recent[1:], strict=False) if a is not b
-        )
+        flips = sum(1 for a, b in zip(recent, recent[1:], strict=False) if a is not b)
         if flips >= 2 and conf < 0.8:
             ev["reason"] = "regime_instability"
             ev["recent_regimes"] = [r.value for r in recent]

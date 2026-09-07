@@ -14,24 +14,10 @@ import pytest
 
 from mt5_platform.agents import (
     AgentContext,
-    AgentOpinion,
     AgentRole,
-    BreakoutAgent,
-    DEFAULT_AGENT_NETWORK,
-    HistoricalAgent,
     MarketIntelligenceAgent,
-    MeanReversionAgent,
-    MomentumAgent,
-    NewsAgent,
-    RegimeAgent,
     Stance,
-    StrategyEvaluationAgent,
-    StructureAgent,
-    SynthesisAgent,
-    TradeThesis,
-    run_agent_network,
 )
-from mt5_platform.agents.contracts import Agent
 from mt5_platform.common.enums import (
     DataQualityLevel,
     OrderSide,
@@ -44,7 +30,6 @@ from mt5_platform.context import (
     MarketContext,
     SessionInfo,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

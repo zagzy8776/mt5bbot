@@ -56,9 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     store = create_store_from_settings(settings)
     signal_engine = build_signal_engine(settings, store)
     risk_engine = RiskEngine(settings=settings)
-    order_manager = OrderManager(
-        settings=settings, store=store, risk_engine=risk_engine
-    )
+    order_manager = OrderManager(settings=settings, store=store, risk_engine=risk_engine)
     execution_adapter = build_execution_adapter(settings)
 
     @asynccontextmanager

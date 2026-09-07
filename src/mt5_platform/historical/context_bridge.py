@@ -47,14 +47,10 @@ def setup_from_context(
         trend_slope_pct=ctx.trend.slope_per_bar_pct if ctx.trend else None,
         trend_efficiency=ctx.trend.efficiency_ratio if ctx.trend else None,
         volatility_atr=ctx.volatility.atr if ctx.volatility else None,
-        volatility_atr_to_median=(
-            ctx.volatility.atr_to_median if ctx.volatility else None
-        ),
+        volatility_atr_to_median=(ctx.volatility.atr_to_median if ctx.volatility else None),
         momentum_roc_pct=ctx.momentum.roc_pct if ctx.momentum else None,
         momentum_persistence=ctx.momentum.persistence if ctx.momentum else None,
-        structure_trend=(
-            ctx.structure.structure_trend if ctx.structure else "insufficient"
-        ),
+        structure_trend=(ctx.structure.structure_trend if ctx.structure else "insufficient"),
         range_position=range_position,
         breakout_state=ctx.breakout.state,
         data_quality=ctx.data_quality.level.value,

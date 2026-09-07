@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 from mt5_platform.common.enums import (
     InvalidationReason,
     OrderSide,
-    PositionDecision,
     ThesisStatus,
 )
 from mt5_platform.common.ids import new_correlation_id, new_execution_id
@@ -71,7 +70,11 @@ class PositionDecisionModel(BaseModel):
 
     decision_id: str = Field(default_factory=new_execution_id)
     position_id: str
-    timestamp: datetime = Field(default_factory=lambda: __import__("mt5_platform.common.events", fromlist=["utc_now"]).utc_now())
+    timestamp: datetime = Field(
+        default_factory=lambda: __import__(
+            "mt5_platform.common.events", fromlist=["utc_now"]
+        ).utc_now()
+    )
     correlation_id: str = Field(default_factory=new_correlation_id)
 
     # Thesis traceability
@@ -141,7 +144,11 @@ class PositionManagerConfig(BaseModel):
 class PositionManagerAudit(BaseModel):
     """Audit record for one position evaluation cycle."""
 
-    timestamp: datetime = Field(default_factory=lambda: __import__("mt5_platform.common.events", fromlist=["utc_now"]).utc_now())
+    timestamp: datetime = Field(
+        default_factory=lambda: __import__(
+            "mt5_platform.common.events", fromlist=["utc_now"]
+        ).utc_now()
+    )
     position_id: str
     thesis_id: str
     thesis_status: ThesisStatus

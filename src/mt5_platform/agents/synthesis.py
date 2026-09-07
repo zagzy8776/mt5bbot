@@ -55,9 +55,7 @@ class SynthesisAgent:
         self.atr_stop_mult = atr_stop_mult
         self.atr_target_mult = atr_target_mult
 
-    def synthesize(
-        self, ctx: AgentContext, opinions: list[AgentOpinion]
-    ) -> TradeThesis:
+    def synthesize(self, ctx: AgentContext, opinions: list[AgentOpinion]) -> TradeThesis:
         mctx = ctx.market_context
         reasons: list[str] = []
         invalidation: list[str] = [
@@ -111,20 +109,15 @@ class SynthesisAgent:
         ]
         if vetoes:
             return no_trade(
-                "vetoed by: "
-                + "; ".join(f"{o.agent_name} ({o.rationale})" for o in vetoes)
+                "vetoed by: " + "; ".join(f"{o.agent_name} ({o.rationale})" for o in vetoes)
             )
 
         # --- Weighted directional debate ----------------------------------
         def role_weight(o: AgentOpinion) -> float:
             return DEFAULT_WEIGHTS.get(o.role, 0.7)
 
-        buy_w = sum(
-            o.confidence * role_weight(o) for o in opinions if o.stance is Stance.BUY
-        )
-        sell_w = sum(
-            o.confidence * role_weight(o) for o in opinions if o.stance is Stance.SELL
-        )
+        buy_w = sum(o.confidence * role_weight(o) for o in opinions if o.stance is Stance.BUY)
+        sell_w = sum(o.confidence * role_weight(o) for o in opinions if o.stance is Stance.SELL)
         total_directional = buy_w + sell_w
         cautions = [o for o in opinions if o.stance is Stance.CAUTION]
         if total_directional < self.min_participation:
@@ -135,11 +128,13 @@ class SynthesisAgent:
         net = buy_w - sell_w
         direction = OrderSide.BUY if net > 0 else OrderSide.SELL
         aligned = [
-            o for o in opinions
+            o
+            for o in opinions
             if (OrderSide.BUY if o.stance is Stance.BUY else OrderSide.SELL) is direction
         ]
         opposed = [
-            o for o in opinions
+            o
+            for o in opinions
             if o.stance in {Stance.BUY, Stance.SELL}
             and (OrderSide.BUY if o.stance is Stance.BUY else OrderSide.SELL) is not direction
         ]
@@ -176,16 +171,13 @@ class SynthesisAgent:
             )
         if conviction < self.min_conviction:
             return no_trade(
-                f"conviction {conviction:.2f} below {self.min_conviction} "
-                f"({evidence_summary})"
+                f"conviction {conviction:.2f} below {self.min_conviction} ({evidence_summary})"
             )
 
         # --- Build directional thesis ---------------------------------------
         atr = mctx.volatility.atr if mctx.volatility else None
         price = mctx.current_price
-        direction_stance = (
-            Stance.BUY if direction is OrderSide.BUY else Stance.SELL
-        )
+        direction_stance = Stance.BUY if direction is OrderSide.BUY else Stance.SELL
         entry = price
         stop = None
         target = None
@@ -209,11 +201,7 @@ class SynthesisAgent:
             neutral_agents=sum(1 for o in opinions if o.stance is Stance.NEUTRAL),
             total_agents=len(opinions),
             historical_expectancy=next(
-                (
-                    o.evidence.get("expectancy")
-                    for o in opinions
-                    if o.role == AgentRole.HISTORICAL
-                ),
+                (o.evidence.get("expectancy") for o in opinions if o.role == AgentRole.HISTORICAL),
                 None,
             ),
             volatility_state=(

@@ -182,8 +182,7 @@ class MarketContextEngine:
             or ratio >= self.gap_critical_ratio
             or (
                 self._tick_count > 0
-                and (self._malformed_count + self._inconsistent_count)
-                / max(self._tick_count, 1)
+                and (self._malformed_count + self._inconsistent_count) / max(self._tick_count, 1)
                 > 0.2
             )
         ):
@@ -242,9 +241,7 @@ class MarketContextEngine:
             structure=structure,
             breakout=breakout,
             data_quality=quality,
-            extreme_move_atr_mult=self._extreme_move_mult(
-                volatility.atr if volatility else None
-            ),
+            extreme_move_atr_mult=self._extreme_move_mult(volatility.atr if volatility else None),
             recent_regimes=list(self._recent_regimes),
             classified_at=now,
         )

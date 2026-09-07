@@ -108,9 +108,7 @@ def test_invalid_transition_rejected_and_audited() -> None:
     assert mgr.get(order.order_id).status is OrderStatus.CREATED
     assert mgr.stats_snapshot()["stats"]["invalid_transitions"] == 1
     events = recent_events()
-    assert any(
-        e.event_type == AuditEventType.ORDER_TRANSITION_REJECTED for e in events
-    )
+    assert any(e.event_type == AuditEventType.ORDER_TRANSITION_REJECTED for e in events)
 
 
 def test_reconciliation_only_force_transition_allowed() -> None:
@@ -136,9 +134,7 @@ def test_risk_rejection_marks_order_rejected() -> None:
     events = recent_events()
     rejected = [e for e in events if e.event_type == AuditEventType.ORDER_REJECTED]
     assert rejected
-    with_reasons = next(
-        e for e in rejected if "reasons" in e.payload
-    )
+    with_reasons = next(e for e in rejected if "reasons" in e.payload)
     assert with_reasons.payload["reasons"] == ["max_risk_per_trade"]
 
 
@@ -200,9 +196,7 @@ async def test_mock_fill_lifecycle_with_persistence() -> None:
 @pytest.mark.asyncio
 async def test_mock_partial_fill_sets_filled_volume() -> None:
     adapter = await connect_mock(fill_ratio=0.5)
-    mgr = OrderManager(
-        settings=Settings(), risk_engine=RiskEngine(settings=Settings())
-    )
+    mgr = OrderManager(settings=Settings(), risk_engine=RiskEngine(settings=Settings()))
     order, _decision, record = await mgr.process_signal(
         make_signal(),
         RiskContext(account=make_account(), proposed_volume=0.10),
@@ -224,9 +218,7 @@ async def test_mock_partial_fill_sets_filled_volume() -> None:
 @pytest.mark.asyncio
 async def test_mock_broker_rejection() -> None:
     adapter = await connect_mock(fill=False)
-    mgr = OrderManager(
-        settings=Settings(), risk_engine=RiskEngine(settings=Settings())
-    )
+    mgr = OrderManager(settings=Settings(), risk_engine=RiskEngine(settings=Settings()))
     order, _decision, record = await mgr.process_signal(
         make_signal(),
         RiskContext(account=make_account(), proposed_volume=0.01),
@@ -262,9 +254,7 @@ async def test_mock_sell_slippage_direction() -> None:
 
 @pytest.mark.asyncio
 async def test_mock_scripted_outcomes() -> None:
-    adapter = await connect_mock(
-        outcomes=[OrderStatus.BROKER_REJECTED, OrderStatus.FILLED]
-    )
+    adapter = await connect_mock(outcomes=[OrderStatus.BROKER_REJECTED, OrderStatus.FILLED])
     approved = OrderRequest(
         symbol="XAUUSD",
         side=OrderSide.BUY,
@@ -507,9 +497,7 @@ async def test_reconciliation_reports_mismatch_and_corrects() -> None:
     assert mgr.get(order.order_id).status is OrderStatus.FILLED
     assert mgr.stats_snapshot()["stats"]["reconciliation_mismatches"] == 1
     events = recent_events()
-    assert any(
-        e.event_type == AuditEventType.RECONCILIATION_MISMATCH for e in events
-    )
+    assert any(e.event_type == AuditEventType.RECONCILIATION_MISMATCH for e in events)
 
 
 @pytest.mark.asyncio
@@ -526,9 +514,7 @@ async def test_reconciliation_clean_reports_completed() -> None:
     assert report["mismatches"] == []
     assert mgr.get(order.order_id).status is OrderStatus.SUBMITTED
     events = recent_events()
-    assert any(
-        e.event_type == AuditEventType.RECONCILIATION_COMPLETED for e in events
-    )
+    assert any(e.event_type == AuditEventType.RECONCILIATION_COMPLETED for e in events)
 
 
 @pytest.mark.asyncio
@@ -579,9 +565,7 @@ async def test_mt5_backend_is_phase7_stub() -> None:
         await adapter.connect()
     with pytest.raises(NotImplementedError, match="Phase 7"):
         await adapter.submit_order(
-            OrderRequest(
-                symbol="XAUUSD", side=OrderSide.BUY, volume=0.01, entry=2500.0
-            )
+            OrderRequest(symbol="XAUUSD", side=OrderSide.BUY, volume=0.01, entry=2500.0)
         )
 
 
@@ -599,13 +583,14 @@ def test_invalid_fill_ratio_rejected() -> None:
 
 def test_api_orders_and_executions_endpoints() -> None:
     import asyncio
-    from httpx import AsyncClient, ASGITransport
+
+    from httpx import ASGITransport, AsyncClient
+
     from mt5_platform.api import create_app
     from mt5_platform.config import Settings
 
-    app = create_app(
-        Settings(storage_backend="memory", execution_backend="mock")
-    )
+    app = create_app(Settings(storage_backend="memory", execution_backend="mock"))
+
     async def run() -> None:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             status = (await client.get("/api/v1/status")).json()
@@ -621,5 +606,5 @@ def test_api_orders_and_executions_endpoints() -> None:
 
             missing = await client.get("/api/v1/orders/does_not_exist")
             assert missing.status_code == 404
-    asyncio.run(run())
 
+    asyncio.run(run())

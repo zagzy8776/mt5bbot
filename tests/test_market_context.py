@@ -40,8 +40,13 @@ def make_event(
     volume: float = 1.0,
 ) -> MarketDataEvent:
     return MarketDataEvent(
-        timestamp=ts, source="test", symbol="XAUUSD",
-        bid=bid, ask=ask, price=price, volume=volume,
+        timestamp=ts,
+        source="test",
+        symbol="XAUUSD",
+        bid=bid,
+        ask=ask,
+        price=price,
+        volume=volume,
     )
 
 
@@ -487,8 +492,7 @@ def test_features_refuse_insufficient_candles() -> None:
 
 def test_breakout_needs_a_real_range() -> None:
     flat = [
-        Candle(timestamp=BASE + timedelta(minutes=i), open=2500, high=2500,
-               low=2500, close=2500)
+        Candle(timestamp=BASE + timedelta(minutes=i), open=2500, high=2500, low=2500, close=2500)
         for i in range(30)
     ]
     assert compute_breakout(flat, None).state == "none"
@@ -509,21 +513,36 @@ def _full_features():
 
     return dict(
         trend=TrendFeatures(
-            slope_per_bar_pct=0.01, efficiency_ratio=0.4,
-            structure_score=0.3, net_change_pct=1.0,
+            slope_per_bar_pct=0.01,
+            efficiency_ratio=0.4,
+            structure_score=0.3,
+            net_change_pct=1.0,
         ),
         volatility=VolatilityFeatures(
-            atr=1.0, atr_percentile=50.0, atr_to_median=1.0, range_pct=2.0,
+            atr=1.0,
+            atr_percentile=50.0,
+            atr_to_median=1.0,
+            range_pct=2.0,
         ),
         momentum=MomentumFeatures(roc_pct=0.5, persistence=0.7, consecutive_same_dir=3),
         structure=StructureFeatures(
-            swing_highs=3, swing_lows=3, higher_highs=2, lower_highs=1,
-            higher_lows=2, lower_lows=1, structure_trend="up",
+            swing_highs=3,
+            swing_lows=3,
+            higher_highs=2,
+            lower_highs=1,
+            higher_lows=2,
+            lower_lows=1,
+            structure_trend="up",
         ),
         breakout=compute_breakout(
             [
-                Candle(timestamp=BASE + timedelta(minutes=i), open=2500, high=2502,
-                       low=2498, close=2500)
+                Candle(
+                    timestamp=BASE + timedelta(minutes=i),
+                    open=2500,
+                    high=2502,
+                    low=2498,
+                    close=2500,
+                )
                 for i in range(30)
             ],
             1.0,
@@ -537,9 +556,15 @@ def _full_features():
 def test_classifier_undefined_without_features() -> None:
     c = RegimeClassifier()
     assessment = c.classify(
-        trend=None, volatility=None, momentum=None, structure=None,
-        breakout=compute_breakout([], None), data_quality=DataQuality(),
-        extreme_move_atr_mult=None, recent_regimes=[], classified_at=BASE,
+        trend=None,
+        volatility=None,
+        momentum=None,
+        structure=None,
+        breakout=compute_breakout([], None),
+        data_quality=DataQuality(),
+        extreme_move_atr_mult=None,
+        recent_regimes=[],
+        classified_at=BASE,
     )
     assert assessment.regime is RegimeLabel.UNDEFINED
 
@@ -550,7 +575,9 @@ def test_classifier_flags_instability_on_weak_conviction() -> None:
     base["trend"] = base["trend"].model_copy(update={"efficiency_ratio": 0.36})
     assessment = c.classify(
         recent_regimes=[
-            RegimeLabel.TRENDING, RegimeLabel.RANGING, RegimeLabel.TRENDING,
+            RegimeLabel.TRENDING,
+            RegimeLabel.RANGING,
+            RegimeLabel.TRENDING,
         ],
         **base,
     )
@@ -565,7 +592,9 @@ def test_classifier_stable_conviction_survives_history() -> None:
     base["trend"] = base["trend"].model_copy(update={"efficiency_ratio": 0.8})
     assessment = c.classify(
         recent_regimes=[
-            RegimeLabel.TRENDING, RegimeLabel.RANGING, RegimeLabel.TRENDING,
+            RegimeLabel.TRENDING,
+            RegimeLabel.RANGING,
+            RegimeLabel.TRENDING,
         ],
         **base,
     )

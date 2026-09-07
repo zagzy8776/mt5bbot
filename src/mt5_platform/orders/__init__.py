@@ -298,9 +298,7 @@ class OrderManager:
             return
         await self.store.write_execution(record)
 
-    async def submit_order(
-        self, order_id: str, adapter: ExecutionAdapter
-    ) -> ExecutionRecord:
+    async def submit_order(self, order_id: str, adapter: ExecutionAdapter) -> ExecutionRecord:
         """Submit an already risk-APPROVED order. Refuses under kill switch."""
         with self._lock:
             order = self._orders.get(order_id)
@@ -347,9 +345,7 @@ class OrderManager:
         """Full pipeline: create order → risk gate → submit if approved."""
         volume = ctx.proposed_volume
         if volume is None or volume <= 0:
-            raise ValueError(
-                "RiskContext.proposed_volume must be set (>0) to create an order"
-            )
+            raise ValueError("RiskContext.proposed_volume must be set (>0) to create an order")
         order = self.create_from_signal(signal, volume=volume)
         if self.risk_engine is not None:
             decision = self.risk_engine.evaluate(signal, ctx)
@@ -373,9 +369,7 @@ class OrderManager:
             raise KeyError(f"unknown order: {order.order_id}")
         return final, decision, record
 
-    async def apply_execution(
-        self, order_id: str, record: ExecutionRecord
-    ) -> OrderRequest:
+    async def apply_execution(self, order_id: str, record: ExecutionRecord) -> OrderRequest:
         """Fold a broker execution record into local order state."""
         final = record.final_status
         if final in {OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED}:
@@ -425,9 +419,7 @@ class OrderManager:
                         "broker": broker_status.value,
                     }
                 )
-                self.force_transition(
-                    order.order_id, broker_status, reason="broker_reconciliation"
-                )
+                self.force_transition(order.order_id, broker_status, reason="broker_reconciliation")
         if mismatches:
             self._stats.reconciliation_mismatches += len(mismatches)
         report: dict[str, Any] = {

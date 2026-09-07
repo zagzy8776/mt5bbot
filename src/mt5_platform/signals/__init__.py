@@ -172,10 +172,9 @@ class SignalEngine:
 
             if rejected:
                 self._bump(self.stats, signals_rejected=1)
-                per = (
-                    self.strategy_stats.get(signal.strategy_name)
-                    or self.strategy_stats.setdefault(signal.strategy_name, SignalEngineStats())
-                )
+                per = self.strategy_stats.get(
+                    signal.strategy_name
+                ) or self.strategy_stats.setdefault(signal.strategy_name, SignalEngineStats())
                 self._bump(per, signals_rejected=1)
                 for reason in rejected:
                     self.stats.reject_reasons[reason] = self.stats.reject_reasons.get(reason, 0) + 1

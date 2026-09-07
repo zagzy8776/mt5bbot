@@ -51,14 +51,20 @@ class MarketIntelligenceAgent(Agent):
         }
         if mctx.data_quality.level is DataQualityLevel.CRITICAL:
             return self._opinion(
-                ctx, stance=Stance.NO_TRADE, confidence=0.9,
-                evidence=ev, rationale="market data is critically degraded",
+                ctx,
+                stance=Stance.NO_TRADE,
+                confidence=0.9,
+                evidence=ev,
+                rationale="market data is critically degraded",
             )
         trend = mctx.trend
         if trend is None or trend.slope_per_bar_pct is None:
             ev["reason"] = "insufficient_history"
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="not enough data to characterize the market",
             )
         ev["slope_per_bar_pct"] = round(trend.slope_per_bar_pct, 6)
@@ -70,7 +76,11 @@ class MarketIntelligenceAgent(Agent):
             conf *= 0.6
             ev["confidence_discount"] = "degraded_data"
         return self._opinion(
-            ctx, stance=stance, confidence=conf, direction=direction, evidence=ev,
+            ctx,
+            stance=stance,
+            confidence=conf,
+            direction=direction,
+            evidence=ev,
             rationale=f"price drifting {direction.value} "
             f"(slope {trend.slope_per_bar_pct:.5f}%/bar)",
         )
@@ -94,40 +104,46 @@ class RegimeAgent(Agent):
         if regime is None or regime in {RegimeLabel.UNDEFINED, RegimeLabel.ABNORMAL}:
             label = regime.value if regime else "missing"
             return self._opinion(
-                ctx, stance=Stance.NO_TRADE, confidence=0.9, evidence=ev,
+                ctx,
+                stance=Stance.NO_TRADE,
+                confidence=0.9,
+                evidence=ev,
                 rationale=f"regime is {label} — not tradable",
             )
         if regime is RegimeLabel.RANGING:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.6, evidence=ev,
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.6,
+                evidence=ev,
                 rationale="ranging market: trend-following entries are historically weak",
             )
         if regime is RegimeLabel.BREAKOUT:
-            direction = (
-                OrderSide.BUY if mctx.breakout.direction == "up" else OrderSide.SELL
-            )
+            direction = OrderSide.BUY if mctx.breakout.direction == "up" else OrderSide.SELL
             return self._opinion(
                 ctx,
                 stance=Stance.BUY if direction is OrderSide.BUY else Stance.SELL,
-                confidence=mctx.regime_confidence or 0.6, direction=direction,
+                confidence=mctx.regime_confidence or 0.6,
+                direction=direction,
                 evidence=ev,
                 rationale=f"confirmed {mctx.breakout.direction} breakout of prior range",
             )
         trend = mctx.trend
         if regime is RegimeLabel.TRENDING and trend is not None:
-            direction = (
-                OrderSide.BUY if (trend.slope_per_bar_pct or 0) > 0 else OrderSide.SELL
-            )
+            direction = OrderSide.BUY if (trend.slope_per_bar_pct or 0) > 0 else OrderSide.SELL
             return self._opinion(
                 ctx,
                 stance=Stance.BUY if direction is OrderSide.BUY else Stance.SELL,
-                confidence=(mctx.regime_confidence or 0.5) * 0.9, direction=direction,
+                confidence=(mctx.regime_confidence or 0.5) * 0.9,
+                direction=direction,
                 evidence=ev,
                 rationale=f"trending market ({mctx.regime_evidence.get('reason')})",
             )
         return self._opinion(
-            ctx, stance=Stance.CAUTION,
-            confidence=mctx.regime_confidence or 0.5, evidence=ev,
+            ctx,
+            stance=Stance.CAUTION,
+            confidence=mctx.regime_confidence or 0.5,
+            evidence=ev,
             rationale=f"regime {regime.value}: wait for clearer conditions",
         )
 
@@ -144,7 +160,10 @@ class StructureAgent(Agent):
         ev: dict = {}
         if structure is None:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="insufficient data for structure analysis",
             )
         ev["structure_trend"] = structure.structure_trend
@@ -159,20 +178,27 @@ class StructureAgent(Agent):
             }
         if structure.structure_trend == "up":
             return self._opinion(
-                ctx, stance=Stance.BUY,
+                ctx,
+                stance=Stance.BUY,
                 confidence=0.55 + 0.3 * _structure_share(structure),
-                direction=OrderSide.BUY, evidence=ev,
+                direction=OrderSide.BUY,
+                evidence=ev,
                 rationale="higher highs and higher lows intact",
             )
         if structure.structure_trend == "down":
             return self._opinion(
-                ctx, stance=Stance.SELL,
+                ctx,
+                stance=Stance.SELL,
                 confidence=0.55 + 0.3 * _structure_share(structure),
-                direction=OrderSide.SELL, evidence=ev,
+                direction=OrderSide.SELL,
+                evidence=ev,
                 rationale="lower highs and lower lows intact",
             )
         return self._opinion(
-            ctx, stance=Stance.CAUTION, confidence=0.5, evidence=ev,
+            ctx,
+            stance=Stance.CAUTION,
+            confidence=0.5,
+            evidence=ev,
             rationale=f"structure is {structure.structure_trend}",
         )
 
@@ -191,13 +217,12 @@ class MomentumAgent(Agent):
     def evaluate(self, ctx: AgentContext) -> AgentOpinion:
         mctx = ctx.market_context
         ev: dict = {}
-        if (
-            mctx.momentum is None
-            or mctx.volatility is None
-            or mctx.volatility.atr is None
-        ):
+        if mctx.momentum is None or mctx.volatility is None or mctx.volatility.atr is None:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="insufficient data for momentum analysis",
             )
         roc_pct = mctx.momentum.roc_pct or 0.0
@@ -210,20 +235,27 @@ class MomentumAgent(Agent):
         persist = mctx.momentum.persistence or 0.0
         if roc_atr >= self.roc_atr_buy and persist >= self.persistence_min:
             return self._opinion(
-                ctx, stance=Stance.BUY,
+                ctx,
+                stance=Stance.BUY,
                 confidence=0.55 + min(roc_atr, 2.0) * 0.15,
-                direction=OrderSide.BUY, evidence=ev,
+                direction=OrderSide.BUY,
+                evidence=ev,
                 rationale=f"upward pressure present ({roc_atr:.2f} ATR per 10 bars)",
             )
         if roc_atr <= -self.roc_atr_buy and persist >= self.persistence_min:
             return self._opinion(
-                ctx, stance=Stance.SELL,
+                ctx,
+                stance=Stance.SELL,
                 confidence=0.55 + min(abs(roc_atr), 2.0) * 0.15,
-                direction=OrderSide.SELL, evidence=ev,
+                direction=OrderSide.SELL,
+                evidence=ev,
                 rationale=f"downward pressure present ({roc_atr:.2f} ATR per 10 bars)",
             )
         return self._opinion(
-            ctx, stance=Stance.NEUTRAL, confidence=0.4, evidence=ev,
+            ctx,
+            stance=Stance.NEUTRAL,
+            confidence=0.4,
+            evidence=ev,
             rationale="no decisive directional pressure",
         )
 
@@ -237,32 +269,47 @@ class BreakoutAgent(Agent):
 
     def evaluate(self, ctx: AgentContext) -> AgentOpinion:
         bo = ctx.market_context.breakout
-        ev = {"breakout_state": bo.state, "direction": bo.direction,
-              "boundary": bo.boundary, "bars_outside": bo.bars_outside,
-              "retrace_pct": bo.retrace_pct}
+        ev = {
+            "breakout_state": bo.state,
+            "direction": bo.direction,
+            "boundary": bo.boundary,
+            "bars_outside": bo.bars_outside,
+            "retrace_pct": bo.retrace_pct,
+        }
         if bo.state == "confirmed":
             direction = OrderSide.BUY if bo.direction == "up" else OrderSide.SELL
             conf = 0.7 - min((bo.retrace_pct or 0.0) / 100.0, 0.2)
             return self._opinion(
                 ctx,
                 stance=Stance.BUY if direction is OrderSide.BUY else Stance.SELL,
-                confidence=conf, direction=direction, evidence=ev,
+                confidence=conf,
+                direction=direction,
+                evidence=ev,
                 rationale=f"confirmed {bo.direction} breakout "
                 f"({bo.bars_outside} closes beyond prior boundary)",
             )
         if bo.state == "failed":
             return self._opinion(
-                ctx, stance=Stance.NO_TRADE, confidence=0.8, evidence=ev,
+                ctx,
+                stance=Stance.NO_TRADE,
+                confidence=0.8,
+                evidence=ev,
                 rationale=f"{bo.direction} breakout pierced the boundary then reversed "
                 f"({bo.retrace_pct:.0f}% retrace) — likely failure",
             )
         if bo.state == "pending":
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.5, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.5,
+                evidence=ev,
                 rationale="boundary tested but breakout unconfirmed",
             )
         return self._opinion(
-            ctx, stance=Stance.NEUTRAL, confidence=0.4, evidence=ev,
+            ctx,
+            stance=Stance.NEUTRAL,
+            confidence=0.4,
+            evidence=ev,
             rationale="no breakout conditions present",
         )
 
@@ -286,19 +333,28 @@ class MeanReversionAgent(Agent):
         ev: dict = {}
         if mctx.volatility is None or mctx.volatility.atr is None:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="insufficient data for stretch analysis",
             )
         atr = mctx.volatility.atr
         if atr <= 0:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="ATR unavailable",
             )
         sma = _sma(_primary_candles(ctx), self.sma_period)
         if sma is None or sma <= 0:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.3,
+                evidence=ev,
                 rationale="insufficient candles for mean calculation",
             )
         stretch = (mctx.current_price - sma) / atr
@@ -306,21 +362,28 @@ class MeanReversionAgent(Agent):
         ev["stretch_atr"] = round(stretch, 3)
         if stretch >= self.stretch_atr:
             return self._opinion(
-                ctx, stance=Stance.SELL,
+                ctx,
+                stance=Stance.SELL,
                 confidence=min(0.85, 0.5 + (stretch - self.stretch_atr) * 0.15),
-                direction=OrderSide.SELL, evidence=ev,
+                direction=OrderSide.SELL,
+                evidence=ev,
                 rationale=f"price {stretch:.2f} ATRs above 20-bar mean — statistically "
                 "stretched, reversion risk",
             )
         if stretch <= -self.stretch_atr:
             return self._opinion(
-                ctx, stance=Stance.BUY,
+                ctx,
+                stance=Stance.BUY,
                 confidence=min(0.85, 0.5 + (abs(stretch) - self.stretch_atr) * 0.15),
-                direction=OrderSide.BUY, evidence=ev,
+                direction=OrderSide.BUY,
+                evidence=ev,
                 rationale=f"price {abs(stretch):.2f} ATRs below 20-bar mean — "
                 "statistically stretched, reversion risk",
             )
         return self._opinion(
-            ctx, stance=Stance.NEUTRAL, confidence=0.4, evidence=ev,
+            ctx,
+            stance=Stance.NEUTRAL,
+            confidence=0.4,
+            evidence=ev,
             rationale=f"price within normal range of mean ({stretch:.2f} ATR)",
         )

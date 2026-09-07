@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import ast
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from mt5_platform.api import create_app
 from mt5_platform.common.enums import OrderSide
@@ -142,6 +142,8 @@ def test_sma_crossover_still_crosses_after_refactor() -> None:
     downs = [s for s in signals if s is not None and s.direction is OrderSide.SELL]
     assert ups, "expected an upside SMA cross signal"
     assert downs, "expected a downside SMA cross signal"
+
+
 @pytest.mark.asyncio
 async def test_engine_persists_signals_and_audits_to_in_memory_store() -> None:
     store = InMemoryMarketDataStore()
@@ -229,6 +231,8 @@ async def test_build_signal_engine_persists_to_sqlite_store() -> None:
     assert rows[0].direction is OrderSide.BUY
     assert len(await store.get_audit_events(limit=50)) >= 1
     await store._engine.dispose()  # noqa: SLF001
+
+
 def test_build_signal_engine_skips_unknown_strategies() -> None:
     settings = Settings(
         trading_mode=TradingMode.DEMO,
@@ -267,8 +271,12 @@ def test_api_strategy_and_signal_surface() -> None:
             available = (await client.get("/api/v1/strategies/available")).json()["available"]
             assert {s["name"] for s in available} == set(available_strategies())
 
-            assert (await client.post("/api/v1/strategies/breakout/disable")).json()["enabled"] is False
-            assert (await client.post("/api/v1/strategies/breakout/enable")).json()["enabled"] is True
+            assert (await client.post("/api/v1/strategies/breakout/disable")).json()[
+                "enabled"
+            ] is False
+            assert (await client.post("/api/v1/strategies/breakout/enable")).json()[
+                "enabled"
+            ] is True
             assert (await client.post("/api/v1/strategies/nope/enable")).status_code == 404
 
             start = datetime(2026, 9, 7, 9, 0, tzinfo=UTC)
@@ -291,6 +299,7 @@ def test_api_strategy_and_signal_surface() -> None:
             assert stats["signals_generated"] >= 1
             signals = (await client.get("/api/v1/signals")).json()["signals"]
             assert len(signals) >= 1
+
     asyncio.run(run())
 
 

@@ -132,9 +132,7 @@ class MockExecutionAdapter(ExecutionAdapter):
         if order.status not in {OrderStatus.APPROVED, OrderStatus.SUBMITTED}:
             raise ValueError("Only risk-approved/submitted orders may be executed")
 
-        final_status = (
-            self._outcomes.pop(0) if self._outcomes else self._default_outcome(order)
-        )
+        final_status = self._outcomes.pop(0) if self._outcomes else self._default_outcome(order)
         record = self._build_record(order, final_status)
         self.executions.append(record)
         self._broker_orders[order.order_id] = final_status
@@ -149,25 +147,19 @@ class MockExecutionAdapter(ExecutionAdapter):
             return OrderStatus.PARTIALLY_FILLED
         return OrderStatus.FILLED
 
-    def _fill_volume(
-        self, order: OrderRequest, final_status: OrderStatus
-    ) -> float | None:
+    def _fill_volume(self, order: OrderRequest, final_status: OrderStatus) -> float | None:
         if final_status is OrderStatus.FILLED:
             return order.volume
         if final_status is OrderStatus.PARTIALLY_FILLED:
             return round(order.volume * self._fill_ratio, 2)
         return None
 
-    def _build_record(
-        self, order: OrderRequest, final_status: OrderStatus
-    ) -> ExecutionRecord:
+    def _build_record(self, order: OrderRequest, final_status: OrderStatus) -> ExecutionRecord:
         filled = self._fill_volume(order, final_status)
         rejected = final_status is OrderStatus.BROKER_REJECTED
         direction = 1.0 if order.side is OrderSide.BUY else -1.0
         execution_price = (
-            None
-            if rejected or order.entry is None
-            else order.entry + self._slippage * direction
+            None if rejected or order.entry is None else order.entry + self._slippage * direction
         )
         slippage = (
             0.0
@@ -186,9 +178,7 @@ class MockExecutionAdapter(ExecutionAdapter):
             mt5_response={
                 "adapter": "mock",
                 "ok": not rejected,
-                "retcode": "TRADE_RETCODE_DONE"
-                if not rejected
-                else "TRADE_RETCODE_REJECT",
+                "retcode": "TRADE_RETCODE_DONE" if not rejected else "TRADE_RETCODE_REJECT",
             },
             execution_price=execution_price,
             filled_volume=filled,
@@ -251,11 +241,7 @@ class MockExecutionAdapter(ExecutionAdapter):
 
     async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
         wanted = set(order_ids)
-        return {
-            oid: status.value
-            for oid, status in self._broker_orders.items()
-            if oid in wanted
-        }
+        return {oid: status.value for oid, status in self._broker_orders.items() if oid in wanted}
 
     async def reconcile(self) -> AccountSnapshot:
         return await self.get_account()

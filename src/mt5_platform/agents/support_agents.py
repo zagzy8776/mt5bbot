@@ -41,23 +41,34 @@ class NewsAgent(Agent):
             impact = str(event.get("impact", "low")).lower()
             within = float(event.get("within_minutes", 1e9))
             if (
-                impact == "high" and within <= self.high_impact_minutes
-                or impact == "medium" and within <= self.medium_impact_minutes
+                impact == "high"
+                and within <= self.high_impact_minutes
+                or impact == "medium"
+                and within <= self.medium_impact_minutes
             ):
                 relevant.append(event)
         ev = {"relevant_events": relevant, "feed_size": len(ctx.news_events)}
         if any(str(e.get("impact", "")).lower() == "high" for e in relevant):
             return self._opinion(
-                ctx, stance=Stance.NO_TRADE, confidence=0.9, evidence=ev,
+                ctx,
+                stance=Stance.NO_TRADE,
+                confidence=0.9,
+                evidence=ev,
                 rationale="high-impact event imminent — standing aside",
             )
         if relevant:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.6, evidence=ev,
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.6,
+                evidence=ev,
                 rationale="medium-impact event near — reduced appetite",
             )
         return self._opinion(
-            ctx, stance=Stance.NEUTRAL, confidence=0.5, evidence=ev,
+            ctx,
+            stance=Stance.NEUTRAL,
+            confidence=0.5,
+            evidence=ev,
             rationale="no relevant events on the feed",
         )
 
@@ -82,12 +93,18 @@ class StrategyEvaluationAgent(Agent):
         }
         if not ctx.candidate_signals:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.4, evidence=ev,
+                ctx,
+                stance=Stance.NEUTRAL,
+                confidence=0.4,
+                evidence=ev,
                 rationale="no candidate signals to evaluate",
             )
         if mctx.regime is None or mctx.regime is RegimeLabel.UNDEFINED:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.7, evidence=ev,
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.7,
+                evidence=ev,
                 rationale="cannot judge strategy fit without a regime",
             )
         first = ctx.candidate_signals[0]
@@ -95,19 +112,20 @@ class StrategyEvaluationAgent(Agent):
         ev["strategy"] = first.strategy_name
         ev["regime_fit"] = sorted(r.value for r in fitted)
         if mctx.regime in fitted:
-            direction = (
-                OrderSide.BUY if first.direction is OrderSide.BUY else OrderSide.SELL
-            )
+            direction = OrderSide.BUY if first.direction is OrderSide.BUY else OrderSide.SELL
             return self._opinion(
                 ctx,
                 stance=Stance.BUY if direction is OrderSide.BUY else Stance.SELL,
-                confidence=0.5 + first.confidence * 0.3, direction=direction,
+                confidence=0.5 + first.confidence * 0.3,
+                direction=direction,
                 evidence=ev,
-                rationale=f"{first.strategy_name} signal fits the "
-                f"{mctx.regime.value} regime",
+                rationale=f"{first.strategy_name} signal fits the {mctx.regime.value} regime",
             )
         return self._opinion(
-            ctx, stance=Stance.CAUTION, confidence=0.7, evidence=ev,
+            ctx,
+            stance=Stance.CAUTION,
+            confidence=0.7,
+            evidence=ev,
             rationale=f"{first.strategy_name} produced a signal but the "
             f"{mctx.regime.value} regime historically does not suit it",
         )
@@ -130,9 +148,10 @@ class HistoricalAgent(Agent):
         evidence = ctx.historical_evidence
         if not evidence:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.3,
-                evidence={"status": "no_measured_evidence",
-                          "evidence_quality": "insufficient"},
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.3,
+                evidence={"status": "no_measured_evidence", "evidence_quality": "insufficient"},
                 rationale="no historical evidence available",
             )
 
@@ -150,14 +169,19 @@ class HistoricalAgent(Agent):
 
         if eq == "insufficient" or sample < 10:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.3, evidence=ev,
-                rationale=f"only {sample} comparable samples; "
-                "evidence is INSUFFICIENT",
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.3,
+                evidence=ev,
+                rationale=f"only {sample} comparable samples; evidence is INSUFFICIENT",
             )
 
         if expectancy is None:
             return self._opinion(
-                ctx, stance=Stance.CAUTION, confidence=0.4, evidence=ev,
+                ctx,
+                stance=Stance.CAUTION,
+                confidence=0.4,
+                evidence=ev,
                 rationale="historical evidence present but expectancy unavailable",
             )
 
@@ -167,9 +191,11 @@ class HistoricalAgent(Agent):
             stance = Stance.CAUTION
             conf = 0.5 if eq in ("moderate", "strong") else 0.4
         elif exp > 0 and (win_rate is not None and float(win_rate) >= 0.55):
-            stance = Stance.BUY if (ctx.candidate_signals and
-                                    ctx.candidate_signals[0].direction.value == "buy") \
+            stance = (
+                Stance.BUY
+                if (ctx.candidate_signals and ctx.candidate_signals[0].direction.value == "buy")
                 else Stance.NEUTRAL
+            )
             # Historical evidence never produces a direct BUY/SELL by itself.
             # It only validates or warns. Direction comes from synthesis.
             stance = Stance.NEUTRAL
@@ -179,7 +205,10 @@ class HistoricalAgent(Agent):
             conf = 0.5
 
         return self._opinion(
-            ctx, stance=stance, confidence=conf, evidence=ev,
+            ctx,
+            stance=stance,
+            confidence=conf,
+            evidence=ev,
             rationale=f"comparable setups show expectancy {exp:.3f} "
             f"over {sample} samples (quality={eq})",
         )

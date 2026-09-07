@@ -22,12 +22,23 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from mt5_platform.agents import Stance as _Stance
 from mt5_platform.common.enums import (
     DataQualityLevel,
     EvidenceQuality,
     OrderSide,
     RegimeLabel,
     TradeCause,
+)
+from mt5_platform.context import (
+    BreakoutState,
+    Candle,
+    DataQuality,
+    LiquidityState,
+    MarketContext,
+    SessionInfo,
+    TrendFeatures,
+    VolatilityFeatures,
 )
 from mt5_platform.historical import (
     EvidenceEngine,
@@ -40,21 +51,7 @@ from mt5_platform.historical import (
     compute_mae_mfe,
 )
 from mt5_platform.historical.context_bridge import setup_from_context
-from mt5_platform.historical.engine import EvidenceReport
-from mt5_platform.historical.excursion import compute_mae_mfe as _compute_mae_mfe
-from mt5_platform.historical.ledger import InMemoryHistoricalLedger as _Ledger
-from mt5_platform.historical.models import HistoricalOutcome, OutcomeStats
-from mt5_platform.context import (
-    BreakoutState,
-    Candle,
-    DataQuality,
-    LiquidityState,
-    MarketContext,
-    SessionInfo,
-    TrendFeatures,
-    VolatilityFeatures,
-)
-
+from mt5_platform.historical.models import HistoricalOutcome
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -197,25 +194,19 @@ class TestMAEMFE:
 
     def test_mfe_long(self) -> None:
         # LONG: price spikes to 103, then drops to 99. Entry 100.
-        mae, mfe, _, _ = compute_mae_mfe(
-            OrderSide.BUY, 100.0, prices=[100, 103, 101, 99]
-        )
+        mae, mfe, _, _ = compute_mae_mfe(OrderSide.BUY, 100.0, prices=[100, 103, 101, 99])
         assert mfe == pytest.approx(3.0)
         assert mae == pytest.approx(1.0)
 
     def test_mae_short(self) -> None:
         # SHORT: price spikes to 102, drops to 98. Entry 100.
-        mae, mfe, _, _ = compute_mae_mfe(
-            OrderSide.SELL, 100.0, prices=[100, 102, 101, 98, 99]
-        )
+        mae, mfe, _, _ = compute_mae_mfe(OrderSide.SELL, 100.0, prices=[100, 102, 101, 98, 99])
         assert mae == pytest.approx(2.0)  # 102 - 100
         assert mfe == pytest.approx(2.0)  # 100 - 98
 
     def test_mfe_short(self) -> None:
         # SHORT: price drops to 97, then spikes to 101. Entry 100.
-        mae, mfe, _, _ = compute_mae_mfe(
-            OrderSide.SELL, 100.0, prices=[100, 97, 99, 101, 98]
-        )
+        mae, mfe, _, _ = compute_mae_mfe(OrderSide.SELL, 100.0, prices=[100, 97, 99, 101, 98])
         assert mfe == pytest.approx(3.0)  # 100 - 97
         assert mae == pytest.approx(1.0)  # 101 - 100
 
@@ -273,8 +264,7 @@ class TestStatistics:
     def test_all_wins_profit_factor_capped(self) -> None:
         # No losses at all — profit_factor should be finite, not infinity.
         outcomes = [
-            _make_outcome(trade_id=f"w{i}", return_pct=1.0, realized_pnl=1.0)
-            for i in range(5)
+            _make_outcome(trade_id=f"w{i}", return_pct=1.0, realized_pnl=1.0) for i in range(5)
         ]
         stats = calculate_stats(outcomes, min_strong=100, min_moderate=30, min_weak=10)
         assert stats.profit_factor == 5.0  # capped to sample size
@@ -291,38 +281,34 @@ class TestStatistics:
 
     def test_outcome_distribution(self) -> None:
         outcomes = [
-            _make_outcome(trade_id="a", exit_reason=TradeCause.TARGET_HIT,
-                          cause_class=TradeCause.TARGET_HIT),
-            _make_outcome(trade_id="b", exit_reason=TradeCause.STOP_HIT,
-                          cause_class=TradeCause.STOP_HIT),
-            _make_outcome(trade_id="c", exit_reason=TradeCause.STOP_HIT,
-                          cause_class=TradeCause.STOP_HIT),
+            _make_outcome(
+                trade_id="a", exit_reason=TradeCause.TARGET_HIT, cause_class=TradeCause.TARGET_HIT
+            ),
+            _make_outcome(
+                trade_id="b", exit_reason=TradeCause.STOP_HIT, cause_class=TradeCause.STOP_HIT
+            ),
+            _make_outcome(
+                trade_id="c", exit_reason=TradeCause.STOP_HIT, cause_class=TradeCause.STOP_HIT
+            ),
         ]
         stats = calculate_stats(outcomes, min_strong=100, min_moderate=30, min_weak=10)
         assert stats.outcome_distribution == {"target_hit": 1, "stop_hit": 2}
 
     def test_max_losing_streak(self) -> None:
         outcomes = [
-            _make_outcome(trade_id="a", realized_pnl=1.0, return_pct=1.0,
-                          exit_time=_ts(hour=1)),
-            _make_outcome(trade_id="b", realized_pnl=-1.0, return_pct=-1.0,
-                          exit_time=_ts(hour=2)),
-            _make_outcome(trade_id="c", realized_pnl=-1.0, return_pct=-1.0,
-                          exit_time=_ts(hour=3)),
-            _make_outcome(trade_id="d", realized_pnl=-1.0, return_pct=-1.0,
-                          exit_time=_ts(hour=4)),
-            _make_outcome(trade_id="e", realized_pnl=1.0, return_pct=1.0,
-                          exit_time=_ts(hour=5)),
-            _make_outcome(trade_id="f", realized_pnl=-1.0, return_pct=-1.0,
-                          exit_time=_ts(hour=6)),
+            _make_outcome(trade_id="a", realized_pnl=1.0, return_pct=1.0, exit_time=_ts(hour=1)),
+            _make_outcome(trade_id="b", realized_pnl=-1.0, return_pct=-1.0, exit_time=_ts(hour=2)),
+            _make_outcome(trade_id="c", realized_pnl=-1.0, return_pct=-1.0, exit_time=_ts(hour=3)),
+            _make_outcome(trade_id="d", realized_pnl=-1.0, return_pct=-1.0, exit_time=_ts(hour=4)),
+            _make_outcome(trade_id="e", realized_pnl=1.0, return_pct=1.0, exit_time=_ts(hour=5)),
+            _make_outcome(trade_id="f", realized_pnl=-1.0, return_pct=-1.0, exit_time=_ts(hour=6)),
         ]
         streak = calculate_streak(outcomes)
         assert streak == 3
 
     def test_evidence_quality_thresholds(self) -> None:
         outcomes = [
-            _make_outcome(trade_id=f"t{i}", return_pct=1.0, realized_pnl=1.0)
-            for i in range(4)
+            _make_outcome(trade_id=f"t{i}", return_pct=1.0, realized_pnl=1.0) for i in range(4)
         ]
         stats = calculate_stats(outcomes, min_strong=100, min_moderate=30, min_weak=10)
         assert stats.evidence_quality == EvidenceQuality.INSUFFICIENT
@@ -333,10 +319,10 @@ class TestStatistics:
 
     def test_open_outcomes_excluded(self) -> None:
         outcomes = [
-            _make_outcome(trade_id="a", return_pct=1.0, realized_pnl=1.0,
-                          exit_price=101.0),
-            _make_outcome(trade_id="b", return_pct=0.0, realized_pnl=0.0,
-                          exit_price=None),  # still open
+            _make_outcome(trade_id="a", return_pct=1.0, realized_pnl=1.0, exit_price=101.0),
+            _make_outcome(
+                trade_id="b", return_pct=0.0, realized_pnl=0.0, exit_price=None
+            ),  # still open
         ]
         stats = calculate_stats(outcomes, min_strong=100, min_moderate=30, min_weak=10)
         assert stats.sample_size == 1  # only the closed one counts
@@ -351,9 +337,15 @@ class TestSimilarity:
     def test_identical_setups_score_one(self) -> None:
         ts = _ts()
         f1 = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
-            session="london", trend_slope_pct=0.3, volatility_atr=1.0,
-            momentum_roc_pct=0.5, structure_trend="up", range_position=0.5,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
+            session="london",
+            trend_slope_pct=0.3,
+            volatility_atr=1.0,
+            momentum_roc_pct=0.5,
+            structure_trend="up",
+            range_position=0.5,
         )
         f2 = f1.model_copy(deep=True)
         score = SimilarityScorer().score(f1, f2)
@@ -362,11 +354,15 @@ class TestSimilarity:
     def test_different_regime_reduces_similarity(self) -> None:
         ts = _ts()
         f1 = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
             session="london",
         )
         f2 = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.RANGING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.RANGING,
             session="london",
         )
         score = SimilarityScorer().score(f1, f2)
@@ -384,11 +380,10 @@ class TestSimilarity:
     def test_different_instruments_excluded(self) -> None:
         ts = _ts()
         ledger = InMemoryHistoricalLedger()
-        ledger.record(
-            _make_outcome(trade_id="t1", instrument="EURUSD", timestamp=ts)
-        )
+        ledger.record(_make_outcome(trade_id="t1", instrument="EURUSD", timestamp=ts))
         query_setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts + timedelta(days=1),
+            instrument="XAUUSD",
+            timestamp=ts + timedelta(days=1),
             regime=RegimeLabel.TRENDING,
         )
         engine = EvidenceEngine(ledger)
@@ -405,7 +400,9 @@ class TestEvidenceEngine:
     def test_empty_ledger_returns_insufficient(self) -> None:
         engine = EvidenceEngine(InMemoryHistoricalLedger())
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=_ts(), regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=_ts(),
+            regime=RegimeLabel.TRENDING,
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=_ts(day=2)))
         assert report.overall.sample_size == 0
@@ -418,19 +415,21 @@ class TestEvidenceEngine:
         for i, rp in enumerate([2.0, -1.0, 3.0, -0.5, 1.5, -2.0, 1.0, -1.0, 2.0, -0.5]):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", return_pct=rp, realized_pnl=rp,
+                    trade_id=f"t{i}",
+                    return_pct=rp,
+                    realized_pnl=rp,
                     timestamp=ts + timedelta(hours=i),
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=ts + timedelta(hours=20)))
         assert report.overall.sample_size == 10
-        assert report.overall.evidence_quality in (
-            EvidenceQuality.WEAK, EvidenceQuality.MODERATE
-        )
+        assert report.overall.evidence_quality in (EvidenceQuality.WEAK, EvidenceQuality.MODERATE)
 
     def test_regime_breakdown(self) -> None:
         ledger = InMemoryHistoricalLedger()
@@ -438,20 +437,24 @@ class TestEvidenceEngine:
         for i in range(5):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", timestamp=ts + timedelta(hours=i),
+                    trade_id=f"t{i}",
+                    timestamp=ts + timedelta(hours=i),
                     regime=RegimeLabel.TRENDING,
                 )
             )
         for i in range(3):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"r{i}", timestamp=ts + timedelta(hours=10 + i),
+                    trade_id=f"r{i}",
+                    timestamp=ts + timedelta(hours=10 + i),
                     regime=RegimeLabel.RANGING,
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=ts + timedelta(days=2)))
         assert "trending" in report.by_regime
@@ -464,20 +467,24 @@ class TestEvidenceEngine:
         for i in range(4):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"l{i}", timestamp=ts + timedelta(hours=i),
+                    trade_id=f"l{i}",
+                    timestamp=ts + timedelta(hours=i),
                     session="london",
                 )
             )
         for i in range(2):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"n{i}", timestamp=ts + timedelta(hours=10 + i),
+                    trade_id=f"n{i}",
+                    timestamp=ts + timedelta(hours=10 + i),
                     session="new_york",
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, session="london",
+            instrument="XAUUSD",
+            timestamp=ts,
+            session="london",
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=ts + timedelta(days=2)))
         assert report.by_session["london"].sample_size == 4
@@ -489,7 +496,8 @@ class TestEvidenceEngine:
         for i in range(3):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", timestamp=ts + timedelta(hours=i),
+                    trade_id=f"t{i}",
+                    timestamp=ts + timedelta(hours=i),
                     strategy="sma_crossover",
                 )
             )
@@ -506,14 +514,16 @@ class TestEvidenceEngine:
         for i in range(3):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"b{i}", timestamp=ts + timedelta(hours=i),
+                    trade_id=f"b{i}",
+                    timestamp=ts + timedelta(hours=i),
                     direction=OrderSide.BUY,
                 )
             )
         for i in range(2):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"s{i}", timestamp=ts + timedelta(hours=10 + i),
+                    trade_id=f"s{i}",
+                    timestamp=ts + timedelta(hours=10 + i),
                     direction=OrderSide.SELL,
                 )
             )
@@ -536,18 +546,22 @@ class TestFutureDataLeakage:
         for i in range(3):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"past{i}", timestamp=ts + timedelta(hours=i),
+                    trade_id=f"past{i}",
+                    timestamp=ts + timedelta(hours=i),
                 )
             )
         for i in range(3):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"future{i}", timestamp=ts + timedelta(days=10 + i),
+                    trade_id=f"future{i}",
+                    timestamp=ts + timedelta(days=10 + i),
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=ts + timedelta(days=2)))
         # Only the 3 past outcomes should be visible
@@ -562,13 +576,17 @@ class TestFutureDataLeakage:
         for i in range(10):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"seed{i}", timestamp=ts + timedelta(hours=i),
-                    return_pct=1.0, realized_pnl=1.0,
+                    trade_id=f"seed{i}",
+                    timestamp=ts + timedelta(hours=i),
+                    return_pct=1.0,
+                    realized_pnl=1.0,
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
         )
         query = HistoricalQuery(setup=setup, as_of=ts + timedelta(hours=20))
         before = engine.query(query)
@@ -577,8 +595,10 @@ class TestFutureDataLeakage:
         for i in range(5):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"future{i}", timestamp=ts + timedelta(days=30 + i),
-                    return_pct=-10.0, realized_pnl=-10.0,  # catastrophic
+                    trade_id=f"future{i}",
+                    timestamp=ts + timedelta(days=30 + i),
+                    return_pct=-10.0,
+                    realized_pnl=-10.0,  # catastrophic
                 )
             )
         after = engine.query(query)
@@ -596,7 +616,8 @@ class TestFutureDataLeakage:
         for i in range(20):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", timestamp=ts + timedelta(days=i),
+                    trade_id=f"t{i}",
+                    timestamp=ts + timedelta(days=i),
                 )
             )
         engine = EvidenceEngine(ledger)
@@ -623,14 +644,18 @@ class TestHistoricalAgentIntegration:
         for i in range(50):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", timestamp=ts + timedelta(hours=i),
-                    return_pct=0.5, realized_pnl=0.5,
+                    trade_id=f"t{i}",
+                    timestamp=ts + timedelta(hours=i),
+                    return_pct=0.5,
+                    realized_pnl=0.5,
                     regime=RegimeLabel.TRENDING,
                 )
             )
         engine = EvidenceEngine(ledger)
         setup = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
         )
         report = engine.query(HistoricalQuery(setup=setup, as_of=ts + timedelta(days=3)))
         evidence_dict = report.to_dict()["overall"]
@@ -705,12 +730,18 @@ class TestDeterminism:
     def test_similarity_is_deterministic(self) -> None:
         ts = _ts()
         f1 = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
-            trend_slope_pct=0.3, momentum_roc_pct=0.5,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
+            trend_slope_pct=0.3,
+            momentum_roc_pct=0.5,
         )
         f2 = SetupFeatures(
-            instrument="XAUUSD", timestamp=ts, regime=RegimeLabel.TRENDING,
-            trend_slope_pct=0.4, momentum_roc_pct=0.4,
+            instrument="XAUUSD",
+            timestamp=ts,
+            regime=RegimeLabel.TRENDING,
+            trend_slope_pct=0.4,
+            momentum_roc_pct=0.4,
         )
         s1 = SimilarityScorer()
         score1 = s1.score(f1, f2)
@@ -723,8 +754,10 @@ class TestDeterminism:
         for i in range(10):
             ledger.record(
                 _make_outcome(
-                    trade_id=f"t{i}", timestamp=ts + timedelta(hours=i),
-                    return_pct=0.5, realized_pnl=0.5,
+                    trade_id=f"t{i}",
+                    timestamp=ts + timedelta(hours=i),
+                    return_pct=0.5,
+                    realized_pnl=0.5,
                 )
             )
         engine = EvidenceEngine(ledger)
@@ -740,8 +773,6 @@ class TestDeterminism:
 # Stance enum alias for agent integration tests
 # ---------------------------------------------------------------------------
 
-
-from mt5_platform.agents import Stance as _Stance
 StanceEnum_BUY = _Stance.BUY
 StanceEnum_SELL = _Stance.SELL
 StanceEnum_NEUTRAL = _Stance.NEUTRAL

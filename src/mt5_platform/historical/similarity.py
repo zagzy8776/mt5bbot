@@ -12,7 +12,7 @@ redistributed proportionally.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from mt5_platform.historical.models import HistoricalOutcome, SetupFeatures
 
@@ -75,16 +75,18 @@ def _bounded_numeric_distance(a: float | None, b: float | None, span: float) -> 
 
 # Per-axis span (tuned for typical XAUUSD M5 features; conservative).
 _SPANS: dict[str, float] = {
-    "trend_slope_pct": 0.5,       # percent per bar; 0.5% covers weak to strong
-    "trend_efficiency": 1.0,      # 0..1 Kaufman ER
+    "trend_slope_pct": 0.5,  # percent per bar; 0.5% covers weak to strong
+    "trend_efficiency": 1.0,  # 0..1 Kaufman ER
     "volatility_atr_to_median": 2.0,  # ratio; 2.0 covers quiet to very volatile
-    "momentum_roc_pct": 2.0,     # percent; 2% covers weak to strong
+    "momentum_roc_pct": 2.0,  # percent; 2% covers weak to strong
     "momentum_persistence": 1.0,  # 0..1
-    "range_position": 1.0,        # 0..1 already bounded
+    "range_position": 1.0,  # 0..1 already bounded
 }
 
 
-def _per_axis_score(axis: FeatureSimilarity, current: SetupFeatures, candidate: SetupFeatures) -> float | None:
+def _per_axis_score(
+    axis: FeatureSimilarity, current: SetupFeatures, candidate: SetupFeatures
+) -> float | None:
     """Return per-axis similarity in [0,1], or None if axis not comparable."""
     a = getattr(current, axis.extractor_name, None)
     b = getattr(candidate, axis.extractor_name, None)

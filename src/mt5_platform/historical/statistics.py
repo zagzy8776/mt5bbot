@@ -41,9 +41,7 @@ def calculate_stats(
     """
     closed = [o for o in outcomes if o.is_closed]
     n = len(closed)
-    quality = _grade_quality(
-        n, min_strong=min_strong, min_moderate=min_moderate, min_weak=min_weak
-    )
+    quality = _grade_quality(n, min_strong=min_strong, min_moderate=min_moderate, min_weak=min_weak)
 
     if n == 0:
         return OutcomeStats(
@@ -63,13 +61,27 @@ def calculate_stats(
     avg_return = sum(returns) / n
 
     win_returns = [w.return_pct for w in wins] if wins else [0.0]
-    loss_returns = [l.return_pct for l in losses] if losses else [0.0]
-    avg_win = sum(win_returns) / len(win_returns) if win_returns else 0.0
-    avg_loss = sum(loss_returns) / len(loss_returns) if loss_returns else 0.0
+    loss_returns = (
+        [los.return_pct for los in losses]
+        if losses
+        else [0.0]
+    )
+    avg_win = (
+        sum(win_returns) / len(win_returns)
+        if win_returns
+        else 0.0
+    )
+    avg_loss = (
+        sum(loss_returns) / len(loss_returns)
+        if loss_returns
+        else 0.0
+    )
 
     # Profit factor: sum of gains / absolute sum of losses. 0 if no losses.
     gross_profit = sum(w.return_pct for w in wins)
-    gross_loss = abs(sum(l.return_pct for l in losses))
+    gross_loss = abs(
+        sum(los.return_pct for los in losses)
+    )
     if gross_loss > 0:
         profit_factor = gross_profit / gross_loss
     elif gross_profit > 0:

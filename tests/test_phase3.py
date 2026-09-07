@@ -6,7 +6,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from mt5_platform.api import create_app
 from mt5_platform.common.enums import OrderSide, OrderStatus, Severity
@@ -174,4 +174,5 @@ def test_api_status_reports_phase3_and_storage_backend() -> None:
             health = await client.get("/health")
             assert health.status_code == 200
             assert health.json()["components"]["storage"] == "up"
+
     asyncio.run(run())

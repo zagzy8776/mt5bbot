@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from mt5_platform.api import create_app
 from mt5_platform.common.audit import audit_log
@@ -116,6 +117,8 @@ def test_risk_engine_rejects_invalid_account_state() -> None:
     account2 = _account(equity=0.0)
     decision2 = engine.evaluate(_signal(), RiskContext(account=account2))
     assert "insufficient_equity" in decision2.reasons
+
+
 def test_risk_engine_rejects_wrong_side_stop_and_take_profit() -> None:
     engine, _ = _engine()
     ctx = RiskContext(account=_account())
@@ -189,9 +192,7 @@ def test_risk_engine_evaluate_order() -> None:
     decision = engine.evaluate_order(order, ctx)
     assert decision.approved
 
-    no_stop = OrderRequest(
-        symbol="XAUUSD", side=OrderSide.BUY, volume=0.01, entry=2500.0
-    )
+    no_stop = OrderRequest(symbol="XAUUSD", side=OrderSide.BUY, volume=0.01, entry=2500.0)
     decision2 = engine.evaluate_order(
         no_stop, RiskContext(account=_account(), stop_loss_required=True)
     )
@@ -221,7 +222,9 @@ def test_risk_api_surface() -> None:
             assert body["settings"]["max_position_size"] == 0.10
             assert body["stats"]["checks"] == 0
 
-            resp = await client.post("/api/v1/risk/killswitch", json={"engaged": True, "reason": "test"})
+            resp = await client.post(
+                "/api/v1/risk/killswitch", json={"engaged": True, "reason": "test"}
+            )
             assert resp.status_code == 200
             assert resp.json()["kill_switch"] is True
             assert (await client.get("/api/v1/status")).json()["trading_allowed"] is False
@@ -254,6 +257,7 @@ def test_risk_api_surface() -> None:
             )
             assert resp.json()["approved"] is False
             assert "stop_loss_required" in resp.json()["reasons"]
+
     asyncio.run(run())
 
 

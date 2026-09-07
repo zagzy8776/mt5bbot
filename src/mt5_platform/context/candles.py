@@ -102,16 +102,12 @@ class TimeframeCandleBuilder:
 class MultiTimeframeCandleBuilder:
     """Feeds every configured timeframe from the same accepted tick stream."""
 
-    def __init__(
-        self, timeframes_s: tuple[int, ...], max_bars: int = 300
-    ) -> None:
+    def __init__(self, timeframes_s: tuple[int, ...], max_bars: int = 300) -> None:
         if not timeframes_s:
             raise ValueError("at least one timeframe is required")
         if sorted(timeframes_s) != list(timeframes_s):
             raise ValueError("timeframes_s must be sorted ascending")
-        self.builders = {
-            tf: TimeframeCandleBuilder(tf, max_bars=max_bars) for tf in timeframes_s
-        }
+        self.builders = {tf: TimeframeCandleBuilder(tf, max_bars=max_bars) for tf in timeframes_s}
 
     def update(self, ts: datetime, price: float, volume: float = 0.0) -> None:
         for builder in self.builders.values():
@@ -127,8 +123,4 @@ class MultiTimeframeCandleBuilder:
         return [b.label for b in self.builders.values()]
 
     def insufficient_labels(self, min_bars: int) -> list[str]:
-        return [
-            b.label
-            for b in self.builders.values()
-            if len(b) < min_bars
-        ]
+        return [b.label for b in self.builders.values() if len(b) < min_bars]

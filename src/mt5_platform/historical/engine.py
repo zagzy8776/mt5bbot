@@ -17,7 +17,6 @@ from typing import Any
 
 from mt5_platform.historical.ledger import InMemoryHistoricalLedger
 from mt5_platform.historical.models import (
-    HistoricalOutcome,
     OutcomeStats,
     SetupFeatures,
     SimilarityMatch,
@@ -99,9 +98,7 @@ class EvidenceEngine:
         setup = q.setup
 
         # Overall (same instrument, before as_of)
-        overall_pool = self.ledger.query(
-            instrument=setup.instrument, as_of=q.as_of
-        )
+        overall_pool = self.ledger.query(instrument=setup.instrument, as_of=q.as_of)
         report.overall = calculate_stats(
             overall_pool,
             min_strong=q.min_strong,
@@ -177,12 +174,9 @@ class EvidenceEngine:
         # Notes
         if report.overall.evidence_quality.value == "insufficient":
             report.notes.append(
-                f"only {report.overall.sample_size} comparable samples; "
-                "evidence is INSUFFICIENT"
+                f"only {report.overall.sample_size} comparable samples; evidence is INSUFFICIENT"
             )
         if report.similar and len(report.similar) < 10:
-            report.notes.append(
-                f"only {len(report.similar)} similar setups above threshold"
-            )
+            report.notes.append(f"only {len(report.similar)} similar setups above threshold")
 
         return report

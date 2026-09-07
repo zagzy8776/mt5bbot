@@ -20,33 +20,19 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from httpx import AsyncClient, ASGITransport
 
 from mt5_platform.common.enums import (
     DataQualityLevel,
-    InvalidationReason,
     OrderSide,
     PositionDecision,
     RegimeLabel,
     ThesisStatus,
 )
-from mt5_platform.common.events import AccountSnapshot, OrderRequest, StrategySignal
-from mt5_platform.config import Settings, TradingMode, clear_settings_cache
-from mt5_platform.historical.context_bridge import setup_from_context
-from mt5_platform.position import (
-    PositionManager,
-    PositionManagerConfig,
-    PositionState,
-    PositionDecisionModel,
-    ThesisSnapshot,
-    reconcile_position,
-    BrokerPosition,
-    ReconciliationResult,
-)
+from mt5_platform.common.events import AccountSnapshot, StrategySignal
+from mt5_platform.config import Settings, TradingMode
 from mt5_platform.context import (
     BreakoutState,
     Candle,
@@ -59,7 +45,15 @@ from mt5_platform.context import (
     TrendFeatures,
     VolatilityFeatures,
 )
-
+from mt5_platform.position import (
+    BrokerPosition,
+    PositionDecisionModel,
+    PositionManager,
+    PositionManagerConfig,
+    PositionState,
+    ThesisSnapshot,
+    reconcile_position,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -110,7 +104,11 @@ def _market_context(
         regime=regime,
         regime_confidence=0.8,
         regime_evidence={},
-        data_quality=DataQuality(level=data_quality, last_tick_age_s=last_tick_age_s, tick_count=200),
+        data_quality=DataQuality(
+            level=data_quality,
+            last_tick_age_s=last_tick_age_s,
+            tick_count=200,
+        ),
         usable_for_trading=True,
     )
 
@@ -150,7 +148,11 @@ def _position(
         volume=volume,
         entry_price=entry_price,
         current_price=current_price,
-        unrealized_pnl=(current_price - entry_price) * volume * 100 if direction == OrderSide.BUY else (entry_price - current_price) * volume * 100,
+        unrealized_pnl=(
+            (current_price - entry_price) * volume * 100
+            if direction == OrderSide.BUY
+            else (entry_price - current_price) * volume * 100
+        ),
         stop_loss=stop_loss,
         take_profit=take_profit,
         opened_at=_ts(hour=1),
@@ -161,13 +163,15 @@ def _position(
 
 
 def _pm():
-    return PositionManager(config=PositionManagerConfig(
-        invalidation_buffer_pct=0.1,
-        max_stale_context_s=300.0,
-        trail_activation_pct=0.5,
-        trail_distance_atr_mult=1.5,
-        reduce_volume_pct=0.5,
-    ))
+    return PositionManager(
+        config=PositionManagerConfig(
+            invalidation_buffer_pct=0.1,
+            max_stale_context_s=300.0,
+            trail_activation_pct=0.5,
+            trail_distance_atr_mult=1.5,
+            reduce_volume_pct=0.5,
+        )
+    )
 
 
 # ===========================================================================
@@ -435,24 +439,9 @@ class TestReduceDecision:
         assert decision.thesis_status == ThesisStatus.VALID
         assert decision.decision == PositionDecision.HOLD
 
-    def test_short_valid_thesis_hold(self):
-        """Short with valid thesis should HOLD."""
-        pm = _pm()
-        pos = _position(
-            direction=OrderSide.SELL,
-            entry_price=2560.0,
-            current_price=2555.0,
-            regime="trending",
-            stop_loss=2565.0,
-            take_profit=2545.0,
-            invalidation_levels=["2570.0"],  # above entry for SELL
-        )
-        ctx = _market_context(regime=RegimeLabel.TRENDING, slope=-0.3, current_price=2555.0)
-        decision = pm.evaluate(pos, ctx)
-        assert decision.thesis_status == ThesisStatus.VALID
-        assert decision.decision == PositionDecision.HOLD
 
-
+# ===========================================================================
+# 6. EXIT — thesis invalidated
 # ===========================================================================
 # 6. EXIT — thesis invalidated
 # ===========================================================================
@@ -700,25 +689,10 @@ class TestIntegrationLifecycle:
         """
         from mt5_platform.agents import (
             AgentContext,
-            BreakoutAgent,
-            DEFAULT_AGENT_NETWORK,
-            HistoricalAgent,
-            MarketIntelligenceAgent,
-            MeanReversionAgent,
-            MomentumAgent,
-            NewsAgent,
-            RegimeAgent,
-            StrategyEvaluationAgent,
-            StructureAgent,
-            SynthesisAgent,
-            TradeThesis,
             run_agent_network,
         )
         from mt5_platform.common.enums import OrderSide
-        from mt5_platform.common.events import StrategySignal
-        from mt5_platform.risk import RiskEngine, RiskContext
-        from mt5_platform.orders import OrderManager
-        from mt5_platform.execution import MockExecutionAdapter
+        from mt5_platform.risk import RiskContext, RiskEngine
 
         # Step 1: Build market context
         ctx = _market_context(

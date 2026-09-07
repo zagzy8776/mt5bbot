@@ -23,13 +23,13 @@ from mt5_platform.common.enums import (
 )
 from mt5_platform.common.events import AuditEvent, utc_now
 from mt5_platform.position.models import (
+    POSITION_DECISION_EMITTED,
+    POSITION_THESIS_INVALIDATED,
     PositionDecisionModel,
     PositionManagerAudit,
     PositionManagerConfig,
     PositionState,
     ThesisSnapshot,
-    POSITION_DECISION_EMITTED,
-    POSITION_THESIS_INVALIDATED,
 )
 
 
@@ -99,7 +99,9 @@ class PositionManager:
             decision = self._reduce_decision(position, thesis_snap, ctx, invalidation_reasons)
         elif thesis_status == ThesisStatus.VALID:
             # Check for trailing stop / modify opportunity
-            decision = self._hold_or_modify_decision(position, thesis_snap, ctx, historical_evidence)
+            decision = self._hold_or_modify_decision(
+                position, thesis_snap, ctx, historical_evidence
+            )
         else:
             decision = self._no_action_decision(position, thesis_snap, ctx, "insufficient context")
 
@@ -159,14 +161,23 @@ class PositionManager:
         if position.stop_loss is not None and position.current_price is not None:
             if position.direction == OrderSide.BUY and position.current_price <= position.stop_loss:
                 reasons.append(InvalidationReason.STOP_HIT)
-            elif position.direction == OrderSide.SELL and position.current_price >= position.stop_loss:
+            elif (
+                position.direction == OrderSide.SELL
+                and position.current_price >= position.stop_loss
+            ):
                 reasons.append(InvalidationReason.STOP_HIT)
 
         # Target hit
         if position.take_profit is not None and position.current_price is not None:
-            if position.direction == OrderSide.BUY and position.current_price >= position.take_profit:
+            if (
+                position.direction == OrderSide.BUY
+                and position.current_price >= position.take_profit
+            ):
                 reasons.append(InvalidationReason.TARGET_HIT)
-            elif position.direction == OrderSide.SELL and position.current_price <= position.take_profit:
+            elif (
+                position.direction == OrderSide.SELL
+                and position.current_price <= position.take_profit
+            ):
                 reasons.append(InvalidationReason.TARGET_HIT)
 
         # Check regime consistency
@@ -226,7 +237,11 @@ class PositionManager:
         if reasons:
             if InvalidationReason.STOP_HIT in reasons or InvalidationReason.TARGET_HIT in reasons:
                 return ThesisStatus.INVALIDATED, reasons
-            if len(reasons) >= 2 or InvalidationReason.TREND_REVERSAL in reasons or InvalidationReason.BREAKOUT_FAILURE in reasons:
+            if (
+                len(reasons) >= 2
+                or InvalidationReason.TREND_REVERSAL in reasons
+                or InvalidationReason.BREAKOUT_FAILURE in reasons
+            ):
                 return ThesisStatus.INVALIDATED, reasons
             return ThesisStatus.WEAKENING, reasons
 
@@ -246,16 +261,24 @@ class PositionManager:
             if atr and atr > 0:
                 if position.direction == OrderSide.BUY:
                     # Price moved up — trail stop up
-                    profit_pct = (position.current_price - position.entry_price) / position.entry_price
+                    profit_pct = (
+                        position.current_price - position.entry_price
+                    ) / position.entry_price
                     if profit_pct >= self.config.trail_activation_pct / 100.0:
-                        new_stop = position.current_price - atr * self.config.trail_distance_atr_mult
+                        new_stop = (
+                            position.current_price - atr * self.config.trail_distance_atr_mult
+                        )
                         if new_stop > position.stop_loss:
                             proposed_stop = new_stop
                 else:
                     # Price moved down — trail stop down
-                    profit_pct = (position.entry_price - position.current_price) / position.entry_price
+                    profit_pct = (
+                        position.entry_price - position.current_price
+                    ) / position.entry_price
                     if profit_pct >= self.config.trail_activation_pct / 100.0:
-                        new_stop = position.current_price + atr * self.config.trail_distance_atr_mult
+                        new_stop = (
+                            position.current_price + atr * self.config.trail_distance_atr_mult
+                        )
                         if new_stop < position.stop_loss:
                             proposed_stop = new_stop
 
@@ -276,7 +299,9 @@ class PositionManager:
         hold_reasons = [
             "original thesis remains valid",
             f"regime: {ctx.regime.value if ctx.regime else 'unknown'}",
-            f"trend: {ctx.trend.slope_per_bar_pct:.4f}%/bar" if ctx.trend and ctx.trend.slope_per_bar_pct else "trend: unknown",
+            f"trend: {ctx.trend.slope_per_bar_pct:.4f}%/bar"
+            if ctx.trend and ctx.trend.slope_per_bar_pct
+            else "trend: unknown",
         ]
         if historical_evidence:
             overall = historical_evidence.get("overall", {})
@@ -310,7 +335,10 @@ class PositionManager:
             decision=PositionDecision.REDUCE,
             confidence=0.6,
             proposed_volume=reduce_vol,
-            reason=f"thesis weakening: {', '.join(r.value for r in reasons)}; reducing volume by {self.config.reduce_volume_pct:.0%}",
+            reason=(
+                f"thesis weakening: {', '.join(r.value for r in reasons)}; "
+                f"reducing volume by {self.config.reduce_volume_pct:.0%}"
+            ),
             invalidation_state={"reasons": [r.value for r in reasons]},
         )
 
@@ -389,8 +417,12 @@ class PositionManager:
         audit_log.emit(
             AuditEvent(
                 component="position_manager",
-                event_type=POSITION_THESIS_INVALIDATED if decision.thesis_status == ThesisStatus.INVALIDATED else POSITION_DECISION_EMITTED,
-                severity="warning" if decision.decision in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT) else "info",
+                event_type=POSITION_THESIS_INVALIDATED
+                if decision.thesis_status == ThesisStatus.INVALIDATED
+                else POSITION_DECISION_EMITTED,
+                severity="warning"
+                if decision.decision in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT)
+                else "info",
                 symbol=position.instrument,
                 correlation_id=decision.correlation_id,
                 payload=audit.model_dump(mode="json"),

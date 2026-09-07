@@ -75,15 +75,12 @@ def compute_trend(candles: list[Candle]) -> TrendFeatures | None:
     )
 
 
-def compute_volatility(
-    candles: list[Candle], atr_period: int = 14
-) -> VolatilityFeatures | None:
+def compute_volatility(candles: list[Candle], atr_period: int = 14) -> VolatilityFeatures | None:
     if len(candles) < atr_period + 1:
         return None
     trs = true_ranges(candles)
     atr_series = [
-        sum(trs[i - atr_period + 1 : i + 1]) / atr_period
-        for i in range(atr_period - 1, len(trs))
+        sum(trs[i - atr_period + 1 : i + 1]) / atr_period for i in range(atr_period - 1, len(trs))
     ]
     atr = atr_series[-1]
     last_close = candles[-1].close
@@ -95,15 +92,11 @@ def compute_volatility(
         atr=atr,
         atr_percentile=_percentile_rank(atr_series, atr),
         atr_to_median=(atr / median) if median > 0 else None,
-        range_pct=(
-            (window_high - window_low) / last_close * 100.0 if last_close > 0 else None
-        ),
+        range_pct=((window_high - window_low) / last_close * 100.0 if last_close > 0 else None),
     )
 
 
-def compute_momentum(
-    candles: list[Candle], roc_period: int = 10
-) -> MomentumFeatures | None:
+def compute_momentum(candles: list[Candle], roc_period: int = 10) -> MomentumFeatures | None:
     if len(candles) < roc_period + 1:
         return None
     closes = [c.close for c in candles]
@@ -121,9 +114,7 @@ def compute_momentum(
         if d == 0:
             break
         streak += 1
-    return MomentumFeatures(
-        roc_pct=roc, persistence=persistence, consecutive_same_dir=streak
-    )
+    return MomentumFeatures(roc_pct=roc, persistence=persistence, consecutive_same_dir=streak)
 
 
 def _swing_points(candles: list[Candle], wing: int = 2) -> tuple[list[int], list[int]]:
@@ -132,9 +123,7 @@ def _swing_points(candles: list[Candle], wing: int = 2) -> tuple[list[int], list
     lows: list[int] = []
     n = len(candles)
     for i in range(wing, n - wing):
-        window = [
-            c for j, c in enumerate(candles[i - wing : i + wing + 1]) if j != wing
-        ]
+        window = [c for j, c in enumerate(candles[i - wing : i + wing + 1]) if j != wing]
         if all(candles[i].high >= c.high for c in window):
             highs.append(i)
         if all(candles[i].low <= c.low for c in window):
@@ -277,25 +266,37 @@ def compute_breakout(
         retrace = (extreme - last_close) / (extreme - hi) * 100.0 if extreme > hi else 0.0
         if last_close <= hi:
             return BreakoutState(
-                state="failed", direction="up", boundary=hi,
-                bars_outside=up_outside, retrace_pct=retrace,
+                state="failed",
+                direction="up",
+                boundary=hi,
+                bars_outside=up_outside,
+                retrace_pct=retrace,
             )
         state = "confirmed" if up_outside >= confirm_bars else "pending"
         return BreakoutState(
-            state=state, direction="up", boundary=hi,
-            bars_outside=up_outside, retrace_pct=retrace,
+            state=state,
+            direction="up",
+            boundary=hi,
+            bars_outside=up_outside,
+            retrace_pct=retrace,
         )
     if down_outside > 0:
         extreme = min(c.low for c in recent)
         retrace = (last_close - extreme) / (lo - extreme) * 100.0 if extreme < lo else 0.0
         if last_close >= lo:
             return BreakoutState(
-                state="failed", direction="down", boundary=lo,
-                bars_outside=down_outside, retrace_pct=retrace,
+                state="failed",
+                direction="down",
+                boundary=lo,
+                bars_outside=down_outside,
+                retrace_pct=retrace,
             )
         state = "confirmed" if down_outside >= confirm_bars else "pending"
         return BreakoutState(
-            state=state, direction="down", boundary=lo,
-            bars_outside=down_outside, retrace_pct=retrace,
+            state=state,
+            direction="down",
+            boundary=lo,
+            bars_outside=down_outside,
+            retrace_pct=retrace,
         )
     return BreakoutState(state="none")

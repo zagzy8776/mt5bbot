@@ -11,7 +11,6 @@ units. pnl is in account currency. Time deltas are seconds.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -22,8 +21,8 @@ from mt5_platform.common.enums import (
     RegimeLabel,
     TradeCause,
 )
-from mt5_platform.common.ids import new_execution_id, new_order_id
 from mt5_platform.common.events import utc_now
+from mt5_platform.common.ids import new_execution_id, new_order_id
 
 
 class SetupFeatures(BaseModel):

@@ -6,28 +6,18 @@ not merely the existence of agents. Each section maps to a review criterion.
 
 from __future__ import annotations
 
-import math
 from datetime import UTC, datetime
 
-import pytest
-
 from mt5_platform.agents import (
+    DEFAULT_AGENT_NETWORK,
     AgentContext,
     AgentOpinion,
     AgentRole,
     BreakoutAgent,
-    DEFAULT_AGENT_NETWORK,
     HistoricalAgent,
-    MarketIntelligenceAgent,
-    MeanReversionAgent,
-    MomentumAgent,
-    NewsAgent,
-    RegimeAgent,
     Stance,
     StrategyEvaluationAgent,
-    StructureAgent,
     SynthesisAgent,
-    TradeThesis,
     run_agent_network,
 )
 from mt5_platform.common.enums import (
@@ -45,11 +35,9 @@ from mt5_platform.context import (
     MomentumFeatures,
     SessionInfo,
     StructureFeatures,
-    SupportResistanceLevel,
     TrendFeatures,
     VolatilityFeatures,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures & helpers
@@ -353,20 +341,12 @@ class TestNoTradeEnforcement:
         assert thesis.action is Stance.NO_TRADE
 
     def test_undefined_regime_produces_no_trade(self) -> None:
-        ctx = _agent_ctx(
-            market_context=_build_ctx(
-                regime=RegimeLabel.UNDEFINED, usable=False
-            )
-        )
+        ctx = _agent_ctx(market_context=_build_ctx(regime=RegimeLabel.UNDEFINED, usable=False))
         thesis = run_agent_network(ctx)
         assert thesis.action is Stance.NO_TRADE
 
     def test_abnormal_regime_produces_no_trade(self) -> None:
-        ctx = _agent_ctx(
-            market_context=_build_ctx(
-                regime=RegimeLabel.ABNORMAL, usable=False
-            )
-        )
+        ctx = _agent_ctx(market_context=_build_ctx(regime=RegimeLabel.ABNORMAL, usable=False))
         thesis = run_agent_network(ctx)
         assert thesis.action is Stance.NO_TRADE
 
@@ -460,7 +440,6 @@ class TestTraceability:
     def test_audit_events_emitted(self) -> None:
         """Synthesis should emit audit events for emitted/rejected theses."""
         from mt5_platform.common.audit import audit_log
-        from mt5_platform.common.events import AuditEvent
         from mt5_platform.common.enums import AuditEventType
 
         audit_log.clear()
@@ -500,6 +479,7 @@ class TestNoFutureDataLeakage:
     def test_agents_only_read_from_context(self) -> None:
         """Verify no agent accesses time-dependent data outside the context."""
         import inspect
+
         import mt5_platform.agents.analytical_agents as aa
         import mt5_platform.agents.support_agents as sa
 
@@ -538,7 +518,7 @@ class TestNoFutureDataLeakage:
             results.append(tuple(a.evaluate(ctx) for a in DEFAULT_AGENT_NETWORK))
         first = results[0]
         for r in results[1:]:
-            for op1, op2 in zip(first, r):
+            for op1, op2 in zip(first, r, strict=False):
                 assert op1.stance is op2.stance
                 assert op1.confidence == op2.confidence
                 assert op1.rationale == op2.rationale
@@ -636,8 +616,8 @@ class TestStrategyBoundary:
 
     def test_strategies_emit_signals_not_orders(self) -> None:
         """Verify strategies produce StrategySignal only — never OrderRequest."""
-        from mt5_platform.strategy.sma_crossover import SmaCrossoverStrategy
         from mt5_platform.common.events import MarketDataEvent
+        from mt5_platform.strategy.sma_crossover import SmaCrossoverStrategy
 
         strat = SmaCrossoverStrategy()
         event = MarketDataEvent(
@@ -706,6 +686,7 @@ class TestContextReuse:
         """No agent should independently compute ATR from raw candles.
         They all read mctx.volatility.atr."""
         import inspect
+
         import mt5_platform.agents.analytical_agents as aa
         import mt5_platform.agents.support_agents as sa
 
@@ -714,6 +695,7 @@ class TestContextReuse:
                 if name in ("Agent",):
                     continue
                 from mt5_platform.agents import Agent as _Agent
+
                 if not issubclass(obj, _Agent):
                     continue
                 if obj.__module__ != module.__name__:
@@ -788,9 +770,7 @@ class TestSynthesisMathematics:
         ]
         synth = SynthesisAgent()
         ctx = _agent_ctx(
-            market_context=_build_ctx(
-                volatility=_volatility(atr=5.0), current_price=2550.0
-            )
+            market_context=_build_ctx(volatility=_volatility(atr=5.0), current_price=2550.0)
         )
         thesis = synth.synthesize(ctx, opinions)
         if thesis.action is Stance.BUY:

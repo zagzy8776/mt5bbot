@@ -7,16 +7,16 @@ that flow through RiskEngine -> OrderManager -> Execution.
 
 from mt5_platform.position.manager import PositionManager, PositionManagerConfig
 from mt5_platform.position.models import (
+    POSITION_DECISION_EMITTED,
+    POSITION_EMERGENCY_TRIGGERED,
+    POSITION_RECONCILIATION_MISMATCH,
+    POSITION_THESIS_INVALIDATED,
     InvalidationReason,
     PositionDecisionModel,
     PositionDecisionRequest,
     PositionManagerAudit,
     PositionState,
     ThesisSnapshot,
-    POSITION_DECISION_EMITTED,
-    POSITION_THESIS_INVALIDATED,
-    POSITION_RECONCILIATION_MISMATCH,
-    POSITION_EMERGENCY_TRIGGERED,
 )
 from mt5_platform.position.reconciliation import (
     BrokerPosition,
