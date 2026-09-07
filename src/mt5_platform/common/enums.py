@@ -115,3 +115,29 @@ class DataQualityLevel(StrEnum):
     OK = "ok"
     DEGRADED = "degraded"
     CRITICAL = "critical"
+
+
+class EvidenceQuality(StrEnum):
+    """Quality grade for historical evidence samples.
+
+    A sample is INSUFFICIENT until it crosses a minimum size threshold.
+    The system must never present a 4-trade sample as strong evidence.
+    """
+
+    INSUFFICIENT = "insufficient"
+    WEAK = "weak"
+    MODERATE = "moderate"
+    STRONG = "strong"
+
+
+class TradeCause(StrEnum):
+    """Why a trade exited. Used for cause_class breakdown."""
+
+    TARGET_HIT = "target_hit"
+    STOP_HIT = "stop_hit"
+    TIME_EXIT = "time_exit"
+    MANUAL = "manual"
+    REGIME_CHANGE = "regime_change"
+    DATA_DEGRADED = "data_degraded"
+    KILL_SWITCH = "kill_switch"
+    UNKNOWN = "unknown"

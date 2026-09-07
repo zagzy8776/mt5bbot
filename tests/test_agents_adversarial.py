@@ -551,18 +551,24 @@ class TestNoFutureDataLeakage:
 
 
 class TestHistoricalBoundary:
-    def test_no_evidence_returns_neutral(self) -> None:
+    def test_no_evidence_returns_caution(self) -> None:
         agent = HistoricalAgent()
         op = agent.evaluate(_agent_ctx(historical_evidence=None))
-        assert op.stance is Stance.NEUTRAL
+        assert op.stance is Stance.CAUTION
         assert "no_measured_evidence" in str(op.evidence.get("status", ""))
 
-    def test_small_sample_returns_neutral(self) -> None:
+    def test_small_sample_returns_caution(self) -> None:
         agent = HistoricalAgent()
         op = agent.evaluate(
-            _agent_ctx(historical_evidence={"expectancy": 0.5, "sample_size": 10, "min_sample": 30})
+            _agent_ctx(
+                historical_evidence={
+                    "expectancy": 0.5,
+                    "sample_size": 5,
+                    "evidence_quality": "insufficient",
+                }
+            )
         )
-        assert op.stance is Stance.NEUTRAL
+        assert op.stance is Stance.CAUTION
         assert op.evidence.get("status") == "measured"
 
     def test_negative_expectancy_returns_caution(self) -> None:
@@ -583,7 +589,7 @@ class TestHistoricalBoundary:
         agent = HistoricalAgent()
         op = agent.evaluate(_agent_ctx())
         # Rationale must mention the absence of evidence
-        assert "no" in op.rationale.lower() or "phase c" in op.rationale.lower()
+        assert "no" in op.rationale.lower() or "insufficient" in op.rationale.lower()
 
 
 # ===========================================================================

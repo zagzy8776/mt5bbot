@@ -114,10 +114,12 @@ class StrategyEvaluationAgent(Agent):
 
 
 class HistoricalAgent(Agent):
-    """'What happened in comparable historical situations?' — v1 scaffold.
+    """'What happened in comparable historical situations?'
 
-    Until the Phase C evidence engine exists this agent reports honestly that
-    there is no measured evidence. It never fabricates statistics.
+    Consumes an EvidenceEngine (via AgentContext.historical_evidence being
+    an EvidenceReport dict, or via the EvidenceEngine attached to the
+    process). The agent never fabricates statistics: if evidence is
+    INSUFFICIENT, it explicitly says so.
     """
 
     name = "historical"
@@ -128,23 +130,56 @@ class HistoricalAgent(Agent):
         evidence = ctx.historical_evidence
         if not evidence:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3,
-                evidence={"status": "no_measured_evidence"},
-                rationale="no historical evidence available yet "
-                "(evidence engine arrives in Phase C)",
+                ctx, stance=Stance.CAUTION, confidence=0.3,
+                evidence={"status": "no_measured_evidence",
+                          "evidence_quality": "insufficient"},
+                rationale="no historical evidence available",
             )
-        expectancy = evidence.get("expectancy")
+
         sample = int(evidence.get("sample_size", 0))
-        min_sample = int(evidence.get("min_sample", 30))
-        ev = {"status": "measured", "expectancy": expectancy, "sample_size": sample}
-        if expectancy is None or sample < min_sample:
+        eq = str(evidence.get("evidence_quality", "insufficient"))
+        expectancy = evidence.get("expectancy")
+        win_rate = evidence.get("win_rate")
+        ev: dict = {
+            "status": "measured",
+            "sample_size": sample,
+            "evidence_quality": eq,
+            "expectancy": expectancy,
+            "win_rate": win_rate,
+        }
+
+        if eq == "insufficient" or sample < 10:
             return self._opinion(
-                ctx, stance=Stance.NEUTRAL, confidence=0.3, evidence=ev,
-                rationale="historical sample too small to support the decision",
+                ctx, stance=Stance.CAUTION, confidence=0.3, evidence=ev,
+                rationale=f"only {sample} comparable samples; "
+                "evidence is INSUFFICIENT",
             )
-        stance = Stance.CAUTION if float(expectancy) <= 0 else Stance.NEUTRAL
+
+        if expectancy is None:
+            return self._opinion(
+                ctx, stance=Stance.CAUTION, confidence=0.4, evidence=ev,
+                rationale="historical evidence present but expectancy unavailable",
+            )
+
+        exp = float(expectancy)
+        # The agent speaks in stances, not probabilities.
+        if exp <= 0:
+            stance = Stance.CAUTION
+            conf = 0.5 if eq in ("moderate", "strong") else 0.4
+        elif exp > 0 and (win_rate is not None and float(win_rate) >= 0.55):
+            stance = Stance.BUY if (ctx.candidate_signals and
+                                    ctx.candidate_signals[0].direction.value == "buy") \
+                else Stance.NEUTRAL
+            # Historical evidence never produces a direct BUY/SELL by itself.
+            # It only validates or warns. Direction comes from synthesis.
+            stance = Stance.NEUTRAL
+            conf = 0.6 if eq == "strong" else 0.5
+        else:
+            stance = Stance.NEUTRAL
+            conf = 0.5
+
         return self._opinion(
-            ctx, stance=stance, confidence=0.6, evidence=ev,
-            rationale=f"comparable setups show expectancy {expectancy} "
-            f"over {sample} samples",
+            ctx, stance=stance, confidence=conf, evidence=ev,
+            rationale=f"comparable setups show expectancy {exp:.3f} "
+            f"over {sample} samples (quality={eq})",
         )
