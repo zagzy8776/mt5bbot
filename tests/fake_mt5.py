@@ -23,6 +23,8 @@ class FakeMT5:
     ORDER_FILLING_FOK = 0
     ORDER_FILLING_IOC = 1
     ORDER_FILLING_RETURN = 2
+    TIMEFRAME_M1 = 1
+    TIMEFRAME_M15 = 15
     TRADE_RETCODE_REQUOTE = 10004
     TRADE_RETCODE_REJECT = 10006
     TRADE_RETCODE_INVALID_STOPS = 10016
@@ -45,7 +47,8 @@ class FakeMT5:
         self.next_send_retcode = self.TRADE_RETCODE_DONE
         self.send_returns_none = False
         self.record_position_on_uncertain = False
-        self.tick = SimpleNamespace(bid=2500.00, ask=2500.30)
+        self.tick = SimpleNamespace(bid=2500.00, ask=2500.30, time=1, time_msc=1000)
+        self.rates: list[dict] = []
         self.symbol = SimpleNamespace(
             digits=2,
             point=0.01,
@@ -107,6 +110,13 @@ class FakeMT5:
 
     def history_deals_get(self, date_from, date_to, **_):
         return tuple(self.deals)
+
+    def copy_rates_from_pos(self, symbol, timeframe, start_pos, count):
+        rows = self.rates[: len(self.rates) - start_pos] if start_pos else self.rates
+        return rows[-count:] if rows else None
+
+    def copy_rates_range(self, symbol, timeframe, date_from, date_to):
+        return self.rates or None
 
     # --- trading
     def order_check(self, request):

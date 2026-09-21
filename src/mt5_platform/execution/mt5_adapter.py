@@ -100,6 +100,14 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         async with self._call_lock:
             return await asyncio.to_thread(fn, *args, **kwargs)
 
+    async def call(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        """Serialized terminal call (shared with the market-data feed: MT5 is not thread-safe)."""
+        return await self._call(name, *args, **kwargs)
+
+    @property
+    def mt5(self) -> Any:
+        return self._mt5()
+
     async def _last_error(self) -> Any:
         try:
             return await self._call("last_error")

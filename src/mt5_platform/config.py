@@ -86,6 +86,8 @@ class Settings(BaseSettings):
     mt5_timeout_ms: int = 10_000
     # Identifies this bot's orders/positions on the account (lets it ignore manual trades).
     mt5_magic: int = 26_092_101
+    # Backtest verdict the live runtime must find (and pass) before it will trade real money.
+    validation_report_path: str = "./validation_report.json"
 
     # Order / execution engine (Phase 6). "mt5" backend is Phase 7 (demo only).
     execution_backend: str = "mock"  # mock | mt5

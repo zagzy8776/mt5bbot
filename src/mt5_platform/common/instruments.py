@@ -78,6 +78,14 @@ DEFAULT_SPECS: dict[str, InstrumentSpec] = {
 }
 
 
+def min_equity_for_min_lot(*, stop_distance: float, risk_pct: float, spec: InstrumentSpec) -> float:
+    """Smallest equity at which the minimum lot with this stop distance fits ``risk_pct``."""
+    if stop_distance <= 0 or risk_pct <= 0:
+        raise ValueError("stop_distance and risk_pct must be positive")
+    loss_at_min_lot = stop_distance * spec.value_per_price_unit * spec.volume_min
+    return loss_at_min_lot / (risk_pct / 100.0)
+
+
 def position_size_for_risk(
     *,
     equity: float,

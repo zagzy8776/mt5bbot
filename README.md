@@ -150,6 +150,28 @@ Optional infra for later phases:
 docker compose up -d
 ```
 
+## Backtest -> demo -> live (in this order)
+
+```bash
+# 1. get data (pick one)
+python -m mt5_platform.backtest fetch-mt5        --symbol XAUUSD --timeframe M15 --days 365   # Windows + MT5, exact broker prices
+python -m mt5_platform.backtest fetch-dukascopy  --symbol XAUUSD --timeframe M15 --days 365   # free, any OS (try --days 3 first)
+# 2. test one strategy: chronological in/out-of-sample split, real costs, go/no-go gates
+python -m mt5_platform.backtest run   --csv data/xauusd_m15.csv --strategy sma_crossover --balance 1000
+# 3. optional sweep (ranked in-sample, verified out-of-sample, overfitting flagged)
+python -m mt5_platform.backtest sweep --csv data/xauusd_m15.csv --grid fast_period=3,5,8 --grid slow_period=20,30,50
+# 4. see what YOUR account can actually trade (needs MT5 running, demo login in .env)
+python -m mt5_platform.runtime check --symbol XAUUSD
+# 5. run the bot on demo
+python -m mt5_platform.runtime run --symbol XAUUSD --timeframe M15
+```
+
+The engine fills at the *next* bar's open, pays spread + slippage, assumes the stop hits first
+when stop and target share a bar, and skips trades the live bot would refuse for being too big
+for the account. `run` writes `validation_report.json`; LIVE mode will not start without a
+passing report for the same symbol and timeframe. Passing the gates means "not obviously
+broken", never "profitable" — forward-test on demo before real money.
+
 ## MT5 demo adapter
 
 `EXECUTION_BACKEND=mt5` uses the real `MetaTrader5` package, so it must run on **Windows**
