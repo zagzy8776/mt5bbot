@@ -131,6 +131,21 @@ def test_real_execution_fails_closed_without_instrument_spec() -> None:
     assert not decision.approved and "instrument_spec_missing" in decision.reasons
 
 
+def test_risk_uses_execution_entry_for_money_risk() -> None:
+    settings = Settings(execution_backend="mt5", max_position_size=1.0, max_risk_per_trade_pct=1.0)
+    engine = RiskEngine(settings=settings)
+    ctx = RiskContext(
+        account=_account(10_000.0),
+        proposed_volume=0.10,
+        instrument=GOLD,
+        execution_entry=2510.0,
+    )
+    # Signal entry implies $20 risk, but the executable price implies $120 risk.
+    decision = engine.evaluate(_signal(entry=2500.0, stop=2498.0), ctx)
+    assert not decision.approved
+    assert "max_risk_per_trade" in decision.reasons
+
+
 def test_good_trade_still_approved_with_spec() -> None:
     engine = RiskEngine(settings=Settings(execution_backend="mt5", max_position_size=1.0))
     ctx = RiskContext(account=_account(), proposed_volume=0.10, instrument=GOLD)
