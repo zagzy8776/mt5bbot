@@ -102,6 +102,17 @@ class BotControlService:
             if reason:
                 raise ValueError(f"LIVE TRADING BLOCKED: {reason}")
 
+    def configure(self, *, symbol: str | None = None, timeframe: str | None = None) -> None:
+        """Change runtime target while stopped."""
+        if self._task is not None and not self._task.done():
+            raise RuntimeError("stop the runtime before changing symbol/timeframe")
+        if symbol:
+            self.symbol = symbol.strip().upper()
+        if timeframe:
+            self.timeframe = timeframe.strip().upper()
+        self._snapshot.symbol = self.symbol
+        self._snapshot.timeframe = self.timeframe
+
     async def start(self) -> dict[str, Any]:
         async with self._lock:
             if self._task is not None and not self._task.done():
@@ -144,8 +155,6 @@ class BotControlService:
                 self._loop = None
                 self._task = None
                 self._stop_event = None
-                with asyncio.CancelledError:
-                    pass
                 try:
                     await self.adapter.disconnect()
                 except Exception:
@@ -187,11 +196,10 @@ class BotControlService:
             await asyncio.wait_for(task, timeout=15.0)
         except TimeoutError:
             task.cancel()
-            with asyncio.CancelledError:
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         finally:
             try:
                 await self.adapter.disconnect()
