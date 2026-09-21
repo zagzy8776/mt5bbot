@@ -12,6 +12,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from mt5_platform.account import AccountMonitor
 from mt5_platform.backtest.data import bar_to_event
@@ -59,6 +60,7 @@ class TradingLoop:
         max_consecutive_errors: int = 5,
         reconcile_every_s: float = 60.0,
         clock: Callable[[], float] = time.monotonic,
+        intelligence: Any | None = None,
     ) -> None:
         self.settings, self.adapter, self.feed = settings, adapter, feed
         self.signal_engine, self.risk_engine = signal_engine, risk_engine
@@ -72,6 +74,7 @@ class TradingLoop:
         self._last_bar: dict[str, object] = {}
         self._last_reconcile = float("-inf")
         self.stats = LoopStats()
+        self.intelligence = intelligence
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -147,6 +150,42 @@ class TradingLoop:
                 account = await self.adapter.get_account()
                 await self._handle_signal(signal, account, quote)
 
+        # Intelligence layer (optional, behind INTELLIGENCE_ENABLED flag)
+        if self.intelligence is not None and quote is not None:
+            await self._run_intelligence(quote)
+
+    async def _run_intelligence(self, quote: Any) -> None:
+        """Feed tick to intelligence layer, produce thesis signals, evaluate positions."""
+        try:
+            ctx = self.intelligence.feed_tick(bid=quote.bid, ask=quote.ask)
+            if ctx is None or not ctx.usable_for_trading:
+                return
+            thesis = self.intelligence.produce_thesis(ctx)
+            if thesis is not None:
+                signal = self.intelligence.thesis_to_signal(thesis)
+                if signal is not None:
+                    self.stats.signals += 1
+                    account = await self.adapter.get_account()
+                    await self._handle_signal(signal, account, quote)
+            # Evaluate open positions via PositionManager
+            positions = await self.adapter.get_positions()
+            if positions:
+                results = self.intelligence.evaluate_positions(positions, ctx)
+                from mt5_platform.common.enums import PositionDecision
+                for pos, decision in results:
+                    if decision.decision in (
+                        PositionDecision.EXIT,
+                        PositionDecision.EMERGENCY_EXIT,
+                    ):
+                        try:
+                            await self.adapter.close_position(pos.ticket)
+                            self.intelligence.stats.position_exits += 1
+                        except Exception:
+                            self.intelligence.stats.errors += 1
+        except Exception:
+            if self.intelligence is not None:
+                self.intelligence.stats.errors += 1
+
     async def _handle_signal(self, signal: StrategySignal, account, quote) -> None:
         if quote is None:
             self.stats.skipped["no_quote"] += 1
@@ -192,6 +231,7 @@ class TradingLoop:
             market_session_ok=quote.age_ms < 45_000,
             proposed_volume=volume,
             instrument=spec,
+            execution_entry=est_entry,
         )
         _, decision, record = await self.order_manager.process_signal(signal, ctx, self.adapter)
         if record is not None:

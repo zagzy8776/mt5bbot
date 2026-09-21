@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     # Backtest verdict the live runtime must find (and pass) before it will trade real money.
     validation_report_path: str = "./validation_report.json"
 
+    # Intelligence layer (context + agents + synthesis + historical + position + learning).
+    # Default off: the basic strategy -> risk -> order -> MT5 path is the proven production flow.
+    intelligence_enabled: bool = False
+
     # Order / execution engine (Phase 6). "mt5" backend is Phase 7 (demo only).
     execution_backend: str = "mock"  # mock | mt5
     mock_starting_balance: float = 10_000.0

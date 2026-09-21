@@ -3,8 +3,12 @@
 Production-oriented, modular MetaTrader 5 trading platform with **demo-first** execution,
 mandatory risk checks, and a web control plane.
 
-> **Status:** Phase 5 — risk engine (full mandatory-check coverage, kill switch, pause, stats).
-> No profitability claims. No live trading until Phase 11 validation gates pass.
+> **Status:** Stage A complete — MT5 execution adapter, continuous trading runtime with
+> API-owned lifecycle control (`BotControlService`), React control-room dashboard,
+> backtest engine with go/no-go gates, and a hard live-mode validation gate.
+> Intelligence layer (context/agents/synthesis/historical/position/learning) is wired
+> behind `INTELLIGENCE_ENABLED` (default off). No profitability claims. No live trading
+> until the validation gates pass on real data — see "Backtest -> demo -> live".
 
 ## Architecture
 
@@ -43,19 +47,28 @@ DATA INGESTION  →  NORMALIZATION / VALIDATION  →  TIME-SERIES STORAGE
 
 ```
 src/mt5_platform/
-  common/        # events, enums, audit, IDs
+  common/        # events, enums, audit, IDs, money-correct instruments
   config.py      # settings + live-mode gates
   ingestion/     # M1 browser pool, M2 proxies, M3 resource policy
   pipeline/      # validation / stale / duplicate gates
-  storage/       # store interfaces + in-memory Phase 1
-  strategy/      # Strategy ABC (signals only)
-  risk/          # mandatory RiskEngine + kill switch
-  orders/        # order state machine
-  execution/     # MockExecutionAdapter + MT5 stub
+  storage/       # memory | sqlite | postgres stores
+  context/       # Market Context Engine (canonical MarketContext, regime)
+  agents/        # multi-agent intelligence: analytical + support + synthesis
+  historical/    # Historical Evidence Engine (similarity, expectancy, MAE/MFE)
+  learning/      # DecisionMemory, PostTradeReview, HypothesisRegistry
+  position/      # Position Intelligence: HOLD/MODIFY/REDUCE/EXIT/EMERGENCY_EXIT
+  strategy/      # Strategy ABC + sma_crossover/breakout/mean_reversion/momentum
+  risk/          # mandatory RiskEngine + persisted kill switch
+  orders/        # order state machine (broker state is truth)
+  execution/     # MockExecutionAdapter + real MT5ExecutionAdapter
+  runtime/       # MT5CandleFeed + TradingLoop + BotControlService + intelligence wiring
   account/       # account monitoring
   observability/ # health payloads
-  api/           # FastAPI routes
+  api/           # FastAPI routes (incl. runtime control + account/positions/quote)
+  backtest/      # engine, metrics, gates, sweeps, Dukascopy fetch, validation gate
   main.py        # uvicorn entry
+frontend/        # React + Vite control-room dashboard
+deploy/          # Windows EC2 setup, Task Scheduler autostart, Caddy config
 ```
 
 ## Development phases
@@ -205,7 +218,9 @@ live anywhere and talk to this API over HTTPS with `API_TOKEN` set.
 
 - Default `TRADING_MODE=demo`
 - Live mode refuses to boot without dual acknowledgment flags
-- Mock adapter is the only executable execution backend (`mt5` stub raises until Phase 7)
+- Mock adapter for tests; the `mt5` backend refuses real-money accounts until live is acknowledged
 - Signals never become orders without a risk approval; kill switch blocks submission
+- Risk math uses the executable price (`execution_entry` from the live quote), not the stale signal entry
 - Broker state is truth: reconciliation corrects local order state and audits every mismatch
 - Do not bypass risk or order-management layers from ingestion workers
+- Windows deployment: see `docs/RUNBOOK-AWS.md` (one-machine setup, Task Scheduler autostart, HTTPS)

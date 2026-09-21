@@ -1,0 +1,111 @@
+{
+  "generated_at": "2026-09-21T12:41:35.001391+00:00",
+  "passed": false,
+  "symbol": "XAUUSD",
+  "timeframe": "M15",
+  "strategy": "sma_crossover",
+  "params": {},
+  "data_range": [
+    "2024-01-01",
+    "2024-03-27"
+  ],
+  "gates": {
+    "passed": false,
+    "checks": [
+      {
+        "name": "enough trades",
+        "ok": false,
+        "detail": "23 (need 100)"
+      },
+      {
+        "name": "profit factor",
+        "ok": false,
+        "detail": "0.53 (need 1.3)"
+      },
+      {
+        "name": "expectancy > 0",
+        "ok": false,
+        "detail": "-3.1013 per trade"
+      },
+      {
+        "name": "drawdown",
+        "ok": true,
+        "detail": "10.6% (max 20.0%)"
+      },
+      {
+        "name": "OOS enough trades",
+        "ok": true,
+        "detail": "43 (need 30)"
+      },
+      {
+        "name": "OOS profit factor",
+        "ok": false,
+        "detail": "0.88 (need 1.1)"
+      },
+      {
+        "name": "OOS profitable",
+        "ok": false,
+        "detail": "-27.38"
+      },
+      {
+        "name": "OOS drawdown",
+        "ok": true,
+        "detail": "8.9%"
+      }
+    ]
+  },
+  "in_sample": {
+    "starting_balance": 1000.0,
+    "final_equity": 928.6702813935192,
+    "net_profit": -71.32971860648081,
+    "return_pct": -7.132971860648081,
+    "n_trades": 23,
+    "win_rate": 0.21739130434782608,
+    "profit_factor": 0.5283535919095173,
+    "avg_win": 15.981172500904176,
+    "avg_loss": -8.401976728388982,
+    "expectancy_money": -3.1012921133252527,
+    "expectancy_r": -0.36634272808175716,
+    "max_drawdown_pct": 10.619482666692958,
+    "longest_losing_streak": 9,
+    "weeks": 9,
+    "avg_weekly_pnl": -7.925524289608979,
+    "pct_weeks_profitable": 0.1111111111111111,
+    "weekly_pnl": [
+      5.649785590898773,
+      -76.97950419737958,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "out_of_sample": {
+    "starting_balance": 1000.0,
+    "final_equity": 972.620138359729,
+    "net_profit": -27.379861640270974,
+    "return_pct": -2.7379861640270975,
+    "n_trades": 43,
+    "win_rate": 0.32558139534883723,
+    "profit_factor": 0.8849149286295499,
+    "avg_win": 15.037849839977769,
+    "avg_loss": -8.203784806895163,
+    "expectancy_money": -0.6367409683783948,
+    "expectancy_r": -0.080811617967089,
+    "max_drawdown_pct": 8.925473922690104,
+    "longest_losing_streak": 5,
+    "weeks": 5,
+    "avg_weekly_pnl": -5.475972328054195,
+    "pct_weeks_profitable": 0.4,
+    "weekly_pnl": [
+      21.9680527881726,
+      7.968560799590023,
+      -10.755388874886648,
+      -35.9660594462041,
+      -10.595026906942849
+    ]
+  }
+}

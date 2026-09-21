@@ -136,6 +136,27 @@ async def test_small_account_takes_no_trade() -> None:
     assert fake.sent == [] and loop.stats.skipped["size_too_small"] == 1
 
 
+async def test_loop_passes_execution_entry_to_risk_from_current_quote() -> None:
+    """The live hot path must use the current quote (ask/bid) for risk money math,
+    not the stale signal.entry. Regression guard for the three-price mismatch."""
+    loop, fake, feed, risk = await _rig()
+    # Quote that differs from the bar close (which AlwaysBuy uses as signal.entry).
+    feed._quote = Quote(2505.0, 2505.3, 30.0, 0.0)
+    await loop.start()
+    feed.add_bar()
+    captured: list[float | None] = []
+    real = risk.evaluate
+
+    def capture(signal, ctx):
+        captured.append(ctx.execution_entry)
+        return real(signal, ctx)
+
+    risk.evaluate = capture  # type: ignore[method-assign]
+    await loop.run_once()
+    assert len(fake.sent) == 1
+    assert captured and captured[0] == pytest.approx(2505.3)  # BUY -> quote.ask
+
+
 async def test_no_quote_means_no_trade() -> None:
     loop, fake, feed, _ = await _rig()
     feed._quote = None

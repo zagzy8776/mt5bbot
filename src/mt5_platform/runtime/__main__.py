@@ -18,6 +18,7 @@ from mt5_platform.risk import RiskEngine
 from mt5_platform.runtime.feed import MT5CandleFeed
 from mt5_platform.runtime.loop import TradingLoop
 from mt5_platform.signals import SignalEngine
+from mt5_platform.storage import create_store_from_settings
 from mt5_platform.strategy.registry import create_strategy
 
 
@@ -73,22 +74,37 @@ async def _run(args: argparse.Namespace) -> int:
 
     adapter = MT5ExecutionAdapter(settings)
     risk = RiskEngine(settings=settings)
+    store = create_store_from_settings(settings)
+    engine = getattr(store, "_engine", None)
+    if engine is not None:
+        from mt5_platform.storage.db import init_db
+        await init_db(engine)
+    from mt5_platform.signals import AuditStoreSink, SignalStoreSink
+    signal_engine = SignalEngine(
+        strategies,
+        min_confidence=settings.signal_min_confidence,
+        require_stop_loss=True,
+        cooldown_s=settings.signal_cooldown_s,
+        sink=SignalStoreSink(store),
+        audit_sink=AuditStoreSink(store),
+    )
+    intelligence = None
+    if getattr(settings, "intelligence_enabled", False):
+        from mt5_platform.runtime.intelligence import IntelligenceLayer
+        intelligence = IntelligenceLayer(symbol=args.symbol)
+        print(f"intelligence layer ENABLED for {args.symbol}")
     loop = TradingLoop(
         settings=settings,
         adapter=adapter,
         feed=MT5CandleFeed(adapter, args.timeframe),
-        signal_engine=SignalEngine(
-            strategies,
-            min_confidence=settings.signal_min_confidence,
-            require_stop_loss=True,
-            cooldown_s=settings.signal_cooldown_s,
-        ),
+        signal_engine=signal_engine,
         risk_engine=risk,
-        order_manager=OrderManager(settings=settings, risk_engine=risk),
+        order_manager=OrderManager(settings=settings, store=store, risk_engine=risk),
         monitor=AccountMonitor(settings, risk),
         symbols=[args.symbol],
         risk_pct=args.risk_pct,
         poll_s=args.poll,
+        intelligence=intelligence,
     )
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -105,6 +121,8 @@ async def _run(args: argparse.Namespace) -> int:
     finally:
         print("stats:", loop.stats.to_dict())
         await adapter.disconnect()
+        if engine is not None:
+            await engine.dispose()
     return 0
 
 
