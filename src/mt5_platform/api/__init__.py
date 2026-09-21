@@ -44,6 +44,7 @@ class RiskContextRequest(BaseModel):
     proposed_volume: float | None = Field(default=None, gt=0)
     current_exposure: float | None = Field(default=None, ge=0)
     current_slippage: float | None = Field(default=None, ge=0)
+    execution_entry: float | None = Field(default=None, gt=0)
 
 
 class RuntimeControlRequest(BaseModel):
@@ -219,7 +220,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return runtime_service.snapshot.get("stats", {})
 
     @app.post("/api/v1/runtime/start")
-    async def runtime_start(req: RuntimeControlRequest = RuntimeControlRequest()) -> dict:
+    async def runtime_start(req: RuntimeControlRequest = Field(default_factory=RuntimeControlRequest)) -> dict:
         try:
             runtime_service.configure(symbol=req.symbol, timeframe=req.timeframe)
             return await runtime_service.start()
