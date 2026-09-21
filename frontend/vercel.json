@@ -4,9 +4,6 @@
   "framework": "vite",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "env": {
-    "VITE_API_BASE_URL": "@api_base_url"
-  }
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
 }
