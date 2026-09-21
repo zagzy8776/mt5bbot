@@ -174,6 +174,10 @@ class BotControlService:
             self._snapshot.last_error = str(exc)
         finally:
             self._snapshot.connected = False
+            try:
+                await self.adapter.disconnect()
+            except Exception as exc:
+                self._snapshot.last_error = str(exc)
 
     async def stop(self) -> dict[str, Any]:
         async with self._lock:
