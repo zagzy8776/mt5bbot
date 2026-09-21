@@ -1,25 +1,21 @@
-# Caddy reverse proxy for the FastAPI control plane + frontend static files.
+# Caddy: serves frontend + API on port 80 (HTTP).
 #
-# Run:     C:\caddy.exe run --config C:\mt5bbot\deploy\caddy\Caddyfile
+# Architecture: browser at http://13.53.232.117 → Caddy :80
+#   /health, /api/* → FastAPI 127.0.0.1:8000
+#   /assets/*       → frontend/dist (static files)
+#   /*              → frontend/dist/index.html (SPA fallback)
 #
-# SETUP:
-#   1. Create DNS A record: api.<YOURDOMAIN> -> 13.53.232.117
-#   2. Replace "<YOURDOMAIN>" below with your actual domain
-#   3. Caddy auto-provisions HTTPS via Let's Encrypt (port 80 + 443 must be open)
-#   4. Update CORS_ORIGINS in .env to include https://frontend-three-eta-53.vercel.app
-#   5. Update VITE_API_BASE_URL in Vercel to https://api.<YOURDOMAIN>
-#
-# FastAPI listens on 127.0.0.1:8000 only. All external access goes through Caddy.
+# FastAPI listens on 127.0.0.1:8000 only. All external access through Caddy.
+# When a domain is available, replace ":80" with "api.<YOURDOMAIN>" for HTTPS.
 
-api.<YOURDOMAIN> {
+:80 {
     reverse_proxy 127.0.0.1:8000
     header {
-        Strict-Transport-Security "max-age=31536000"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "no-referrer"
     }
-    # Health probe — public, no auth required (app layer handles it)
+    # Health probe — public
     @health path /health
     handle @health {
         reverse_proxy 127.0.0.1:8000
@@ -30,7 +26,14 @@ api.<YOURDOMAIN> {
         root * C:\mt5bbot\frontend\dist
         file_server
     }
-    # Everything else -> FastAPI (SPA fallback + API routes)
+    # SPA: non-API, non-asset routes → index.html
+    @spa not path /api/* /health /assets/*
+    handle @spa {
+        root * C:\mt5bbot\frontend\dist
+        try_files {path} /index.html
+        file_server
+    }
+    # API routes → FastAPI
     handle {
         reverse_proxy 127.0.0.1:8000
     }
