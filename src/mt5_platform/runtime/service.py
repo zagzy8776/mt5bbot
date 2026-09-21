@@ -206,6 +206,9 @@ class BotControlService:
             except Exception as exc:
                 self._snapshot.last_error = str(exc)
             async with self._lock:
+                if self._loop is not None:
+                    self._snapshot.stats = self._loop.stats.to_dict()
+                    self._snapshot.kill_switch = self.risk_engine.kill_switch
                 self._task = None
                 self._stop_event = None
                 self._loop = None
