@@ -82,6 +82,8 @@ class BotControlService:
             snap.connected = bool(getattr(self.adapter, "_connected", False))
             snap.kill_switch = self.risk_engine.kill_switch
             snap.stats = self._loop.stats.to_dict()
+            if self._loop.intelligence is not None:
+                snap.stats["intelligence"] = self._loop.intelligence.stats.to_dict()
         return snap.to_dict()
 
     def _validate_start(self) -> None:
@@ -126,6 +128,10 @@ class BotControlService:
 
             try:
                 self._stop_event = asyncio.Event()
+                intelligence = None
+                if getattr(self.settings, "intelligence_enabled", False):
+                    from mt5_platform.runtime.intelligence import IntelligenceLayer
+                    intelligence = IntelligenceLayer(symbol=self.symbol)
                 self._loop = TradingLoop(
                     settings=self.settings,
                     adapter=self.adapter,
@@ -137,6 +143,7 @@ class BotControlService:
                     symbols=[self.symbol],
                     poll_s=5.0,
                     warmup_bars=200,
+                    intelligence=intelligence,
                 )
                 await self._loop.start()
                 self._snapshot.started_at = datetime.now(UTC).isoformat()
