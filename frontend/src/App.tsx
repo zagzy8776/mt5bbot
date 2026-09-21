@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   api,
   getToken,
@@ -22,11 +22,11 @@ const fmt = (value: number | null | undefined, digits = 2) =>
 const money = (value: number | null | undefined) =>
   value == null || Number.isNaN(value) ? "—" : `${value < 0 ? "-" : ""}$${fmt(Math.abs(value), 2)}`;
 
-function Badge({ tone = "neutral", children }: { tone?: "good" | "bad" | "warn" | "neutral"; children: React.ReactNode }) {
+function Badge({ tone = "neutral", children }: { tone?: "good" | "bad" | "warn" | "neutral"; children: ReactNode }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
 
-function Card({ title, value, note }: { title: string; value: React.ReactNode; note?: string }) {
+function Card({ title, value, note }: { title: string; value: ReactNode; note?: string }) {
   return (
     <section className="card stat-card">
       <div className="eyebrow">{title}</div>
