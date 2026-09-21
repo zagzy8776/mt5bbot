@@ -48,3 +48,6 @@ credentials.json
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
+data/xauusd_m15.csv
+risk_state.json
+validation_report.json
