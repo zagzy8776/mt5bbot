@@ -42,6 +42,8 @@ class RiskContext:
     # Broker contract spec. Required for real (mt5) execution: without it, price distance
     # cannot be converted to money and every risk/exposure check would be wrong.
     instrument: InstrumentSpec | None = None
+    # Price expected to be executed at the broker; this can differ from signal.entry.
+    execution_entry: float | None = None
 
 
 @dataclass
@@ -336,7 +338,7 @@ class RiskEngine:
         if spec is not None:
             reasons.extend(spec.volume_is_valid(volume))
 
-        entry = signal.entry or 0.0
+        entry = ctx.execution_entry if ctx.execution_entry is not None else (signal.entry or 0.0)
         equity = account.equity
         if equity > 0 and entry > 0 and signal.stop_loss is not None:
             if spec is not None:
