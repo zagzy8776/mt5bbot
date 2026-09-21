@@ -172,6 +172,20 @@ for the account. `run` writes `validation_report.json`; LIVE mode will not start
 passing report for the same symbol and timeframe. Passing the gates means "not obviously
 broken", never "profitable" — forward-test on demo before real money.
 
+## Control-room dashboard
+
+A React + Vite dashboard lives in `frontend/` and consumes the authenticated FastAPI control plane.
+
+```bash
+cd frontend
+npm install
+copy .env.example .env.local
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` to the deployed API URL. The dashboard stores the bearer token only in
+session storage and uses the runtime API to start/stop/restart the MT5 worker.
+
 ## MT5 demo adapter
 
 `EXECUTION_BACKEND=mt5` uses the real `MetaTrader5` package, so it must run on **Windows**

@@ -17,6 +17,7 @@ from mt5_platform.execution import build_execution_adapter
 from mt5_platform.observability import build_health_payload, configure_logging
 from mt5_platform.orders import OrderManager
 from mt5_platform.risk import RiskContext, RiskEngine
+from mt5_platform.runtime import BotControlService
 from mt5_platform.signals import build_signal_engine
 from mt5_platform.storage import create_store_from_settings
 from mt5_platform.storage.db import init_db
@@ -43,6 +44,12 @@ class RiskContextRequest(BaseModel):
     proposed_volume: float | None = Field(default=None, gt=0)
     current_exposure: float | None = Field(default=None, ge=0)
     current_slippage: float | None = Field(default=None, ge=0)
+    execution_entry: float | None = Field(default=None, gt=0)
+
+
+class RuntimeControlRequest(BaseModel):
+    symbol: str | None = None
+    timeframe: str | None = None
 
 
 class RiskEvaluateRequest(BaseModel):
@@ -67,6 +74,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     risk_engine = RiskEngine(settings=settings)
     order_manager = OrderManager(settings=settings, store=store, risk_engine=risk_engine)
     execution_adapter = build_execution_adapter(settings)
+    runtime_service = BotControlService(
+        settings=settings,
+        adapter=execution_adapter,
+        signal_engine=signal_engine,
+        risk_engine=risk_engine,
+        order_manager=order_manager,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -87,6 +101,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         )
         yield
+        await runtime_service.stop()
+        audit_log.emit(
+            AuditEvent(
+                component="api",
+                event_type=AuditEventType.SYSTEM_STOP.value,
+                severity=Severity.INFO,
+                payload={"runtime_state": runtime_service.snapshot.get("state")},
+            )
+        )
         if engine is not None:
             await engine.dispose()
 
@@ -117,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.risk_engine = risk_engine
     app.state.order_manager = order_manager
     app.state.execution_adapter = execution_adapter
+    app.state.runtime_service = runtime_service
 
     app.add_middleware(
         CORSMiddleware,
@@ -160,6 +184,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ),
                 "mt5": (
                     ComponentHealth.UP
+                    if runtime_service.snapshot["connected"]
+                    else ComponentHealth.DEGRADED
                     if settings.execution_backend == "mt5"
                     else ComponentHealth.DISABLED
                 ),
@@ -183,6 +209,70 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "strategies": settings.active_strategies,
             "execution_backend": settings.execution_backend,
             "phase": 6,
+            "runtime": runtime_service.snapshot,
+        }
+
+    @app.get("/api/v1/runtime")
+    async def runtime_status() -> dict:
+        return runtime_service.snapshot
+
+    @app.get("/api/v1/runtime/stats")
+    async def runtime_stats() -> dict:
+        return runtime_service.snapshot.get("stats", {})
+
+    @app.post("/api/v1/runtime/start")
+    async def runtime_start(req: RuntimeControlRequest | None = None) -> dict:
+        req = req or RuntimeControlRequest()
+        try:
+            runtime_service.configure(symbol=req.symbol, timeframe=req.timeframe)
+            return await runtime_service.start()
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/v1/runtime/stop")
+    async def runtime_stop() -> dict:
+        return await runtime_service.stop()
+
+    @app.post("/api/v1/runtime/restart")
+    async def runtime_restart() -> dict:
+        try:
+            return await runtime_service.restart()
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/v1/account")
+    async def account_snapshot() -> dict:
+        try:
+            account = await runtime_service.refresh_account()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return account.model_dump(mode="json")
+
+    @app.get("/api/v1/positions")
+    async def positions_snapshot() -> dict:
+        try:
+            positions = await runtime_service.refresh_positions()
+        except (RuntimeError, Exception) as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return {"positions": [p.model_dump(mode="json") for p in positions]}
+
+    @app.get("/api/v1/market/quote")
+    async def market_quote(symbol: str = Query(..., min_length=1)) -> dict:
+        adapter = execution_adapter
+        if not getattr(adapter, "_connected", False) or not hasattr(adapter, "call"):
+            raise HTTPException(status_code=503, detail="MT5 runtime is not connected")
+        sym = symbol.strip().upper()
+        tick = await adapter.call("symbol_info_tick", sym)
+        info = await adapter.call("symbol_info", sym)
+        if tick is None or info is None or not float(tick.bid) or not float(tick.ask):
+            raise HTTPException(status_code=404, detail=f"quote unavailable for {sym}")
+        point = float(info.point) or 0.01
+        return {
+            "symbol": sym,
+            "bid": float(tick.bid),
+            "ask": float(tick.ask),
+            "spread_points": (float(tick.ask) - float(tick.bid)) / point,
+            "time_msc": getattr(tick, "time_msc", None),
         }
 
     @app.get("/api/v1/orders")
