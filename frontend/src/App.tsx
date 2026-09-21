@@ -46,7 +46,7 @@ export default function App() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [risk, setRisk] = useState<Risk | null>(null);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
-  const [symbol, setSymbol] = useState("XAUUSD");
+  const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -155,7 +155,9 @@ export default function App() {
           </div>
           <div className="top-actions">
             {runtime && <Badge tone={running ? "good" : runtime.state === "error" ? "bad" : "warn"}>{runtime.state.toUpperCase()}</Badge>}
-            <Badge tone={risk?.kill_switch ? "bad" : "good"}>{risk?.kill_switch ? "KILL SWITCH" : "TRADING ENABLED"}</Badge>
+            <Badge tone="neutral">{status?.trading_mode === "demo" ? "DEMO" : status?.is_live ? "LIVE" : "UNKNOWN"}</Badge>
+            {runtime && <Badge tone={connected ? "good" : "warn"}>{connected ? "MT5 CONNECTED" : "MT5 OFFLINE"}</Badge>}
+            <Badge tone={risk?.kill_switch ? "bad" : "warn"}>{risk?.kill_switch ? "KILL SWITCH" : running ? "TRADING" : "STOPPED"}</Badge>
           </div>
         </header>
 
@@ -229,7 +231,7 @@ export default function App() {
               <label>Timeframe<select value={timeframe} onChange={(e) => setTimeframe(e.target.value)}>{["M1","M5","M15","M30","H1","H4"].map(tf => <option key={tf}>{tf}</option>)}</select></label>
             </div>
             <p className="muted">Runtime changes apply the next time the bot is started.</p>
-            <pre>{JSON.stringify(status, null, 2)}</pre>
+            <pre>{status ? JSON.stringify(status, null, 2) : "API not reachable — check token and URL above."}</pre>
           </section>
         )}
       </main>

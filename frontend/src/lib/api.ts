@@ -21,9 +21,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+      throw new Error(`Cannot reach API at ${API_BASE} — check URL and CORS settings.`);
+    }
+    throw new Error(msg);
+  }
   if (!response.ok) {
     let detail = `Request failed (${response.status})`;
+    if (response.status === 401) {
+      detail = "Unauthorized — paste your API token in Settings.";
+    }
     try {
       const body = (await response.json()) as ApiError;
       if (body.detail) detail = body.detail;
