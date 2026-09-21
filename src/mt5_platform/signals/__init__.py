@@ -123,6 +123,15 @@ class SignalEngine:
             return []
         return self._recent[-limit:]
 
+    def reset_state(self) -> None:
+        """Reset strategy/cooldown state before a fresh runtime warm-up.
+
+        Counters and persisted recent signals are intentionally retained for observability.
+        """
+        for strategy in self.strategies:
+            strategy.reset()
+        self._last_emitted.clear()
+
     def stats_snapshot(self) -> dict:
         return {
             **self.stats.to_dict(),
