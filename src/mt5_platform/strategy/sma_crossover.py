@@ -57,7 +57,7 @@ class SmaCrossoverStrategy(PctRiskMixin, Strategy):
         return sum(tail) / period
 
     def confidence(self, event: MarketDataEvent) -> float:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return 0.0
         window = self._window(symbol)
@@ -71,7 +71,7 @@ class SmaCrossoverStrategy(PctRiskMixin, Strategy):
         return max(0.0, min(1.0, sep * 50.0))
 
     def generate_signal(self, event: MarketDataEvent) -> StrategySignal | None:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return None
 

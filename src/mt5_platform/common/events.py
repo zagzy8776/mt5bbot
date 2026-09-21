@@ -42,7 +42,7 @@ class MarketDataEvent(BaseModel):
     @field_validator("symbol")
     @classmethod
     def _normalize_symbol(cls, value: str) -> str:
-        return value.strip().upper()
+        return value.strip()
 
 
 class StrategySignal(BaseModel):
@@ -64,7 +64,7 @@ class StrategySignal(BaseModel):
     @field_validator("symbol")
     @classmethod
     def _normalize_symbol(cls, value: str) -> str:
-        return value.strip().upper()
+        return value.strip()
 
 
 class RiskDecision(BaseModel):
@@ -96,7 +96,7 @@ class OrderRequest(BaseModel):
     @field_validator("symbol")
     @classmethod
     def _normalize_symbol(cls, value: str) -> str:
-        return value.strip().upper()
+        return value.strip()
 
 
 class ExecutionRecord(BaseModel):

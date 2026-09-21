@@ -46,7 +46,7 @@ class BreakoutStrategy(PctRiskMixin, Strategy):
         return self._history[symbol]
 
     def confidence(self, event: MarketDataEvent) -> float:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return 0.0
         window = self._window(symbol)
@@ -65,7 +65,7 @@ class BreakoutStrategy(PctRiskMixin, Strategy):
         return 0.0
 
     def generate_signal(self, event: MarketDataEvent) -> StrategySignal | None:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return None
 

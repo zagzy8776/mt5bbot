@@ -67,7 +67,7 @@ class BotControlService:
         self.signal_engine = signal_engine
         self.risk_engine = risk_engine
         self.order_manager = order_manager
-        self.symbol = (symbol or settings.default_symbol).strip().upper()
+        self.symbol = (symbol or settings.default_symbol).strip()
         self.timeframe = timeframe.strip().upper()
         self._lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
@@ -109,7 +109,7 @@ class BotControlService:
         if self._task is not None and not self._task.done():
             raise RuntimeError("stop the runtime before changing symbol/timeframe")
         if symbol:
-            self.symbol = symbol.strip().upper()
+            self.symbol = symbol.strip()
         if timeframe:
             self.timeframe = timeframe.strip().upper()
         self._snapshot.symbol = self.symbol

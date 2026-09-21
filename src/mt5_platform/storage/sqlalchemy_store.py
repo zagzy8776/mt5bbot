@@ -309,7 +309,7 @@ class SqlAlchemyMarketDataStore(MarketDataStore):
     ) -> list[StrategySignal]:
         stmt = select(SignalRow).order_by(SignalRow.timestamp.desc()).limit(limit)
         if symbol:
-            stmt = stmt.where(SignalRow.symbol == symbol.upper())
+            stmt = stmt.where(SignalRow.symbol == symbol)
         async with self._session_factory() as session:
             rows = (await session.execute(stmt)).scalars().all()
         return [

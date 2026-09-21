@@ -226,7 +226,7 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             return None
         try:
             return InstrumentSpec(
-                symbol=symbol.upper(),
+                symbol=symbol,
                 contract_size=float(info.trade_contract_size),
                 tick_size=float(info.trade_tick_size),
                 tick_value=float(info.trade_tick_value),
@@ -297,7 +297,7 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         return PositionInfo(
             ticket=str(p.ticket),
             order_id=None,
-            symbol=str(p.symbol).upper(),
+            symbol=str(p.symbol),
             side=side,
             volume=float(p.volume),
             entry_price=float(p.price_open),
@@ -550,7 +550,7 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             record = ExecutionRecord(
                 execution_id=new_execution_id(),
                 order_id="",
-                symbol=str(pos.symbol).upper(),
+                symbol=str(pos.symbol),
                 side=OrderSide.SELL if is_buy else OrderSide.BUY,
                 requested_volume=float(pos.volume),
                 requested_price=price,
@@ -574,7 +574,7 @@ class MT5ExecutionAdapter(ExecutionAdapter):
                     Severity.INFO,
                     AuditEventType.POSITION_CLOSED,
                     {"ticket": int(pos.ticket), "price": exec_price},
-                    symbol=str(pos.symbol).upper(),
+                    symbol=str(pos.symbol),
                 )
             return record
 

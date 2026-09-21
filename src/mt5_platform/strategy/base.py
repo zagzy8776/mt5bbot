@@ -36,7 +36,7 @@ class Strategy(ABC):
     _parameter_names: tuple[str, ...] = ()
 
     def __init__(self, *, symbols: Iterable[str] | None = None) -> None:
-        self.symbols: set[str] | None = {s.upper() for s in symbols} if symbols else None
+        self.symbols: list[str] | None = [s.strip() for s in symbols] if symbols else None
 
     @abstractmethod
     def generate_signal(self, event: MarketDataEvent) -> StrategySignal | None:
@@ -59,8 +59,15 @@ class Strategy(ABC):
         raise NotImplementedError
 
     def handles(self, symbol: str) -> bool:
-        """True when this strategy is scoped to (or unrestricted for) the symbol."""
-        return self.symbols is None or symbol.upper() in self.symbols
+        """True when this strategy is scoped to (or unrestricted for) the symbol.
+
+        Case-insensitive: broker symbols like XAUUSDm may have mixed-case suffixes
+        that are significant in MT5 but strategies should match regardless of casing.
+        """
+        if self.symbols is None:
+            return True
+        sym_lower = symbol.strip().lower()
+        return any(s.lower() == sym_lower for s in self.symbols)
 
     def parameters(self) -> dict:
         """Serialized instance parameters (excludes symbol scope, shown separately)."""

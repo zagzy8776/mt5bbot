@@ -63,7 +63,7 @@ class MomentumStrategy(PctRiskMixin, Strategy):
         return (current - oldest) / oldest * 100.0
 
     def confidence(self, event: MarketDataEvent) -> float:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return 0.0
         momentum = self._momentum_pct(symbol)
@@ -72,7 +72,7 @@ class MomentumStrategy(PctRiskMixin, Strategy):
         return max(0.0, min(1.0, abs(momentum) / (2.0 * self.threshold_pct)))
 
     def generate_signal(self, event: MarketDataEvent) -> StrategySignal | None:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return None
 

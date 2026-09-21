@@ -55,14 +55,14 @@ class InMemoryMarketDataStore(MarketDataStore):
     ) -> list[StrategySignal]:
         rows = self.signals
         if symbol:
-            rows = [s for s in rows if s.symbol == symbol.upper()]
+            rows = [s for s in rows if s.symbol.lower() == symbol.lower()]
         return sorted(rows, key=lambda s: s.timestamp, reverse=True)[:limit]
 
     async def write_candles(self, candles: list[Candle]) -> None:
         self.candles.extend(candles)
 
     async def build_and_store_candles(self, *, symbol: str, timeframe: str = "1m") -> list[Candle]:
-        events = [t for t in self.ticks if t.symbol == symbol.upper()]
+        events = [t for t in self.ticks if t.symbol.lower() == symbol.lower()]
         candles = aggregate_ohlc(events, timeframe=timeframe)
         await self.write_candles(candles)
         return candles
@@ -77,7 +77,7 @@ class InMemoryMarketDataStore(MarketDataStore):
     ) -> list[MarketDataEvent]:
         rows = self.ticks
         if symbol:
-            rows = [t for t in rows if t.symbol == symbol.upper()]
+            rows = [t for t in rows if t.symbol.lower() == symbol.lower()]
         if start:
             rows = [t for t in rows if t.timestamp >= start]
         if end:

@@ -62,7 +62,7 @@ class MeanReversionStrategy(PctRiskMixin, Strategy):
         return (window[-1] - mu) / sd
 
     def confidence(self, event: MarketDataEvent) -> float:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return 0.0
         z = self._zscore(symbol)
@@ -71,7 +71,7 @@ class MeanReversionStrategy(PctRiskMixin, Strategy):
         return max(0.0, min(1.0, abs(z) / (2.0 * self.threshold)))
 
     def generate_signal(self, event: MarketDataEvent) -> StrategySignal | None:
-        symbol = event.symbol.upper()
+        symbol = event.symbol
         if not self.handles(symbol):
             return None
 

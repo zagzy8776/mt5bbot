@@ -261,7 +261,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         adapter = execution_adapter
         if not getattr(adapter, "_connected", False) or not hasattr(adapter, "call"):
             raise HTTPException(status_code=503, detail="MT5 runtime is not connected")
-        sym = symbol.strip().upper()
+        sym = symbol.strip()
         tick = await adapter.call("symbol_info_tick", sym)
         info = await adapter.call("symbol_info", sym)
         if tick is None or info is None or not float(tick.bid) or not float(tick.ask):

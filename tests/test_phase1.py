@@ -63,7 +63,7 @@ def test_market_data_event_normalizes_symbol_and_timestamp() -> None:
         ask=2500.5,
         price=2500.25,
     )
-    assert event.symbol == "XAUUSD"
+    assert event.symbol == "xauusd"
     assert event.timestamp.tzinfo is not None
 
 

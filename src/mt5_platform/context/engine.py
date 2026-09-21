@@ -68,7 +68,7 @@ class MarketContextEngine:
     ) -> None:
         if primary_timeframe_s not in timeframes_s:
             raise ValueError("primary_timeframe_s must be one of timeframes_s")
-        self.symbol = symbol.upper()
+        self.symbol = symbol.strip()
         self.primary_timeframe_s = primary_timeframe_s
         self.min_primary_bars = min_primary_bars
         self.stale_warn_s = stale_warn_s

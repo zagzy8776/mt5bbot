@@ -72,7 +72,7 @@ def test_strategy_info_describes_parameters() -> None:
     info = strategy.info()
     assert info["name"] == "sma_crossover"
     assert info["enabled"] is True
-    assert info["symbols"] == ["XAUUSD"]
+    assert info["symbols"] == ["xauusd"]
     assert info["parameters"]["fast_period"] == 3
     assert info["parameters"]["slow_period"] == 10
     assert info["parameters"]["stop_loss_pct"] == 0.5
