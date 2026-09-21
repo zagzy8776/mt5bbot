@@ -77,6 +77,7 @@ class TradingLoop:
 
     async def start(self) -> None:
         """Connect, recover state from the broker, and warm strategies on closed history."""
+        self.signal_engine.reset_state()
         await self.adapter.connect()
         await self.order_manager.reconcile(self.adapter)
         for symbol in self.symbols:
@@ -91,6 +92,10 @@ class TradingLoop:
 
     async def run(self, stop: asyncio.Event) -> None:
         await self.start()
+        await self.run_started(stop)
+
+    async def run_started(self, stop: asyncio.Event) -> None:
+        """Run the polling cycle after start() has completed successfully."""
         while not stop.is_set():
             try:
                 await self.run_once()
@@ -113,9 +118,6 @@ class TradingLoop:
                 await asyncio.wait_for(stop.wait(), timeout=self.poll_s)
             except TimeoutError:
                 pass
-
-    # ---------------------------------------------------------------------- cycle
-
     async def run_once(self) -> None:
         self.stats.cycles += 1
         if not await self.adapter.is_connected():
