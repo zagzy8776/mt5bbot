@@ -65,6 +65,8 @@ shutdown /r /t 0
 # after reboot:
 Get-ScheduledTask | Where-Object TaskName -like 'MT5-*'
 curl.exe https://api.YOURDOMAIN.com/health
+# BotControlService auto-starts the trading loop after ~12 min via MT5-AutoStart task.
+# To start/stop manually: POST /api/v1/runtime/start or /stop
 ```
 
 ## 5. HTTPS with Caddy
@@ -84,8 +86,8 @@ caddy run --config C:\mt5bbot\deploy\caddy\Caddyfile
 ## 7. If something breaks
 | Symptom | First check |
 |---|---|
-| `MT5NotAvailable` | MetaTrader5 package installed in the venv? 64-bit Python? |
+| `MT5NotAvailable` | MetaTrader5 package installed in the venv? 64-bit Python? Terminal installed and path set in `.env`? |
 | `RealAccountBlocked` | Account is real-money but TRADING_MODE=demo — use demo, or complete the live gate |
-| Task didn't start | `Get-ScheduledTaskInfo MT5-Bot-Runtime` → LastTaskResult |
+| Task didn't start | `Get-ScheduledTaskInfo MT5-API` or `MT5-AutoStart` → LastTaskResult |
 | API 401 from dashboard | API_TOKEN mismatch / CORS_ORIGINS missing dashboard URL |
 | Bot `state: error` | `GET /api/v1/runtime` → last_error; audit log via API |

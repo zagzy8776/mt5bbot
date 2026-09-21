@@ -131,7 +131,9 @@ class BotControlService:
                 intelligence = None
                 if getattr(self.settings, "intelligence_enabled", False):
                     from mt5_platform.runtime.intelligence import IntelligenceLayer
-                    intelligence = IntelligenceLayer(symbol=self.symbol)
+                    intelligence = IntelligenceLayer(
+                        symbol=self.symbol, timeframe=self.timeframe
+                    )
                 self._loop = TradingLoop(
                     settings=self.settings,
                     adapter=self.adapter,

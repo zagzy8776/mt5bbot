@@ -151,7 +151,16 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             init_kwargs["server"] = s.mt5_server
         ok = await self._call("initialize", **init_kwargs)
         if not ok:
-            raise ConnectionError(f"MT5 initialize failed: {await self._last_error()}")
+            err = await self._last_error()
+            # Error code -10003 means "MetaTrader 5 x64 not found" — the package
+            # is installed but the terminal is not.  Treat this the same as a
+            # missing package so callers get a single, clear exception type.
+            if err and err[0] == -10003:
+                raise MT5NotAvailable(
+                    f"MetaTrader 5 terminal not found: {err[1]}. "
+                    "Install the terminal or set MT5_TERMINAL_PATH in .env."
+                )
+            raise ConnectionError(f"MT5 initialize failed: {err}")
 
         info = await self._call("account_info")
         if info is None:

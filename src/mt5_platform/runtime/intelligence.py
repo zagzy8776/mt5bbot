@@ -23,6 +23,7 @@ from mt5_platform.agents import (
     TradeThesis,
     run_agent_network,
 )
+from mt5_platform.backtest.data import timeframe_minutes
 from mt5_platform.common.events import (
     MarketDataEvent,
     PositionInfo,
@@ -60,9 +61,14 @@ class IntelligenceStats:
 class IntelligenceLayer:
     """Wraps Context + Agents + Synthesis + Historical + PositionManager + Learning."""
 
-    def __init__(self, *, symbol: str = "XAUUSD") -> None:
+    def __init__(self, *, symbol: str = "XAUUSD", timeframe: str = "M15") -> None:
         self.symbol = symbol.upper()
-        self.context_engine = MarketContextEngine(symbol=self.symbol)
+        self.timeframe = timeframe.upper()
+        primary_s = timeframe_minutes(self.timeframe) * 60
+        self.context_engine = MarketContextEngine(
+            symbol=self.symbol,
+            primary_timeframe_s=primary_s,
+        )
         self.historical_ledger = InMemoryHistoricalLedger()
         self.historical_engine = EvidenceEngine(self.historical_ledger)
         self.position_manager = PositionManager(config=PositionManagerConfig())
@@ -141,7 +147,26 @@ class IntelligenceLayer:
         now = utc_now()
         for pos in positions:
             try:
-                from mt5_platform.position.models import PositionState
+                from mt5_platform.position.models import PositionState, ThesisSnapshot
+
+                # Preserve original thesis from the last emitted trade thesis, if
+                # the position was opened by the intelligence layer.
+                thesis_snap = None
+                thesis_id = ""
+                if self._last_thesis is not None and self._last_thesis.instrument == pos.symbol:
+                    thesis_id = self._last_thesis.thesis_id
+                    thesis_snap = ThesisSnapshot(
+                        thesis_id=thesis_id,
+                        instrument=pos.symbol,
+                        direction=pos.side,
+                        regime=self._last_thesis.regime,
+                        confidence=self._last_thesis.confidence,
+                        entry=pos.entry_price,
+                        stop_loss=pos.stop_loss,
+                        take_profit=pos.take_profit,
+                        invalidation_levels=self._last_thesis.invalidation,
+                        reasons=self._last_thesis.reasons,
+                    )
 
                 state = PositionState(
                     position_id=pos.ticket,
@@ -155,7 +180,8 @@ class IntelligenceLayer:
                     take_profit=pos.take_profit,
                     opened_at=pos.opened_at,
                     last_update=now,
-                    thesis_id="",
+                    thesis_id=thesis_id,
+                    thesis_snapshot=thesis_snap,
                 )
                 decision = self.position_manager.evaluate(state, ctx)
                 results.append((pos, decision))

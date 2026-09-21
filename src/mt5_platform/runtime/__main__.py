@@ -91,7 +91,7 @@ async def _run(args: argparse.Namespace) -> int:
     intelligence = None
     if getattr(settings, "intelligence_enabled", False):
         from mt5_platform.runtime.intelligence import IntelligenceLayer
-        intelligence = IntelligenceLayer(symbol=args.symbol)
+        intelligence = IntelligenceLayer(symbol=args.symbol, timeframe=args.timeframe)
         print(f"intelligence layer ENABLED for {args.symbol}")
     loop = TradingLoop(
         settings=settings,

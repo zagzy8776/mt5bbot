@@ -155,7 +155,12 @@ class TradingLoop:
             await self._run_intelligence(quote)
 
     async def _run_intelligence(self, quote: Any) -> None:
-        """Feed tick to intelligence layer, produce thesis signals, evaluate positions."""
+        """Feed tick to intelligence layer, produce thesis signals, evaluate positions.
+
+        Thesis-derived signals go through the normal _handle_signal() path (RiskEngine
+        + OrderManager).  Position EXIT decisions are also gated by the kill-switch;
+        full risk/order routing for closes is a planned enhancement.
+        """
         try:
             ctx = self.intelligence.feed_tick(bid=quote.bid, ask=quote.ask)
             if ctx is None or not ctx.usable_for_trading:
@@ -177,7 +182,20 @@ class TradingLoop:
                         PositionDecision.EXIT,
                         PositionDecision.EMERGENCY_EXIT,
                     ):
+                        # Safety gate: never close while kill-switch is engaged
+                        if self.risk_engine.kill_switch:
+                            self.stats.skipped["kill_switch_block"] += 1
+                            continue
                         try:
+                            self._audit(
+                                Severity.WARNING,
+                                {
+                                    "action": "intelligence_position_exit",
+                                    "ticket": pos.ticket,
+                                    "decision": decision.decision,
+                                    "reason": decision.reason,
+                                },
+                            )
                             await self.adapter.close_position(pos.ticket)
                             self.intelligence.stats.position_exits += 1
                         except Exception:
