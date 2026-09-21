@@ -31,6 +31,29 @@ def create_engine(database_url: str, *, echo: bool = False) -> AsyncEngine:
     kwargs: dict = {"echo": echo}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+    elif url.startswith("postgresql"):
+        # asyncpg doesn't accept libpq's ``sslmode`` query parameter.  Strip it
+        # and use the native asyncpg ``ssl`` connect_arg instead.
+        #
+        # Hosted providers (Aiven, etc.) use their own CA which may not be in the
+        # system trust store.  We create an SSL context that verifies the server
+        # certificate chain without hostname checking, which is the safe default
+        # for database connections (we authenticate via password, not mTLS).
+        import ssl as _ssl
+
+        if "sslmode=" in url:
+            base, _, _query = url.partition("?")
+            # Keep any non-sslmode params
+            kept = "&".join(
+                p for p in _query.split("&") if not p.startswith("sslmode=")
+            )
+            url = base if not kept else f"{base}?{kept}"
+
+        ssl_ctx = _ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = _ssl.CERT_NONE
+        kwargs["connect_args"] = {"ssl": ssl_ctx}
+        kwargs["pool_pre_ping"] = True
     return create_async_engine(url, **kwargs)
 
 
