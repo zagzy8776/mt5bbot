@@ -140,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.risk_engine = risk_engine
     app.state.order_manager = order_manager
     app.state.execution_adapter = execution_adapter
+    app.state.runtime_service = runtime_service
 
     app.add_middleware(
         CORSMiddleware,
@@ -220,7 +221,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return runtime_service.snapshot.get("stats", {})
 
     @app.post("/api/v1/runtime/start")
-    async def runtime_start(req: RuntimeControlRequest = Field(default_factory=RuntimeControlRequest)) -> dict:
+    async def runtime_start(req: RuntimeControlRequest | None = None) -> dict:
+        req = req or RuntimeControlRequest()
         try:
             runtime_service.configure(symbol=req.symbol, timeframe=req.timeframe)
             return await runtime_service.start()
@@ -242,7 +244,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def account_snapshot() -> dict:
         try:
             account = await runtime_service.refresh_account()
-        except (RuntimeError, Exception) as exc:
+        except Exception as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         return account.model_dump(mode="json")
 
