@@ -2,5 +2,14 @@
 
 from mt5_platform.runtime.feed import MarketFeed, MT5CandleFeed, Quote
 from mt5_platform.runtime.loop import LoopStats, TradingLoop
+from mt5_platform.runtime.service import BotControlService, RuntimeSnapshot
 
-__all__ = ["LoopStats", "MT5CandleFeed", "MarketFeed", "Quote", "TradingLoop"]
+__all__ = [
+    "BotControlService",
+    "LoopStats",
+    "MT5CandleFeed",
+    "MarketFeed",
+    "Quote",
+    "RuntimeSnapshot",
+    "TradingLoop",
+]
