@@ -556,14 +556,16 @@ def test_factory_rejects_unknown_backend() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mt5_backend_is_phase7_stub() -> None:
+async def test_mt5_backend_needs_the_mt5_package() -> None:
+    """On machines without MetaTrader5 (Linux/CI) the adapter fails loudly, never silently."""
     from mt5_platform.execution import MT5ExecutionAdapter
+    from mt5_platform.execution.mt5_adapter import MT5NotAvailable
 
-    adapter = MT5ExecutionAdapter()
+    adapter = MT5ExecutionAdapter(Settings(execution_backend="mt5"))
     assert await adapter.is_connected() is False
-    with pytest.raises(NotImplementedError, match="Phase 7"):
+    with pytest.raises(MT5NotAvailable):
         await adapter.connect()
-    with pytest.raises(NotImplementedError, match="Phase 7"):
+    with pytest.raises(RuntimeError, match="not connected"):
         await adapter.submit_order(
             OrderRequest(symbol="XAUUSD", side=OrderSide.BUY, volume=0.01, entry=2500.0)
         )

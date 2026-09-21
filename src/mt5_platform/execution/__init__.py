@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from mt5_platform.common.enums import OrderSide, OrderStatus
@@ -14,46 +13,8 @@ from mt5_platform.common.events import (
 )
 from mt5_platform.common.ids import new_execution_id
 from mt5_platform.config import Settings
-
-
-class ExecutionAdapter(ABC):
-    @abstractmethod
-    async def connect(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def disconnect(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def is_connected(self) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def get_account(self) -> AccountSnapshot:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def submit_order(self, order: OrderRequest) -> ExecutionRecord:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def reconcile(self) -> AccountSnapshot:
-        """Always reconcile broker truth after restart before new trades."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def get_positions(self) -> list[PositionInfo]:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def close_position(self, ticket: str) -> ExecutionRecord:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
-        """Broker-side truth for the given internal order ids (reconciliation)."""
-        raise NotImplementedError
+from mt5_platform.execution.base import ExecutionAdapter
+from mt5_platform.execution.mt5_adapter import MT5ExecutionAdapter
 
 
 class MockExecutionAdapter(ExecutionAdapter):
@@ -247,39 +208,8 @@ class MockExecutionAdapter(ExecutionAdapter):
         return await self.get_account()
 
 
-class MT5ExecutionAdapter(ExecutionAdapter):
-    """Real MetaTrader5 bridge — Phase 7 (demo). Live mode is Phase 11 + gated."""
-
-    async def connect(self) -> None:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def disconnect(self) -> None:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def is_connected(self) -> bool:
-        return False
-
-    async def get_account(self) -> AccountSnapshot:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def submit_order(self, order: OrderRequest) -> ExecutionRecord:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def get_positions(self) -> list[PositionInfo]:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def close_position(self, ticket: str) -> ExecutionRecord:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-    async def reconcile(self) -> AccountSnapshot:
-        raise NotImplementedError("MT5 adapter arrives in Phase 7 (demo account only)")
-
-
 def build_execution_adapter(settings: Settings) -> ExecutionAdapter:
-    """Factory. The MT5 backend is Phase 7 (demo account only)."""
+    """Factory. The MT5 backend refuses real accounts unless live mode is fully acknowledged."""
     backend = (settings.execution_backend or "mock").strip().lower()
     if backend == "mock":
         return MockExecutionAdapter(
@@ -288,7 +218,7 @@ def build_execution_adapter(settings: Settings) -> ExecutionAdapter:
             slippage=settings.mock_slippage,
         )
     if backend == "mt5":
-        return MT5ExecutionAdapter()
+        return MT5ExecutionAdapter(settings)
     raise ValueError(f"unknown execution backend: {backend}")
 
 

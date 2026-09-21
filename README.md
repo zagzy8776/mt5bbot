@@ -150,6 +150,21 @@ Optional infra for later phases:
 docker compose up -d
 ```
 
+## MT5 demo adapter
+
+`EXECUTION_BACKEND=mt5` uses the real `MetaTrader5` package, so it must run on **Windows**
+with the MT5 terminal installed (a Windows VPS is the usual setup). The dashboard/website can
+live anywhere and talk to this API over HTTPS with `API_TOKEN` set.
+
+- Refuses to connect to a real-money account unless both live flags are set.
+- Every order needs a stop loss; SL/TP are sent with the order so the broker holds them.
+- Orders are tagged (magic + comment) — a retry or crash can never open a duplicate, and
+  `reconcile` recovers uncertain outcomes from broker truth.
+- Risk/exposure use the broker's contract spec (`common/instruments.py`); with the mt5
+  backend a missing spec rejects the trade. Use `position_size_for_risk()` to size trades —
+  on a small account it correctly returns `0.0` (no trade) when even the minimum lot is too big.
+- Kill switch and pause persist across restarts when `RISK_STATE_PATH` is set.
+
 ## Safety
 
 - Default `TRADING_MODE=demo`

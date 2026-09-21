@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import hmac
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -50,9 +51,17 @@ class RiskEvaluateRequest(BaseModel):
     context: RiskContextRequest = Field(default_factory=RiskContextRequest)
 
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    if settings.api_host not in _LOOPBACK_HOSTS and not settings.api_token:
+        raise ValueError(
+            "API_TOKEN is required when API_HOST is not loopback: this API can release the "
+            "kill switch and enable strategies. Refusing to start unauthenticated."
+        )
     store = create_store_from_settings(settings)
     signal_engine = build_signal_engine(settings, store)
     risk_engine = RiskEngine(settings=settings)
@@ -81,11 +90,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if engine is not None:
             await engine.dispose()
 
+    async def require_auth(request: Request) -> None:
+        """Bearer-token gate for every route except /health (unset token = local dev only)."""
+        if not settings.api_token or request.url.path == "/health":
+            return
+        scheme, _, supplied = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not hmac.compare_digest(
+            supplied.strip().encode(), settings.api_token.encode()
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="invalid or missing bearer token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         description="Modular MT5 trading platform API (demo-first)",
         lifespan=lifespan,
+        dependencies=[Depends(require_auth)],
     )
     app.state.settings = settings
     app.state.store = store
@@ -96,10 +120,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+        allow_origins=settings.cors_origin_list,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     async def _storage_health() -> ComponentHealth:
@@ -134,7 +158,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     if settings.execution_backend == "mock"
                     else ComponentHealth.DISABLED
                 ),
-                "mt5": ComponentHealth.DISABLED,
+                "mt5": (
+                    ComponentHealth.UP
+                    if settings.execution_backend == "mt5"
+                    else ComponentHealth.DISABLED
+                ),
             },
         )
 

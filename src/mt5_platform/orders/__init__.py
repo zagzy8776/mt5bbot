@@ -346,6 +346,9 @@ class OrderManager:
         volume = ctx.proposed_volume
         if volume is None or volume <= 0:
             raise ValueError("RiskContext.proposed_volume must be set (>0) to create an order")
+        if ctx.instrument is None:
+            # Broker contract spec makes risk/exposure checks money-correct.
+            ctx.instrument = await adapter.get_instrument(signal.symbol)
         order = self.create_from_signal(signal, volume=volume)
         if self.risk_engine is not None:
             decision = self.risk_engine.evaluate(signal, ctx)

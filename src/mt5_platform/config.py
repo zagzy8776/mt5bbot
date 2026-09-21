@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    # Bearer token for every route except /health. REQUIRED when api_host is not loopback.
+    api_token: str = ""
+    # Comma-separated browser origins allowed to call the API (your dashboard's URL).
+    cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
 
     trading_mode: TradingMode = TradingMode.DEMO
     live_trading_enabled: bool = False
@@ -49,6 +53,10 @@ class Settings(BaseSettings):
     stale_data_max_age_ms: int = 5000
 
     emergency_kill_switch: bool = False
+    # Persist kill switch / pause across restarts (empty = in-memory only).
+    risk_state_path: str = ""
+    # Force money-correct sizing (contract size / tick value). Always on for mt5 backend.
+    require_instrument_spec: bool = False
 
     ingestion_workers: int = Field(default=4, ge=1, le=64)
     ingestion_enabled: bool = False
@@ -76,6 +84,8 @@ class Settings(BaseSettings):
     mt5_password: str = ""
     mt5_server: str = ""
     mt5_timeout_ms: int = 10_000
+    # Identifies this bot's orders/positions on the account (lets it ignore manual trades).
+    mt5_magic: int = 26_092_101
 
     # Order / execution engine (Phase 6). "mt5" backend is Phase 7 (demo only).
     execution_backend: str = "mock"  # mock | mt5
@@ -101,6 +111,10 @@ class Settings(BaseSettings):
                     "LIVE_TRADING_ACKNOWLEDGED=true. Refusing to start in live mode."
                 )
         return self
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def is_live(self) -> bool:

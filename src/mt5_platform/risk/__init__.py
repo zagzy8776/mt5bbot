@@ -6,9 +6,12 @@ slippage, margin level, account sanity, signal-level sanity, pause/kill.
 
 from __future__ import annotations
 
+import json
 import math
+import os
 from collections import deque
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from mt5_platform.common.audit import audit_log
 from mt5_platform.common.enums import AuditEventType, OrderSide, Severity
@@ -20,6 +23,7 @@ from mt5_platform.common.events import (
     StrategySignal,
 )
 from mt5_platform.common.ids import new_signal_id
+from mt5_platform.common.instruments import InstrumentSpec
 from mt5_platform.config import Settings
 
 
@@ -35,6 +39,9 @@ class RiskContext:
     proposed_volume: float | None = None
     current_exposure: float | None = None
     current_slippage: float | None = None
+    # Broker contract spec. Required for real (mt5) execution: without it, price distance
+    # cannot be converted to money and every risk/exposure check would be wrong.
+    instrument: InstrumentSpec | None = None
 
 
 @dataclass
@@ -65,6 +72,63 @@ class RiskEngine:
     _stats: RiskEngineStats = field(default_factory=RiskEngineStats)
     _max_decisions: int = 200
     _decisions: deque[RiskDecision] = field(default_factory=deque)
+    _state_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        raw_path = (getattr(self.settings, "risk_state_path", "") or "").strip()
+        self._state_path = Path(raw_path) if raw_path else None
+        self._load_state()
+
+    def _load_state(self) -> None:
+        """Restore kill switch / pause so a restart can never silently re-arm trading."""
+        if self._state_path is None or not self._state_path.exists():
+            return
+        try:
+            data = json.loads(self._state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            # Unreadable state file: fail closed.
+            self.kill_switch = True
+            self._halt_reasons.append("risk_state_unreadable")
+            return
+        if data.get("kill_switch"):
+            self.kill_switch = True
+            self._halt_reasons.extend(data.get("halt_reasons", []) or ["restored_from_state"])
+        if data.get("paused"):
+            self.paused = True
+            self._pause_reasons.extend(data.get("pause_reasons", []) or ["restored_from_state"])
+
+    def _save_state(self) -> None:
+        if self._state_path is None:
+            return
+        payload = {
+            "kill_switch": self.kill_switch,
+            "halt_reasons": self._halt_reasons[-20:],
+            "paused": self.paused,
+            "pause_reasons": self._pause_reasons[-20:],
+        }
+        tmp = self._state_path.with_suffix(self._state_path.suffix + ".tmp")
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps(payload), encoding="utf-8")
+            os.replace(tmp, self._state_path)
+        except OSError as exc:  # never let persistence failure hide a halt
+            audit_log.emit(
+                AuditEvent(
+                    component="risk",
+                    event_type=AuditEventType.SINK_FAILED.value,
+                    severity=Severity.ERROR,
+                    payload={"stage": "risk_state_save"},
+                    error=str(exc),
+                )
+            )
+
+    @property
+    def strict_instrument_specs(self) -> bool:
+        """Real broker execution (or explicit opt-in) requires money-correct sizing."""
+        return bool(
+            getattr(self.settings, "require_instrument_spec", False)
+            or self.settings.execution_backend.strip().lower() == "mt5"
+        )
 
     @property
     def halt_reasons(self) -> list[str]:
@@ -77,6 +141,7 @@ class RiskEngine:
     def engage_kill_switch(self, reason: str) -> None:
         self.kill_switch = True
         self._halt_reasons.append(reason)
+        self._save_state()
         audit_log.emit(
             AuditEvent(
                 component="risk",
@@ -88,6 +153,7 @@ class RiskEngine:
 
     def release_kill_switch(self) -> None:
         self.kill_switch = False
+        self._save_state()
         audit_log.emit(
             AuditEvent(
                 component="risk",
@@ -100,6 +166,7 @@ class RiskEngine:
     def pause_trading(self, reason: str) -> None:
         self.paused = True
         self._pause_reasons.append(reason)
+        self._save_state()
         audit_log.emit(
             AuditEvent(
                 component="risk",
@@ -111,6 +178,7 @@ class RiskEngine:
 
     def resume_trading(self) -> None:
         self.paused = False
+        self._save_state()
         audit_log.emit(
             AuditEvent(
                 component="risk",
@@ -260,17 +328,29 @@ class RiskEngine:
         if volume > self.settings.max_position_size:
             reasons.append("max_position_size")
 
+        spec = ctx.instrument
+        if spec is None and self.strict_instrument_specs:
+            # Fail closed: price distance alone cannot be converted to money.
+            reasons.append("instrument_spec_missing")
+            return
+        if spec is not None:
+            reasons.extend(spec.volume_is_valid(volume))
+
         entry = signal.entry or 0.0
         equity = account.equity
         if equity > 0 and entry > 0 and signal.stop_loss is not None:
-            risk_amount = abs(entry - signal.stop_loss) * volume
+            if spec is not None:
+                risk_amount = spec.risk_money(entry, signal.stop_loss, volume)
+            else:
+                risk_amount = abs(entry - signal.stop_loss) * volume
             risk_pct = risk_amount / equity * 100.0
             if risk_pct > self.settings.max_risk_per_trade_pct:
                 reasons.append("max_risk_per_trade")
 
         if equity > 0 and entry > 0:
             current = ctx.current_exposure if ctx.current_exposure is not None else account.exposure
-            exposure_pct = (current + volume * entry) / equity * 100.0
+            added = spec.notional(entry, volume) if spec is not None else volume * entry
+            exposure_pct = (current + added) / equity * 100.0
             if exposure_pct > self.settings.max_exposure_pct:
                 reasons.append("max_exposure")
 
