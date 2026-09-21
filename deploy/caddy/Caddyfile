@@ -1,9 +1,11 @@
-# Caddy reverse proxy: HTTPS for the FastAPI control plane.
+# Caddy reverse proxy: HTTPS for the FastAPI control plane + static frontend.
 # Install: choco install caddy  (or download caddy.exe)
 # Run:     caddy run --config C:\mt5bbot\deploy\caddy\Caddyfile
 # Point your dashboard's VITE_API_BASE_URL at https://api.YOURDOMAIN.com
 # Requirements: DNS A record for api.YOURDOMAIN.com -> this EC2 public IP,
 # and Windows firewall inbound 80/443: New-NetFirewallRule -DisplayName "Caddy" -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow
+#
+# For local testing before DNS: replace api.YOURDOMAIN.com with :80
 
 api.YOURDOMAIN.com {
     reverse_proxy 127.0.0.1:8000
@@ -16,6 +18,16 @@ api.YOURDOMAIN.com {
     # Public health probe only; everything else requires the bearer token at the app layer.
     @health path /health
     handle @health {
+        reverse_proxy 127.0.0.1:8000
+    }
+    # Serve frontend static assets
+    @static path /assets/*
+    handle @static {
+        root * C:\mt5bbot\frontend\dist
+        file_server
+    }
+    # SPA fallback for frontend routes
+    handle {
         reverse_proxy 127.0.0.1:8000
     }
 }

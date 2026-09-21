@@ -20,16 +20,18 @@ Windows EC2:  Caddy :443 ──► FastAPI :8000 ──► BotControlService/Tra
 * Elastic IP, then DNS: `api.YOURDOMAIN.com` → that IP.
 
 ## 2. Software (RDP in, run as Administrator)
-1. Install Python 3.12 (x64): <https://python.org> — tick "Add to PATH".
-2. Install MT5 terminal from Exness, log into the **DEMO** account once.
+1. Install Python 3.13 (x64): <https://python.org> — tick "Add to PATH".
+2. Install Git: <https://git-scm.com/download/win>
+3. Install Node.js LTS: <https://nodejs.org> (for frontend build)
+4. Install MT5 terminal from Exness, log into the **DEMO** account once.
    Tools → Options → Expert Advisors → tick **Allow algorithmic trading**.
-3. Clone and set up:
+5. Clone and set up:
    ```powershell
    git clone https://github.com/zagzy8776/mt5bbot.git C:\mt5bbot
    cd C:\mt5bbot
    .\deploy\windows\install.ps1 -BotDir C:\mt5bbot -Symbol XAUUSD
    ```
-4. Edit `C:\mt5bbot\.env` (minimum):
+6. Edit `C:\mt5bbot\.env` (minimum):
    ```
    EXECUTION_BACKEND=mt5
    MT5_LOGIN=<demo login>
@@ -37,8 +39,8 @@ Windows EC2:  Caddy :443 ──► FastAPI :8000 ──► BotControlService/Tra
    MT5_SERVER=<Exness-Demo server>
    TRADING_MODE=demo
    RISK_STATE_PATH=C:\mt5bbot\risk_state.json
-   STORAGE_BACKEND=sqlite
-   DATABASE_URL=sqlite+aiosqlite:///C:\mt5bbot\mt5_platform.db
+   STORAGE_BACKEND=postgres
+   DATABASE_URL=<set via environment variable, never in .env committed to git>
    API_TOKEN=<long random string>          # REQUIRED for non-loopback host
    API_HOST=0.0.0.0
    CORS_ORIGINS=https://your-dashboard.vercel.app
@@ -71,19 +73,28 @@ curl.exe https://api.YOURDOMAIN.com/health
 
 ## 5. HTTPS with Caddy
 ```powershell
-choco install caddy
+# Caddy is installed at C:\caddy.exe
+# Edit deploy/caddy/Caddyfile to set api.YOURDOMAIN.com
 New-NetFirewallRule -DisplayName Caddy -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow
-caddy run --config C:\mt5bbot\deploy\caddy\Caddyfile
+C:\caddy.exe run --config C:\mt5bbot\deploy\caddy\Caddyfile
 ```
 
-## 6. Operations checklist
+## 6. Aiven PostgreSQL
+```powershell
+# Set DATABASE_URL as environment variable (NEVER in .env committed to git)
+[System.Environment]::SetEnvironmentVariable('DATABASE_URL', 'postgres://avnadmin:PASS@HOST:PORT/defaultdb?sslmode=require', 'Machine')
+# Or use a Windows scheduled task / secrets manager
+```
+Tables are auto-created on first API startup via `init_db()`.
+
+## 7. Operations checklist
 * **Backups**: nightly copy of `mt5_platform.db` + `risk_state.json` + `.env` (encrypted) to S3.
 * **Monitoring**: poll `GET /health` from an external pinger; alert when `components.mt5 != up` or `/api/v1/runtime` state != `running` for 15 min.
-* **Log rotation**: uvicorn logs to `C:\mt5bbot\logs\uvicorn.log`; audit events are in the sqlite DB (`GET /api/v1/audit/recent`).
+* **Log rotation**: uvicorn logs to `C:\mt5bbot\logs\uvicorn.log`; audit events in PostgreSQL.
 * **Kill switch**: dashboard button, or `POST /api/v1/risk/killswitch {"engaged": true}`. Persists via `risk_state.json` — survives restarts.
 * **Never** put the real account on this box until Stage C validation evidence exists.
 
-## 7. If something breaks
+## 8. If something breaks
 | Symptom | First check |
 |---|---|
 | `MT5NotAvailable` | MetaTrader5 package installed in the venv? 64-bit Python? Terminal installed and path set in `.env`? |
@@ -91,3 +102,4 @@ caddy run --config C:\mt5bbot\deploy\caddy\Caddyfile
 | Task didn't start | `Get-ScheduledTaskInfo MT5-API` or `MT5-AutoStart` → LastTaskResult |
 | API 401 from dashboard | API_TOKEN mismatch / CORS_ORIGINS missing dashboard URL |
 | Bot `state: error` | `GET /api/v1/runtime` → last_error; audit log via API |
+| IPC timeout | MT5 terminal must be running with "Allow algorithmic trading" enabled |

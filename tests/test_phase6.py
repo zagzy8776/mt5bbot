@@ -557,13 +557,19 @@ def test_factory_rejects_unknown_backend() -> None:
 
 @pytest.mark.asyncio
 async def test_mt5_backend_needs_the_mt5_package() -> None:
-    """On machines without MetaTrader5 (Linux/CI) the adapter fails loudly, never silently."""
+    """On machines without MetaTrader5 (Linux/CI) the adapter fails loudly, never silently.
+
+    On Windows with the package installed but no broker login, ``connect()``
+    raises either ``MT5NotAvailable`` (terminal binary missing) or
+    ``ConnectionError`` (IPC timeout / no broker).  Both are acceptable — the
+    point is that the adapter must never silently succeed.
+    """
     from mt5_platform.execution import MT5ExecutionAdapter
     from mt5_platform.execution.mt5_adapter import MT5NotAvailable
 
     adapter = MT5ExecutionAdapter(Settings(execution_backend="mt5"))
     assert await adapter.is_connected() is False
-    with pytest.raises(MT5NotAvailable):
+    with pytest.raises((MT5NotAvailable, ConnectionError)):
         await adapter.connect()
     with pytest.raises(RuntimeError, match="not connected"):
         await adapter.submit_order(
