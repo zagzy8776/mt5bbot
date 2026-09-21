@@ -28,5 +28,16 @@ def test_health_and_status_report_demo_mode() -> None:
             assert status.status_code == 200
             assert status.json()["is_demo"] is True
             assert status.json()["phase"] == 6
+            assert status.json()["runtime"]["state"] == "stopped"
+
+            runtime = await client.get("/api/v1/runtime")
+            assert runtime.status_code == 200
+            assert runtime.json()["state"] == "stopped"
+
+            start = await client.post(
+                "/api/v1/runtime/start",
+                json={"symbol": "XAUUSD", "timeframe": "M15"},
+            )
+            assert start.status_code == 409
 
     asyncio.run(run())
