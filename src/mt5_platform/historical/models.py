@@ -64,6 +64,8 @@ class SetupFeatures(BaseModel):
     evidence_quality: str = ""  # insufficient | weak | moderate | strong | ""
     risk_state: dict[str, Any] = Field(default_factory=dict)
     thesis_confidence: float | None = None
+    # Phase 2: shape of the closed candles at entry (versioned; see historical/features.py).
+    candle_features: dict[str, Any] = Field(default_factory=dict)
 
 
 OUTCOME_SCHEMA_VERSION = "1.0"

@@ -286,6 +286,38 @@ MAE/MFE availability, the last completed trade and its exit cause, the autonomou
 backtest split, and the evidence sample count against the unchanged thresholds
 (weak 10 / moderate 30 / strong 100).
 
+### Candle-shape features (Phase 2)
+
+Every entry snapshot now also carries the shape of the closed candles the runtime actually had
+(`candle_features`, versioned in `historical/features.py`): body/upper-wick/lower-wick ratios,
+close position inside the range, range versus the window median, gap from the previous close,
+consecutive same-direction candles, volume ratio against the window median, window high/low, plus
+coarse rule-based labels (`marubozu`, `long_body`, `doji`, `hammer`, `shooting_star`, `normal`).
+Values are computed from a bounded window (default 20 closed candles) with no lookahead; when
+there is not enough history the field is explicitly `None`/absent rather than zero-filled, and the
+feature version travels with the record so later changes cannot silently reinterpret old trades.
+
+## In-trade management (Phase 3)
+
+`INTELLIGENCE_ENABLED=true` puts the position manager in the loop: on every cycle the market
+context is built from live ticks and each open position is evaluated (thesis validity, trailing
+stop, break-even, reductions, exits). Each decision still travels
+PositionManager → RiskEngine → OrderManager → broker, so a modification can only reduce risk and
+an exit is never blocked by the loss/drawdown gates that justify it.
+
+Two flags keep the concern separated:
+
+| flag | effect |
+| --- | --- |
+| `INTELLIGENCE_ENABLED` | build context, evaluate positions, manage them dynamically |
+| `INTELLIGENCE_ENTRIES_ENABLED` | additionally let the agent/synthesis path propose **new** entries (off by default, so the strategy registry stays the entry source of record) |
+
+Exits performed by the manager are recorded as outcomes with the decision's own cause
+(`thesis_invalidation`, `opposite_signal`, `trailing_stop`, `break_even`, `volatility_exit`,
+`emergency_exit`, …) and the money/price come from the broker's closing deals. The dashboard's
+In-trade management card shows contexts built, position evaluations, exits executed, the entry
+gate state, the last decision (outcome, action, ticket, reason) and the decision counters.
+
 ## Safety
 
 - Default `TRADING_MODE=demo`

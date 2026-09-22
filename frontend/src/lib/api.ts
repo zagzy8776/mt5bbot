@@ -126,6 +126,28 @@ export type RuntimeStats = {
   };
   signal_engine?: SignalEngineDiagnostics;
   execution?: ExecutionAvailability;
+  position_management?: {
+    last?: {
+      at?: string;
+      outcome?: string;
+      ticket?: string | null;
+      action?: string | null;
+      reason?: string;
+      entries_enabled?: boolean;
+    };
+    counts?: Record<string, number>;
+    entries_enabled?: boolean;
+  };
+  intelligence?: {
+    contexts_built?: number;
+    theses_emitted?: number;
+    theses_no_trade?: number;
+    signals_from_thesis?: number;
+    position_evaluations?: number;
+    position_exits?: number;
+    learning_records?: number;
+    errors?: number;
+  };
   outcomes?: OutcomeSummary & { recorder?: Record<string, unknown> };
   learning?: LearningStats;
   evidence?: EvidenceStatus;

@@ -218,6 +218,8 @@ export default function App() {
 
               <ExecutionContract runtime={runtime} executions={executions} />
 
+              <ManagementCard runtime={runtime} />
+
               <OutcomeLedger payload={outcomes} />
 
               <section className="card">
@@ -448,6 +450,59 @@ function OutcomeLedger({ payload }: { payload: OutcomesPayload | null }) {
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+function ManagementCard({ runtime }: { runtime: Runtime | null }) {
+  const stats = runtime?.stats;
+  const management = stats?.position_management;
+  const intelligence = stats?.intelligence;
+  const last = management?.last;
+  const counts = management?.counts || {};
+  const active = Boolean(intelligence);
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">IN-TRADE MANAGEMENT</div>
+          <h2>Dynamic position decisions</h2>
+        </div>
+        <Badge tone={active ? (management?.entries_enabled ? "warn" : "good") : "neutral"}>
+          {active ? (management?.entries_enabled ? "MANAGING · AGENT ENTRIES ON" : "MANAGING") : "OFF"}
+        </Badge>
+      </div>
+      <div className="runtime-panel">
+        <div><span>Contexts built</span><strong>{Number(intelligence?.contexts_built ?? 0)}</strong></div>
+        <div><span>Position evaluations</span><strong>{Number(intelligence?.position_evaluations ?? 0)}</strong></div>
+        <div><span>Exits executed</span><strong>{Number(intelligence?.position_exits ?? 0)}</strong></div>
+        <div><span>Agent entries</span><strong>{management?.entries_enabled ? "enabled" : "gated off"}</strong></div>
+      </div>
+      <div className="kv">
+        <span>Last decision</span>
+        <strong>
+          {last?.outcome
+            ? `${String(last.outcome)}${last.action ? ` · ${String(last.action)}` : ""}${
+                last.ticket ? ` · ticket ${String(last.ticket)}` : ""
+              }${last.reason ? ` · ${String(last.reason)}` : ""}`
+            : "no position evaluated yet"}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Decision counters</span>
+        <strong>
+          {Object.keys(counts).length
+            ? Object.entries(counts)
+                .map(([key, value]) => `${key} ×${value}`)
+                .join(", ")
+            : "—"}
+        </strong>
+      </div>
+      <p className="muted">
+        Every in-trade action still passes PositionManager → RiskEngine → OrderManager → broker.
+        The agent/synthesis path may only propose <em>new</em> entries when explicitly enabled, so
+        the strategy registry stays the entry source of record.
+      </p>
     </section>
   );
 }

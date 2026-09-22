@@ -102,7 +102,10 @@ class Settings(BaseSettings):
 
     # Intelligence layer (context + agents + synthesis + historical + position + learning).
     # Default off: the basic strategy -> risk -> order -> MT5 path is the proven production flow.
-    intelligence_enabled: bool = False
+    intelligence_enabled: bool = False  # context + position management
+    # The agent/synthesis path may propose NEW entries only when this is explicitly enabled. The
+    # strategy registry stays the sole entry source by default; in-trade management is independent.
+    intelligence_entries_enabled: bool = False
 
     # Order / execution engine (Phase 6). "mt5" backend is Phase 7 (demo only).
     execution_backend: str = "mock"  # mock | mt5

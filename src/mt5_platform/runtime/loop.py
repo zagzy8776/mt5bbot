@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -111,6 +111,11 @@ class TradingLoop:
         self._symbol_tick: dict[str, float] = {}
         # Timeframe of the configured feed (outcome attribution only; the loop is tf-agnostic).
         self.timeframe = str(getattr(feed, "timeframe", "") or "")
+        # Phase 2: recent closed candles per symbol, used for the candle-shape snapshot at entry.
+        self._bar_history: dict[str, deque] = {}
+        # Phase 3: in-trade management trace (what the position manager decided, and what happened).
+        self._position_counts: Counter = Counter()
+        self._position_management: dict[str, Any] = {}
         # Entry context per (symbol, side): lets the recorder attribute a new position to the
         # signal that opened it (strategy, thesis, evidence, risk decision).
         self._entry_context: dict[tuple[str, str], dict[str, Any]] = {}
@@ -140,6 +145,7 @@ class TradingLoop:
             replay["symbols"][symbol] = {"bars": len(bars), "signals_discarded": discarded}
             if bars:
                 self._last_bar[symbol] = bars[-1].time
+                self._bar_history[symbol] = deque(bars[-60:], maxlen=60)
         # Keep the historical replay visible: it explains the engine counters before the first
         # live candle and proves those signals were never sent to risk or the broker.
         self._warmup_replay = replay
@@ -262,6 +268,7 @@ class TradingLoop:
             if bar.time == self._last_bar.get(symbol):
                 continue
             self._last_bar[symbol] = bar.time
+            self._bar_history.setdefault(symbol, deque(maxlen=60)).append(bar)
             self.stats.bars_processed += 1
             new_bar_seen = True
             spec = await self.adapter.get_instrument(symbol)
@@ -425,6 +432,7 @@ class TradingLoop:
                     entry_context_id=str(context.get("entry_context_id", "")),
                     thesis_id=str(context.get("thesis_id", "")),
                     order_id=str(context.get("order_id", "")),
+                    candles=list(self._bar_history.get(position.symbol, ())),
                 )
             orphans = [
                 record.broker_ticket or record.trade_id
@@ -484,27 +492,70 @@ class TradingLoop:
             )
 
     async def _run_intelligence(self, quote: Any) -> None:
-        """Feed the tick, emit thesis signals, then manage the open positions.
+        """Feed the tick, (optionally) emit thesis signals, then manage the open positions.
 
-        Thesis-derived signals take the normal `_handle_signal()` path. Nothing here talks to
-        the broker directly: every position decision goes through `_manage_position()`
-        (PositionManager -> RiskEngine -> OrderManager -> adapter).
+        Thesis-derived signals take the normal `_handle_signal()` path and exist only when
+        ``INTELLIGENCE_ENTRIES_ENABLED`` is set, because the strategy registry is the entry source
+        of record. Position management below is independent of that gate, so in-trade decisions
+        (trailing, break-even, reductions, exits) are dynamic whenever intelligence is enabled.
+        Nothing here talks to the broker directly: every position decision goes through
+        `_manage_position()` (PositionManager -> RiskEngine -> OrderManager -> adapter).
         """
         try:
             ctx = self.intelligence.feed_tick(bid=quote.bid, ask=quote.ask)
             if ctx is None or not ctx.usable_for_trading:
                 return
-            thesis = self.intelligence.produce_thesis(ctx)
-            if thesis is not None:
-                signal = self.intelligence.thesis_to_signal(thesis)
-                if signal is not None:
-                    self.stats.signals += 1
-                    account = await self.adapter.get_account()
-                    await self._handle_signal(signal, account, quote)
+            if bool(getattr(self.settings, "intelligence_entries_enabled", False)):
+                thesis = self.intelligence.produce_thesis(ctx)
+                if thesis is not None:
+                    signal = self.intelligence.thesis_to_signal(thesis)
+                    if signal is not None:
+                        self.stats.signals += 1
+                        account = await self.adapter.get_account()
+                        await self._handle_signal(signal, account, quote)
             await self._evaluate_positions(ctx)
         except Exception:
             if self.intelligence is not None:
                 self.intelligence.stats.errors += 1
+            self._note_position("error", None, None, reason="intelligence_exception")
+
+    def _note_position(
+        self,
+        outcome: str,
+        ticket: str | None,
+        action: Any | None,
+        *,
+        reason: str = "",
+    ) -> None:
+        """Trace in-trade management so the dashboard can explain what happened and why."""
+        action_name = getattr(action, "value", None) or (str(action) if action else "")
+        self._position_counts[f"outcome:{outcome}"] += 1
+        if action_name:
+            self._position_counts[f"action:{action_name}"] += 1
+        self._position_management = {
+            "at": utc_now().isoformat(),
+            "outcome": outcome,
+            "ticket": ticket,
+            "action": action_name or None,
+            "reason": reason,
+            "entries_enabled": bool(
+                getattr(self.settings, "intelligence_entries_enabled", False)
+            ),
+        }
+
+    @property
+    def position_management(self) -> dict[str, Any]:
+        """Latest in-trade decision plus counters (empty until intelligence is enabled)."""
+        return {
+            "last": dict(self._position_management),
+            "counts": dict(sorted(self._position_counts.items())),
+            "intelligence": (
+                self.intelligence.stats.to_dict() if self.intelligence is not None else None
+            ),
+            "entries_enabled": bool(
+                getattr(self.settings, "intelligence_entries_enabled", False)
+            ),
+        }
 
     async def _evaluate_positions(self, ctx: Any) -> None:
         """Evaluate the positions this policy allows, then act on each decision."""
@@ -527,7 +578,9 @@ class TradingLoop:
         if not positions:
             return
         account = await self.adapter.get_account()
-        for position, decision in self.intelligence.evaluate_positions(positions, ctx):
+        decisions = self.intelligence.evaluate_positions(positions, ctx)
+        self._position_counts["evaluated"] += len(decisions)
+        for position, decision in decisions:
             await self._manage_position(position, decision, account)
 
     async def _manage_position(self, position: PositionInfo, decision: Any, account: Any) -> None:
@@ -548,6 +601,7 @@ class TradingLoop:
         }
         if action in (PositionDecision.HOLD, PositionDecision.NO_ACTION):
             self._position_event(AuditEventType.POSITION_HOLD, Severity.INFO, position, context)
+            self._note_position("hold", position.ticket, action, reason=decision.reason)
             return
         self._position_event(AuditEventType.POSITION_MONITORED, Severity.INFO, position, context)
         if position.is_external and policy is not ManualPositionPolicy.MANAGE:
@@ -556,6 +610,12 @@ class TradingLoop:
                 Severity.INFO,
                 position,
                 {**context, "blocked_by": f"manual_position_policy={policy.value}"},
+            )
+            self._note_position(
+                "policy_blocked",
+                position.ticket,
+                action,
+                reason=f"manual_position_policy={policy.value}",
             )
             return
         self._position_event(
@@ -574,6 +634,9 @@ class TradingLoop:
                 position,
                 {**context, "risk_approved": False, "risk_reasons": risk.reasons},
             )
+            self._note_position(
+                "risk_refused", position.ticket, action, reason=",".join(risk.reasons)
+            )
             return
         executed = (
             AuditEventType.POSITION_MODIFIED
@@ -588,11 +651,15 @@ class TradingLoop:
             position,
             {**context, "risk_approved": True, "execution": record.model_dump(mode="json")},
         )
-        self._record_position_decision(position, action, decision, record)
-        if action in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
+        await self._record_position_decision(position, action, decision, record)
+        self._note_position("executed", position.ticket, action, reason=decision.reason)
+        if self.intelligence is not None and action in (
+            PositionDecision.EXIT,
+            PositionDecision.EMERGENCY_EXIT,
+        ):
             self.intelligence.stats.position_exits += 1
 
-    def _record_position_decision(
+    async def _record_position_decision(
         self,
         position: PositionInfo,
         action: PositionDecision,
@@ -603,7 +670,7 @@ class TradingLoop:
 
         The cause is never inferred from profit/loss: it comes from the decision that performed the
         exit. Realized money is taken from the execution response, or from the broker's closing
-        deals when the response does not carry it.
+        deals when the response does not carry it (that is where the truth is).
         """
         recorder = self.outcome_recorder
         if recorder is None:
@@ -612,9 +679,25 @@ class TradingLoop:
             key = recorder.key_for(position)
             response = dict(getattr(execution, "mt5_response", None) or {})
             realized = response.get("realized_pnl")
+            commission = response.get("commission")
+            swap = response.get("swap")
             deal = str(response.get("deal") or "") or None
+            exit_price = getattr(execution, "execution_price", None) or position.current_price
             cause, cause_source = cause_from_position_decision(decision)
             reason = decision.reason or "position_manager"
+            if realized is None and action in (
+                PositionDecision.EXIT,
+                PositionDecision.EMERGENCY_EXIT,
+            ):
+                # The terminal response often omits money; the closing deal has it.
+                details = (await self._close_details_for([key])).get(key) or {}
+                realized = details.get("realized_pnl")
+                commission = details.get("commission")
+                swap = details.get("swap")
+                if details.get("exit_price") is not None:
+                    exit_price = details["exit_price"]
+                if details.get("deals"):
+                    deal = ",".join(str(d) for d in details["deals"])[:60]
             if action is PositionDecision.MODIFY:
                 recorder.record_modification(
                     key,
@@ -628,6 +711,8 @@ class TradingLoop:
                     volume=float(getattr(execution, "requested_volume", 0.0) or 0.0),
                     price=getattr(execution, "execution_price", None) or position.current_price,
                     realized_pnl=float(realized) if realized is not None else None,
+                    commission=float(commission) if commission is not None else None,
+                    swap=float(swap) if swap is not None else None,
                     cause=cause,
                     reason=reason,
                     broker_deal=deal,
@@ -635,12 +720,12 @@ class TradingLoop:
             elif action in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
                 recorder.finalize(
                     key,
-                    exit_price=(
-                        getattr(execution, "execution_price", None) or position.current_price
-                    ),
+                    exit_price=exit_price,
                     cause=cause,
                     cause_source=cause_source,
                     realized_pnl=float(realized) if realized is not None else None,
+                    commission=float(commission) if commission is not None else None,
+                    swap=float(swap) if swap is not None else None,
                     reason=reason,
                     broker_deal=deal,
                 )

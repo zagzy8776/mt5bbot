@@ -15,7 +15,7 @@ Design rules (each one protects the trading path):
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -30,6 +30,7 @@ from mt5_platform.common.enums import (
     exit_cause_to_trade_cause,
 )
 from mt5_platform.common.events import AuditEvent, PositionInfo, utc_now
+from mt5_platform.historical.features import compute_candle_shape
 from mt5_platform.historical.models import HistoricalOutcome, SetupFeatures, TradeLeg
 from mt5_platform.outcomes.excursions import ExcursionTracker
 from mt5_platform.outcomes.exit_cause import cause_from_levels, level_tolerance
@@ -97,8 +98,10 @@ def build_setup_features(
     risk_decision: Any | None = None,
     evidence: dict[str, Any] | None = None,
     spread_points: float | None = None,
+    candles: Sequence[Any] | None = None,
 ) -> SetupFeatures:
     """Freeze what the system knew at entry, using only measurements that exist."""
+    shape = compute_candle_shape(candles) if candles else None
     trend = _pick(context, "trend")
     volatility = _pick(context, "volatility")
     momentum = _pick(context, "momentum")
@@ -136,6 +139,7 @@ def build_setup_features(
             "reasons": list(_pick(risk_decision, "reasons", default=[]) or []),
         },
         thesis_confidence=float((evidence or {}).get("thesis_confidence", 0.0) or 0.0) or None,
+        candle_features=shape.to_dict() if shape is not None else {},
     )
     return features
 
@@ -257,6 +261,7 @@ class TradeOutcomeRecorder:
         entry_context_id: str = "",
         thesis_id: str = "",
         order_id: str = "",
+        candles: Sequence[Any] | None = None,
     ) -> HistoricalOutcome | None:
         """Create the record on first sighting, then keep it current.
 
@@ -291,6 +296,7 @@ class TradeOutcomeRecorder:
                 entry_context_id=entry_context_id,
                 thesis_id=thesis_id,
                 order_id=order_id,
+                candles=candles,
             )
 
         if record.status is OutcomeStatus.CLOSED:
@@ -355,6 +361,7 @@ class TradeOutcomeRecorder:
         entry_context_id: str,
         thesis_id: str,
         order_id: str,
+        candles: Sequence[Any] | None = None,
     ) -> HistoricalOutcome:
         """Write entry knowledge exactly once; only outcome fields evolve afterwards."""
         when = position.opened_at or self._clock()
@@ -374,6 +381,7 @@ class TradeOutcomeRecorder:
             risk_decision=risk_decision,
             evidence=evidence,
             spread_points=spread_points,
+            candles=candles,
         )
         extra: dict[str, Any] = {"order_id": order_id} if order_id else {}
         record = HistoricalOutcome(

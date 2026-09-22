@@ -101,6 +101,9 @@ class BotControlService:
             self._loop.last_cycle.get("stage") if self._loop is not None else "not_running"
         )
         stats["warmup_replay"] = self._loop.warmup_replay if self._loop is not None else {}
+        stats["position_management"] = (
+            self._loop.position_management if self._loop is not None else {}
+        )
         if self._loop is not None:
             snap.connected = bool(getattr(self.adapter, "_connected", False))
             snap.kill_switch = self.risk_engine.kill_switch
