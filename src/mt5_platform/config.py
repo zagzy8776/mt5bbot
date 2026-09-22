@@ -16,6 +16,14 @@ class TradingMode(StrEnum):
     LIVE = "live"
 
 
+class ManualPositionPolicy(StrEnum):
+    """How broker positions not opened with this bot's magic number are handled."""
+
+    IGNORE = "ignore"
+    OBSERVE = "observe"
+    MANAGE = "manage"
+
+
 class Settings(BaseSettings):
     """Central settings loaded from environment / .env."""
 
@@ -86,6 +94,9 @@ class Settings(BaseSettings):
     mt5_timeout_ms: int = 10_000
     # Identifies this bot's orders/positions on the account (lets it ignore manual trades).
     mt5_magic: int = 26_092_101
+    # External/manual broker positions are always visible to account/exposure checks.
+    # Only MANAGE permits lifecycle actions, and those actions still require RiskEngine approval.
+    manual_position_policy: ManualPositionPolicy = ManualPositionPolicy.IGNORE
     # Backtest verdict the live runtime must find (and pass) before it will trade real money.
     validation_report_path: str = "./validation_report.json"
 

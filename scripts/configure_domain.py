@@ -50,7 +50,8 @@ def main() -> int:
                 # Add the Vercel URL if not already present
                 if "frontend-three-eta-53.vercel.app" not in line:
                     new_lines.append(
-                        f"CORS_ORIGINS=https://frontend-three-eta-53.vercel.app,{line.split('=', 1)[1]}"
+                        "CORS_ORIGINS=https://frontend-three-eta-53.vercel.app,"
+                        f"{line.split('=', 1)[1]}"
                     )
                 else:
                     new_lines.append(line)
@@ -59,14 +60,14 @@ def main() -> int:
         ENV_FILE.write_text("\n".join(new_lines), encoding="utf-8")
         print(f"2. Updated CORS_ORIGINS in {ENV_FILE}")
     else:
-        print(f"2. Skipped .env update (file not found)")
+        print("2. Skipped .env update (file not found)")
 
     print()
     print("=" * 60)
     print("NEXT STEPS:")
     print("=" * 60)
     print(f"3. Verify DNS resolves:  nslookup {api_domain}")
-    print(f"   Expected: 13.53.232.117")
+    print("   Expected: 13.53.232.117")
     print()
     print("4. Restart Caddy:")
     print("   Stop old:  taskkill /IM caddy.exe /F")

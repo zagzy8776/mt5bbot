@@ -37,8 +37,15 @@ def check_process(name: str) -> tuple[bool, str]:
     """Check if a Windows process is running."""
     try:
         result = subprocess.run(
-            ["powershell", "-Command", f"Get-Process {name} -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count"],
-            capture_output=True, text=True, timeout=5,
+            [
+                "powershell",
+                "-Command",
+                f"Get-Process {name} -ErrorAction SilentlyContinue | "
+                "Measure-Object | Select-Object -ExpandProperty Count",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         count = int(result.stdout.strip() or "0")
         if count > 0:
@@ -66,6 +73,7 @@ def check_postgres() -> tuple[bool, str]:
     try:
         import asyncio
         import os
+
         from mt5_platform.storage.db import create_engine, normalize_database_url
 
         url = os.environ.get("DATABASE_URL", "")

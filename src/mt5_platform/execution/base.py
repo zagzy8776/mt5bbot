@@ -41,10 +41,20 @@ class ExecutionAdapter(ABC):
 
     @abstractmethod
     async def get_positions(self) -> list[PositionInfo]:
+        """All broker positions, including externally/manual opened positions."""
         raise NotImplementedError
 
     @abstractmethod
-    async def close_position(self, ticket: str) -> ExecutionRecord:
+    async def close_position(self, ticket: str, *, volume: float | None = None) -> ExecutionRecord:
+        raise NotImplementedError
+
+    async def modify_position(
+        self,
+        ticket: str,
+        *,
+        stop_loss: float | None,
+        take_profit: float | None,
+    ) -> ExecutionRecord:
         raise NotImplementedError
 
     @abstractmethod

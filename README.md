@@ -214,6 +214,36 @@ live anywhere and talk to this API over HTTPS with `API_TOKEN` set.
   on a small account it correctly returns `0.0` (no trade) when even the minimum lot is too big.
 - Kill switch and pause persist across restarts when `RISK_STATE_PATH` is set.
 
+## Manual / external positions
+
+Broker positions that were not opened by this bot (different magic number) are never hidden.
+`positions_get` returns them, they are tagged `is_external`, they count towards exposure and
+duplicate/parallel-position limits, and every cycle records broker truth as lifecycle audit
+events (`POSITION_DISCOVERED`, `POSITION_RECONCILED`, `POSITION_MONITORED`, `POSITION_HOLD`,
+`POSITION_MODIFIED`, `POSITION_REDUCED`, `POSITION_EXIT_REQUESTED`, `POSITION_CLOSED`,
+`POSITION_EXIT_REJECTED`) with ticket, policy, decision, reason and execution record.
+
+`MANUAL_POSITION_POLICY` decides what may happen to them:
+
+| value | discovered / audited | evaluated | may be modified or closed |
+| --- | --- | --- | --- |
+| `ignore` (default) | yes | no | no |
+| `observe` | yes | yes | no — every action is refused and audited |
+| `manage` | yes | yes | yes, **always** through RiskEngine → OrderManager |
+
+When `manage` is on, a position action still has to pass the risk gate:
+
+- Exits and reductions are never blocked by loss/drawdown/margin/exposure gates — those are the
+  conditions that justify reducing risk. The kill switch stops *new* risk; it does not trap an
+  open position.
+- A modification may never increase risk: an existing stop can only move in the protective
+  direction, and a new stop must sit on the correct side of the current price. Adding a first
+  stop to an unprotected manual position is allowed because that lowers risk.
+- A reduction must be a genuine partial volume for that specific position.
+
+Visible in the dashboard: the Positions page shows the real MT5 ticket, a `bot`/`manual` badge,
+the configured manual policy, and the position lifecycle event log.
+
 ## Safety
 
 - Default `TRADING_MODE=demo`

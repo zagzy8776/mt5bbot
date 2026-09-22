@@ -1,8 +1,13 @@
-"""The trading loop: MT5 candles -> strategies -> money-correct sizing -> risk -> order -> broker.
+﻿"""The trading loop: MT5 candles -> strategies -> money-correct sizing -> risk -> order -> broker.
 
 Fail-closed by design: any unexpected error pauses that cycle, repeated errors engage the
 kill switch (persisted), and broker-side SL/TP keep protecting open positions if this
-process stops. The loop never closes positions on its own initiative.
+process stops.
+
+Position lifecycle decisions (including exits) are produced by the PositionManager and always
+pass RiskEngine -> OrderManager before reaching the broker, so the loop never closes anything
+on its own initiative. Broker positions that were not opened by this bot follow
+MANUAL_POSITION_POLICY (ignore | observe | manage).
 """
 
 from __future__ import annotations
@@ -17,10 +22,10 @@ from typing import Any
 from mt5_platform.account import AccountMonitor
 from mt5_platform.backtest.data import bar_to_event
 from mt5_platform.common.audit import audit_log
-from mt5_platform.common.enums import AuditEventType, OrderSide, Severity
-from mt5_platform.common.events import AuditEvent, StrategySignal
+from mt5_platform.common.enums import AuditEventType, OrderSide, PositionDecision, Severity
+from mt5_platform.common.events import AuditEvent, PositionInfo, StrategySignal
 from mt5_platform.common.instruments import position_size_for_risk
-from mt5_platform.config import Settings
+from mt5_platform.config import ManualPositionPolicy, Settings
 from mt5_platform.execution.base import ExecutionAdapter
 from mt5_platform.orders import OrderManager
 from mt5_platform.risk import RiskContext, RiskEngine
@@ -73,6 +78,9 @@ class TradingLoop:
         self._clock = clock
         self._last_bar: dict[str, object] = {}
         self._last_reconcile = float("-inf")
+        # Lifecycle tracking: tickets seen on the broker, and the last broker view of each.
+        self._discovered_tickets: set[str] = set()
+        self._position_fingerprints: dict[str, tuple[object, ...]] = {}
         self.stats = LoopStats()
         self.intelligence = intelligence
 
@@ -147,6 +155,7 @@ class TradingLoop:
                 await asyncio.wait_for(stop.wait(), timeout=self.poll_s)
             except TimeoutError:
                 pass
+
     async def run_once(self) -> None:
         self.stats.cycles += 1
         if not await self.adapter.is_connected():
@@ -155,6 +164,7 @@ class TradingLoop:
         self.monitor.evaluate(account)  # engages the (persisted) kill switch on breach
         if self._clock() - self._last_reconcile >= self.reconcile_every_s:
             await self.order_manager.reconcile(self.adapter)
+            await self._reconcile_positions()
             self._last_reconcile = self._clock()
 
         for symbol in self.symbols:
@@ -180,12 +190,39 @@ class TradingLoop:
         if self.intelligence is not None and quote is not None:
             await self._run_intelligence(quote)
 
-    async def _run_intelligence(self, quote: Any) -> None:
-        """Feed tick to intelligence layer, produce thesis signals, evaluate positions.
+    async def _reconcile_positions(self) -> list[PositionInfo]:
+        """Record broker truth for every position: bot-owned and external/manual alike.
 
-        Thesis-derived signals go through the normal _handle_signal() path (RiskEngine
-        + OrderManager).  Position EXIT decisions are also gated by the kill-switch;
-        full risk/order routing for closes is a planned enhancement.
+        POSITION_DISCOVERED is emitted once per ticket; POSITION_RECONCILED is emitted when a
+        ticket first appears or when its broker view changes (side/volume/SL/TP). The trail
+        therefore stays bounded and every entry means the broker state actually moved.
+        """
+        positions = await self.adapter.get_positions()
+        for position in positions:
+            fingerprint = (
+                position.side.value,
+                position.volume,
+                position.stop_loss,
+                position.take_profit,
+            )
+            if position.ticket not in self._discovered_tickets:
+                self._discovered_tickets.add(position.ticket)
+                self._position_event(AuditEventType.POSITION_DISCOVERED, Severity.INFO, position)
+            if self._position_fingerprints.get(position.ticket) != fingerprint:
+                self._position_fingerprints[position.ticket] = fingerprint
+                self._position_event(AuditEventType.POSITION_RECONCILED, Severity.INFO, position)
+        live = {p.ticket for p in positions}
+        self._discovered_tickets &= live
+        for ticket in [t for t in self._position_fingerprints if t not in live]:
+            del self._position_fingerprints[ticket]
+        return positions
+
+    async def _run_intelligence(self, quote: Any) -> None:
+        """Feed the tick, emit thesis signals, then manage the open positions.
+
+        Thesis-derived signals take the normal `_handle_signal()` path. Nothing here talks to
+        the broker directly: every position decision goes through `_manage_position()`
+        (PositionManager -> RiskEngine -> OrderManager -> adapter).
         """
         try:
             ctx = self.intelligence.feed_tick(bid=quote.bid, ask=quote.ask)
@@ -198,37 +235,134 @@ class TradingLoop:
                     self.stats.signals += 1
                     account = await self.adapter.get_account()
                     await self._handle_signal(signal, account, quote)
-            # Evaluate open positions via PositionManager
-            positions = await self.adapter.get_positions()
-            if positions:
-                results = self.intelligence.evaluate_positions(positions, ctx)
-                from mt5_platform.common.enums import PositionDecision
-                for pos, decision in results:
-                    if decision.decision in (
-                        PositionDecision.EXIT,
-                        PositionDecision.EMERGENCY_EXIT,
-                    ):
-                        # Safety gate: never close while kill-switch is engaged
-                        if self.risk_engine.kill_switch:
-                            self.stats.skipped["kill_switch_block"] += 1
-                            continue
-                        try:
-                            self._audit(
-                                Severity.WARNING,
-                                {
-                                    "action": "intelligence_position_exit",
-                                    "ticket": pos.ticket,
-                                    "decision": decision.decision,
-                                    "reason": decision.reason,
-                                },
-                            )
-                            await self.adapter.close_position(pos.ticket)
-                            self.intelligence.stats.position_exits += 1
-                        except Exception:
-                            self.intelligence.stats.errors += 1
+            await self._evaluate_positions(ctx)
         except Exception:
             if self.intelligence is not None:
                 self.intelligence.stats.errors += 1
+
+    async def _evaluate_positions(self, ctx: Any) -> None:
+        """Evaluate the positions this policy allows, then act on each decision."""
+        policy = self.settings.manual_position_policy
+        positions = await self.adapter.get_positions()
+        if policy is ManualPositionPolicy.IGNORE:
+            # Discovered and audited above, but never evaluated and never executed.
+            for position in [p for p in positions if p.is_external]:
+                self._position_event(
+                    AuditEventType.POSITION_HOLD,
+                    Severity.INFO,
+                    position,
+                    {
+                        "policy": policy.value,
+                        "managed": False,
+                        "reason": "manual_position_policy=ignore",
+                    },
+                )
+            positions = [p for p in positions if not p.is_external]
+        if not positions:
+            return
+        account = await self.adapter.get_account()
+        for position, decision in self.intelligence.evaluate_positions(positions, ctx):
+            await self._manage_position(position, decision, account)
+
+    async def _manage_position(self, position: PositionInfo, decision: Any, account: Any) -> None:
+        """Route one PositionManager decision: RiskEngine -> OrderManager -> adapter.
+
+        `manual_position_policy` decides what may happen to a position this bot did not open:
+        ignore (never evaluated), observe (evaluated and audited, execution refused) and
+        manage (executed like a bot-owned position, risk gate included).
+        """
+        policy = self.settings.manual_position_policy
+        action = PositionDecision(decision.decision)
+        context = {
+            "policy": policy.value,
+            "decision": action.value,
+            "reason": decision.reason,
+            "thesis_id": decision.original_thesis_id or None,
+            "managed": not position.is_external or policy is ManualPositionPolicy.MANAGE,
+        }
+        if action in (PositionDecision.HOLD, PositionDecision.NO_ACTION):
+            self._position_event(AuditEventType.POSITION_HOLD, Severity.INFO, position, context)
+            return
+        self._position_event(AuditEventType.POSITION_MONITORED, Severity.INFO, position, context)
+        if position.is_external and policy is not ManualPositionPolicy.MANAGE:
+            self._position_event(
+                AuditEventType.POSITION_EXIT_REJECTED,
+                Severity.INFO,
+                position,
+                {**context, "blocked_by": f"manual_position_policy={policy.value}"},
+            )
+            return
+        self._position_event(
+            AuditEventType.POSITION_EXIT_REQUESTED, Severity.WARNING, position, context
+        )
+        risk, record = await self.order_manager.execute_position_decision(
+            position=position,
+            decision=decision,
+            account=account,
+            adapter=self.adapter,
+        )
+        if record is None:
+            self._position_event(
+                AuditEventType.POSITION_EXIT_REJECTED,
+                Severity.WARNING,
+                position,
+                {**context, "risk_approved": False, "risk_reasons": risk.reasons},
+            )
+            return
+        executed = (
+            AuditEventType.POSITION_MODIFIED
+            if action is PositionDecision.MODIFY
+            else AuditEventType.POSITION_REDUCED
+            if action is PositionDecision.REDUCE
+            else AuditEventType.POSITION_CLOSED
+        )
+        self._position_event(
+            executed,
+            Severity.INFO,
+            position,
+            {**context, "risk_approved": True, "execution": record.model_dump(mode="json")},
+        )
+        if action in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
+            self.intelligence.stats.position_exits += 1
+
+    @staticmethod
+    def _position_payload(position: PositionInfo) -> dict[str, Any]:
+        """Everything the dashboard and the audit trail need to identify a broker position."""
+        return {
+            "ticket": position.ticket,
+            "symbol": position.symbol,
+            "side": position.side.value,
+            "volume": position.volume,
+            "entry_price": position.entry_price,
+            "current_price": position.current_price,
+            "floating_pnl": position.floating_pnl,
+            "stop_loss": position.stop_loss,
+            "take_profit": position.take_profit,
+            "opened_at": position.opened_at.isoformat(),
+            "external": position.is_external,
+            "magic": position.magic,
+            "comment": position.comment,
+        }
+
+    @classmethod
+    def _position_event(
+        cls,
+        event_type: AuditEventType,
+        severity: Severity,
+        position: PositionInfo,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        """One lifecycle audit event, always carrying the full broker position snapshot."""
+        audit_log.emit(
+            AuditEvent(
+                component="position_lifecycle",
+                event_type=event_type.value,
+                severity=severity,
+                symbol=position.symbol,
+                correlation_id=position.ticket,
+                payload={**cls._position_payload(position), **(extra or {})},
+            )
+        )
 
     async def _handle_signal(self, signal: StrategySignal, account, quote) -> None:
         if quote is None:

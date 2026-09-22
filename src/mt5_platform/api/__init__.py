@@ -254,7 +254,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             positions = await runtime_service.refresh_positions()
         except (RuntimeError, Exception) as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        return {"positions": [p.model_dump(mode="json") for p in positions]}
+        return {
+            "positions": [p.model_dump(mode="json") for p in positions],
+            "manual_position_policy": settings.manual_position_policy.value,
+        }
 
     @app.get("/api/v1/market/quote")
     async def market_quote(symbol: str = Query(..., min_length=1)) -> dict:

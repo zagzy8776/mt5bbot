@@ -12,13 +12,15 @@ import os
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from mt5_platform.common.audit import audit_log
-from mt5_platform.common.enums import AuditEventType, OrderSide, Severity
+from mt5_platform.common.enums import AuditEventType, OrderSide, PositionDecision, Severity
 from mt5_platform.common.events import (
     AccountSnapshot,
     AuditEvent,
     OrderRequest,
+    PositionInfo,
     RiskDecision,
     StrategySignal,
 )
@@ -373,6 +375,111 @@ class RiskEngine:
         )
         ctx.proposed_volume = order.volume
         return self.evaluate(signal, ctx)
+
+    def evaluate_position_action(
+        self,
+        *,
+        position: PositionInfo,
+        decision: Any,
+        account: AccountSnapshot,
+    ) -> RiskDecision:
+        """Risk-check a position-management action (never a new entry).
+
+        Risk-reducing actions (EXIT / REDUCE / EMERGENCY_EXIT) are deliberately NOT blocked
+        by loss, drawdown, margin, exposure or position-count gates: those are exactly the
+        conditions that justify reducing risk, so gating them here would trap an open
+        position at the broker. What this gate does enforce:
+
+        * account numbers must be finite — a garbage account state fails closed
+        * a REDUCE must be a genuine partial volume for this specific position
+        * a MODIFY may never increase risk: adding a first stop to an unprotected position
+          is allowed, but an existing stop may only move in the protective direction and any
+          new stop must sit on the correct side of the current price
+        """
+        action = PositionDecision(decision.decision)
+        reasons: list[str] = []
+        money = (
+            account.balance,
+            account.equity,
+            account.free_margin,
+            account.used_margin,
+            account.floating_pnl,
+        )
+        if any(not math.isfinite(float(v)) for v in money):
+            reasons.append("invalid_account_state")
+        elif action is PositionDecision.MODIFY:
+            self._check_stop_modification(position, decision, reasons)
+        elif action is PositionDecision.REDUCE:
+            volume = decision.proposed_volume
+            if volume is None or volume <= 0:
+                reasons.append("reduce_volume_required")
+            elif volume >= position.volume:
+                reasons.append("reduce_volume_not_partial")
+        elif action not in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
+            reasons.append("unsupported_position_action")
+
+        approved = not reasons
+        verdict = RiskDecision(
+            approved=approved,
+            reasons=reasons,
+            correlation_id=decision.correlation_id,
+        )
+        self._stats.checks += 1
+        if approved:
+            self._stats.approved += 1
+        else:
+            self._stats.rejected += 1
+            for reason in reasons:
+                self._stats.reject_reasons[reason] = self._stats.reject_reasons.get(reason, 0) + 1
+        self._decisions.append(verdict)
+        if len(self._decisions) > self._max_decisions:
+            self._decisions.popleft()
+
+        audit_log.emit(
+            AuditEvent(
+                component="risk",
+                event_type=(
+                    AuditEventType.RISK_APPROVED.value
+                    if approved
+                    else AuditEventType.RISK_CHECK_FAILED.value
+                ),
+                severity=Severity.INFO if approved else Severity.WARNING,
+                symbol=position.symbol,
+                correlation_id=decision.correlation_id,
+                payload={
+                    "action": action.value,
+                    "ticket": position.ticket,
+                    "external": position.is_external,
+                    "reasons": reasons,
+                },
+            )
+        )
+        return verdict
+
+    @staticmethod
+    def _check_stop_modification(
+        position: PositionInfo, decision: Any, reasons: list[str]
+    ) -> None:
+        """A stop move may reduce risk, never increase it."""
+        proposed = decision.proposed_stop_loss
+        if proposed is None:
+            reasons.append("stop_loss_required")
+            return
+        if proposed <= 0:
+            reasons.append("invalid_stop_loss")
+            return
+        current = position.current_price
+        if current is not None and current > 0:
+            if position.side is OrderSide.BUY and proposed >= current:
+                reasons.append("stop_loss_wrong_side")
+            if position.side is OrderSide.SELL and proposed <= current:
+                reasons.append("stop_loss_wrong_side")
+        existing = position.stop_loss
+        if existing is not None:
+            if position.side is OrderSide.BUY and proposed < existing:
+                reasons.append("stop_loss_increases_risk")
+            if position.side is OrderSide.SELL and proposed > existing:
+                reasons.append("stop_loss_increases_risk")
 
     def snapshot(self) -> dict:
         return {

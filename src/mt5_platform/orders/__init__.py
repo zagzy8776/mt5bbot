@@ -13,11 +13,12 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any
 
 from mt5_platform.common.audit import audit_log
-from mt5_platform.common.enums import AuditEventType, OrderStatus, Severity
+from mt5_platform.common.enums import AuditEventType, OrderStatus, PositionDecision, Severity
 from mt5_platform.common.events import (
     AuditEvent,
     ExecutionRecord,
     OrderRequest,
+    PositionInfo,
     RiskDecision,
     StrategySignal,
     utc_now,
@@ -371,6 +372,50 @@ class OrderManager:
         if final is None:  # pragma: no cover - defensive
             raise KeyError(f"unknown order: {order.order_id}")
         return final, decision, record
+
+    async def execute_position_decision(
+        self,
+        *,
+        position: PositionInfo,
+        decision: Any,
+        account: Any,
+        adapter: ExecutionAdapter,
+    ) -> tuple[RiskDecision, ExecutionRecord | None]:
+        """The only route from a PositionManager decision to the broker.
+
+        RiskEngine approval is mandatory: a rejected action returns ``record=None`` and
+        nothing is sent to the broker. Bot-owned and (policy-permitted) external positions
+        both go through here — never straight to the adapter.
+        """
+        action = PositionDecision(decision.decision)
+        allowed = {
+            PositionDecision.MODIFY,
+            PositionDecision.REDUCE,
+            PositionDecision.EXIT,
+            PositionDecision.EMERGENCY_EXIT,
+        }
+        if action not in allowed:
+            raise ValueError(f"position decision is not executable: {action.value}")
+        if self.risk_engine is None:
+            raise OrderSubmissionBlocked("no_risk_engine_configured")
+        risk = self.risk_engine.evaluate_position_action(
+            position=position,
+            decision=decision,
+            account=account,
+        )
+        if not risk.approved:
+            return risk, None
+        if action is PositionDecision.MODIFY:
+            record = await adapter.modify_position(
+                position.ticket,
+                stop_loss=decision.proposed_stop_loss,
+                take_profit=decision.proposed_take_profit or position.take_profit,
+            )
+        else:
+            volume = decision.proposed_volume if action is PositionDecision.REDUCE else None
+            record = await adapter.close_position(position.ticket, volume=volume)
+        await self._persist_execution(record)
+        return risk, record
 
     async def apply_execution(self, order_id: str, record: ExecutionRecord) -> OrderRequest:
         """Fold a broker execution record into local order state."""

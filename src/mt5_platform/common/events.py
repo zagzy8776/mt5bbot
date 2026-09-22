@@ -134,6 +134,9 @@ class PositionInfo(BaseModel):
     stop_loss: float | None = None
     take_profit: float | None = None
     opened_at: datetime = Field(default_factory=utc_now)
+    magic: int | None = None
+    comment: str = ""
+    is_external: bool = False
 
 
 class AuditEvent(BaseModel):

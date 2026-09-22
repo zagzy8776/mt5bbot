@@ -19,6 +19,7 @@ class FakeMT5:
     ORDER_TYPE_BUY = 0
     ORDER_TYPE_SELL = 1
     TRADE_ACTION_DEAL = 1
+    TRADE_ACTION_SLTP = 6
     ORDER_TIME_GTC = 0
     ORDER_FILLING_FOK = 0
     ORDER_FILLING_IOC = 1
@@ -128,8 +129,30 @@ class FakeMT5:
         if self.send_returns_none:
             return None
         code = self.next_send_retcode
-        if "position" in request:  # close
-            self.positions = [p for p in self.positions if p.ticket != request["position"]]
+        if request.get("action") == self.TRADE_ACTION_SLTP:
+            for pos in self.positions:
+                if pos.ticket == request["position"]:
+                    pos.sl, pos.tp = request["sl"], request["tp"]
+            return SimpleNamespace(
+                retcode=code,
+                order=self._next(),
+                deal=0,
+                volume=0.0,
+                price=0.0,
+                comment="modified",
+                request_id=1,
+            )
+        if "position" in request:  # close: full close removes, partial close reduces volume
+            remaining: list[SimpleNamespace] = []
+            for pos in self.positions:
+                if pos.ticket == request["position"]:
+                    left = float(pos.volume) - float(request["volume"])
+                    if left > 0:
+                        pos.volume = left
+                        remaining.append(pos)
+                    continue
+                remaining.append(pos)
+            self.positions = remaining
             return SimpleNamespace(
                 retcode=code,
                 order=self._next(),

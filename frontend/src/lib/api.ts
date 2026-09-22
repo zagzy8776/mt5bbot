@@ -83,6 +83,14 @@ export type Position = {
   stop_loss: number | null;
   take_profit: number | null;
   opened_at: string;
+  magic: number | null;
+  comment: string;
+  is_external: boolean;
+};
+
+export type Positions = {
+  positions: Position[];
+  manual_position_policy: string;
 };
 
 export type Order = {
@@ -111,6 +119,16 @@ export type Signal = {
   strategy_name: string;
 };
 
+export type AuditEvent = {
+  timestamp: string;
+  component: string;
+  event_type: string;
+  severity: string;
+  symbol: string | null;
+  correlation_id: string;
+  payload: Record<string, unknown>;
+};
+
 export type Risk = {
   kill_switch: boolean;
   paused: boolean;
@@ -130,7 +148,8 @@ export const api = {
   stop: () => request<Runtime>("/api/v1/runtime/stop", { method: "POST" }),
   restart: () => request<Runtime>("/api/v1/runtime/restart", { method: "POST" }),
   account: () => request<Account>("/api/v1/account"),
-  positions: async () => (await request<{ positions: Position[] }>("/api/v1/positions")).positions,
+  positions: () => request<Positions>("/api/v1/positions"),
+  audit: (limit = 50) => request<{ events: AuditEvent[] }>(`/api/v1/audit/recent?limit=${limit}`),
   orders: async () => (await request<{ orders: Order[] }>("/api/v1/orders?limit=25")).orders,
   signals: async () => (await request<{ signals: Signal[] }>("/api/v1/signals?limit=25")).signals,
   risk: () => request<Risk>("/api/v1/risk/status"),

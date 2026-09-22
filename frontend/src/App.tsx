@@ -4,6 +4,7 @@ import {
   getToken,
   setToken,
   type Account,
+  type AuditEvent,
   type Order,
   type Position,
   type Risk,
@@ -42,6 +43,8 @@ export default function App() {
   const [runtime, setRuntime] = useState<Runtime | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [manualPolicy, setManualPolicy] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [risk, setRisk] = useState<Risk | null>(null);
@@ -54,22 +57,25 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
-        api.positions().catch(() => []),
+        api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
         api.orders().catch(() => []),
         api.signals().catch(() => []),
         api.risk(),
-        api.status()
+        api.status(),
+        api.audit(50).catch(() => ({ events: [] as AuditEvent[] }))
       ]);
       setRuntime(rt);
       setAccount(ac);
-      setPositions(pos);
+      setPositions(pos.positions);
+      setManualPolicy(pos.manual_position_policy);
       setOrders(ord);
       setSignals(sig);
       setRisk(rk);
       setStatus(st);
+      setEvents(ev.events);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -98,6 +104,10 @@ export default function App() {
 
   const connected = runtime?.connected === true;
   const running = runtime?.state === "running";
+  const lifecycle = useMemo(
+    () => events.filter((e) => e.component === "position_lifecycle"),
+    [events]
+  );
   const dailyPnL = account?.daily_pnl ?? 0;
   const navLabel = useMemo(() => ({
     overview: "Overview",
@@ -213,7 +223,12 @@ export default function App() {
           </>
         )}
 
-        {view === "positions" && <section className="card"><div className="section-head"><h2>Open positions</h2><Badge tone="neutral">{positions.length}</Badge></div><PositionTable positions={positions} /></section>}
+        {view === "positions" && (
+          <>
+            <section className="card"><div className="section-head"><h2>Open positions</h2><Badge tone="neutral">{positions.length}</Badge>{manualPolicy && <Badge tone={manualPolicy === "manage" ? "good" : "neutral"}>manual: {manualPolicy}</Badge>}</div><PositionTable positions={positions} /></section>
+            <section className="card"><div className="section-head"><h2>Position lifecycle</h2><Badge tone="neutral">{lifecycle.length}</Badge></div><LifecycleTable events={lifecycle} /></section>
+          </>
+        )}
         {view === "orders" && <section className="card"><div className="section-head"><h2>Recent orders</h2><Badge tone="neutral">{orders.length}</Badge></div><OrderTable orders={orders} /></section>}
         {view === "signals" && <section className="card"><div className="section-head"><h2>Signals</h2><Badge tone="neutral">{signals.length}</Badge></div><SignalTable signals={signals} /></section>}
         {view === "risk" && <RiskView risk={risk} account={account} onKill={() => void doAction(() => api.kill(!risk?.kill_switch))} />}
@@ -261,9 +276,23 @@ function QuotePanel({ symbol, connected }: { symbol: string; connected: boolean 
 }
 
 function PositionTable({ positions }: { positions: Position[] }) {
-  if (!positions.length) return <Empty text="No bot-managed positions." />;
-  return <div className="table-wrap"><table><thead><tr><th>Symbol</th><th>Side</th><th>Volume</th><th>Entry</th><th>Current</th><th>P/L</th><th>SL</th><th>TP</th></tr></thead><tbody>
-    {positions.map(p => <tr key={p.ticket}><td>{p.symbol}</td><td><Badge tone={p.side === "buy" ? "good" : "bad"}>{p.side.toUpperCase()}</Badge></td><td>{p.volume}</td><td>{fmt(p.entry_price)}</td><td>{fmt(p.current_price)}</td><td className={p.floating_pnl >= 0 ? "positive" : "negative"}>{money(p.floating_pnl)}</td><td>{fmt(p.stop_loss)}</td><td>{fmt(p.take_profit)}</td></tr>)}
+  if (!positions.length) return <Empty text="No open positions at the broker." />;
+  return <div className="table-wrap"><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Source</th><th>Side</th><th>Volume</th><th>Entry</th><th>Current</th><th>P/L</th><th>SL</th><th>TP</th></tr></thead><tbody>
+    {positions.map(p => <tr key={p.ticket} title={`magic ${p.magic ?? "—"}${p.comment ? ` · ${p.comment}` : ""}${p.is_external ? " · not opened by this bot" : ""}`}><td>{p.ticket}</td><td>{p.symbol}</td><td><Badge tone={p.is_external ? "warn" : "neutral"}>{p.is_external ? "manual" : "bot"}</Badge></td><td><Badge tone={p.side === "buy" ? "good" : "bad"}>{p.side.toUpperCase()}</Badge></td><td>{p.volume}</td><td>{fmt(p.entry_price)}</td><td>{fmt(p.current_price)}</td><td className={p.floating_pnl >= 0 ? "positive" : "negative"}>{money(p.floating_pnl)}</td><td>{fmt(p.stop_loss)}</td><td>{fmt(p.take_profit)}</td></tr>)}
+  </tbody></table></div>;
+}
+
+function LifecycleTable({ events }: { events: AuditEvent[] }) {
+  if (!events.length) return <Empty text="No position lifecycle events yet." />;
+  const tone = (eventType: string): "good" | "bad" | "warn" | "neutral" => {
+    if (eventType.includes("REJECTED")) return "warn";
+    if (eventType.includes("CLOSED") || eventType.includes("REDUCED")) return "bad";
+    if (eventType.includes("MODIFIED")) return "good";
+    return "neutral";
+  };
+  const rows = [...events].reverse();
+  return <div className="table-wrap"><table><thead><tr><th>Time</th><th>Ticket</th><th>Event</th><th>Decision</th><th>Policy</th><th>Reason</th></tr></thead><tbody>
+    {rows.map((e, i) => <tr key={`${e.correlation_id}-${e.event_type}-${i}`} title={e.payload.external ? "external/manual position" : "bot-owned position"}><td>{new Date(e.timestamp).toLocaleTimeString()}</td><td>{e.correlation_id}</td><td><Badge tone={tone(e.event_type)}>{e.event_type}</Badge></td><td>{String(e.payload.decision ?? "—")}</td><td>{String(e.payload.policy ?? "—")}</td><td>{String(e.payload.reason ?? "—")}</td></tr>)}
   </tbody></table></div>;
 }
 

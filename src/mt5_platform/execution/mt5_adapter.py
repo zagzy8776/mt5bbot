@@ -282,7 +282,8 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             floating_pnl=floating,
             daily_pnl=realized + floating,
             drawdown_pct=drawdown,
-            open_positions=len([p for p in positions if p.magic == self._settings.mt5_magic]),
+            # Broker truth: every open position counts, including manual/external ones.
+            open_positions=len(positions),
             exposure=exposure,
         )
 
@@ -306,12 +307,15 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             stop_loss=float(p.sl) or None,
             take_profit=float(p.tp) or None,
             opened_at=datetime.fromtimestamp(int(p.time), tz=UTC),
+            magic=int(getattr(p, "magic", 0)),
+            comment=str(getattr(p, "comment", "")),
+            is_external=int(getattr(p, "magic", 0)) != self._settings.mt5_magic,
         )
 
     async def get_positions(self) -> list[PositionInfo]:
         self._require_connected()
         raw = await self._call("positions_get") or []
-        return [self._to_position(p) for p in raw if p.magic == self._settings.mt5_magic]
+        return [self._to_position(p) for p in raw]
 
     # -------------------------------------------------------------------- orders
 
@@ -513,7 +517,56 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         # broker truth via the order tag.
         raise RuntimeError(f"uncertain order outcome: {name} ({response['comment']})")
 
-    async def close_position(self, ticket: str) -> ExecutionRecord:
+    async def modify_position(
+        self,
+        ticket: str,
+        *,
+        stop_loss: float | None,
+        take_profit: float | None,
+    ) -> ExecutionRecord:
+        self._require_connected()
+        client = self._mt5()
+        async with self._trade_lock:
+            found = await self._call("positions_get", ticket=int(ticket)) or []
+            if not found:
+                raise KeyError(f"unknown position: {ticket}")
+            pos = found[0]
+            request = {
+                "action": client.TRADE_ACTION_SLTP,
+                "symbol": str(pos.symbol),
+                "position": int(pos.ticket),
+                "sl": float(stop_loss or 0.0),
+                "tp": float(take_profit or 0.0),
+                "magic": int(self._settings.mt5_magic),
+                "comment": "position_modify",
+            }
+            result = await self._call("order_send", request)
+            if result is None:
+                raise RuntimeError(f"order_send returned None: {await self._last_error()}")
+            code = int(result.retcode)
+            done = code == client.TRADE_RETCODE_DONE
+            record = ExecutionRecord(
+                execution_id=new_execution_id(),
+                order_id="",
+                symbol=str(pos.symbol),
+                side=self._to_position(pos).side,
+                requested_volume=float(pos.volume),
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                mt5_response={
+                    "adapter": "mt5",
+                    "ok": done,
+                    "action": "modify",
+                    "position": int(pos.ticket),
+                },
+                rejection_reason=None if done else self._retcode_name(code),
+                final_status=OrderStatus.FILLED if done else OrderStatus.BROKER_REJECTED,
+                correlation_id=str(pos.ticket),
+            )
+            self.executions.append(record)
+            return record
+
+    async def close_position(self, ticket: str, *, volume: float | None = None) -> ExecutionRecord:
         self._require_connected()
         client = self._mt5()
         async with self._trade_lock:
@@ -527,10 +580,13 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             if sym is None or tick is None:
                 raise RuntimeError(f"no market data to close {pos.symbol}")
             price = float(tick.bid if is_buy else tick.ask)
+            close_volume = float(pos.volume) if volume is None else float(volume)
+            if close_volume <= 0 or close_volume > float(pos.volume):
+                raise ValueError(f"invalid close volume {close_volume} for position {ticket}")
             request = {
                 "action": client.TRADE_ACTION_DEAL,
                 "symbol": pos.symbol,
-                "volume": float(pos.volume),
+                "volume": close_volume,
                 "type": client.ORDER_TYPE_SELL if is_buy else client.ORDER_TYPE_BUY,
                 "position": int(pos.ticket),
                 "price": price,
@@ -552,7 +608,7 @@ class MT5ExecutionAdapter(ExecutionAdapter):
                 order_id="",
                 symbol=str(pos.symbol),
                 side=OrderSide.SELL if is_buy else OrderSide.BUY,
-                requested_volume=float(pos.volume),
+                requested_volume=close_volume,
                 requested_price=price,
                 mt5_response={
                     "adapter": "mt5",

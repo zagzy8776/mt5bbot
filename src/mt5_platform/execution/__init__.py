@@ -167,7 +167,29 @@ class MockExecutionAdapter(ExecutionAdapter):
         await self.get_account()  # refresh current prices + floating P/L
         return list(self.positions.values())
 
-    async def close_position(self, ticket: str) -> ExecutionRecord:
+    async def modify_position(
+        self, ticket: str, *, stop_loss: float | None, take_profit: float | None
+    ) -> ExecutionRecord:
+        if not self._connected:
+            raise RuntimeError("MockExecutionAdapter is not connected")
+        pos = self.positions.get(ticket)
+        if pos is None:
+            raise KeyError(f"unknown position: {ticket}")
+        pos.stop_loss, pos.take_profit = stop_loss, take_profit
+        return ExecutionRecord(
+            execution_id=new_execution_id(),
+            order_id=pos.order_id or "",
+            symbol=pos.symbol,
+            side=pos.side,
+            requested_volume=pos.volume,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            mt5_response={"adapter": "mock", "ok": True, "action": "modify"},
+            final_status=OrderStatus.FILLED,
+            correlation_id=pos.ticket,
+        )
+
+    async def close_position(self, ticket: str, *, volume: float | None = None) -> ExecutionRecord:
         if not self._connected:
             raise RuntimeError("MockExecutionAdapter is not connected")
         pos = self.positions.get(ticket)
@@ -175,18 +197,24 @@ class MockExecutionAdapter(ExecutionAdapter):
             raise KeyError(f"unknown position: {ticket}")
         price = self._market_prices.get(pos.symbol, pos.entry_price)
         direction = 1.0 if pos.side is OrderSide.BUY else -1.0
-        pnl = (price - pos.entry_price) * direction * pos.volume * self._point_value
+        close_volume = pos.volume if volume is None else volume
+        if close_volume <= 0 or close_volume > pos.volume:
+            raise ValueError(f"invalid close volume {close_volume} for position {ticket}")
+        pnl = (price - pos.entry_price) * direction * close_volume * self._point_value
         self._balance += pnl
-        del self.positions[ticket]
+        if close_volume == pos.volume:
+            del self.positions[ticket]
+        else:
+            pos.volume -= close_volume
         record = ExecutionRecord(
             execution_id=new_execution_id(),
             order_id=pos.order_id or "",
             symbol=pos.symbol,
             side=OrderSide.SELL if pos.side is OrderSide.BUY else OrderSide.BUY,
-            requested_volume=pos.volume,
+            requested_volume=close_volume,
             requested_price=price,
             execution_price=price,
-            filled_volume=pos.volume,
+            filled_volume=close_volume,
             slippage=0.0,
             mt5_response={
                 "adapter": "mock",
