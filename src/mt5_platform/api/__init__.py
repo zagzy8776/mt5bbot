@@ -19,6 +19,7 @@ from mt5_platform.orders import OrderManager
 from mt5_platform.research.report import build_research_status
 from mt5_platform.risk import RiskContext, RiskEngine
 from mt5_platform.runtime import BotControlService
+from mt5_platform.runtime.heartbeat import build_runtime_heartbeat
 from mt5_platform.signals import build_signal_engine
 from mt5_platform.storage import create_store_from_settings
 from mt5_platform.storage.db import init_db
@@ -221,6 +222,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/v1/runtime/stats")
     async def runtime_stats() -> dict:
         return runtime_service.snapshot.get("stats", {})
+
+    @app.get("/api/v1/runtime/heartbeat")
+    async def runtime_heartbeat() -> dict:
+        """Read-only heartbeat: is the loop turning, and is the candle data fresh?
+
+        Observational only — it reads the in-memory snapshot plus the risk engine's counters and
+        computes freshness from the clock. It starts nothing, sizes nothing and changes nothing.
+        """
+        return build_runtime_heartbeat(
+            runtime_service.snapshot,
+            risk_snapshot=risk_engine.snapshot(),
+        )
 
     @app.get("/api/v1/outcomes")
     async def outcomes(limit: int = 100, status: str | None = None) -> dict:

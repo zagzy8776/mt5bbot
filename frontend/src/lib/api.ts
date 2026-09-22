@@ -425,6 +425,54 @@ export type ResearchStatus = {
   runtime_state?: string;
 };
 
+export type RuntimeHeartbeat = {
+  observed_at: string;
+  read_only: boolean;
+  symbol: string;
+  timeframe: string;
+  state: string;
+  connected?: boolean | null;
+  started_at?: string | null;
+  cycle?: number | null;
+  cycles?: number | null;
+  bars_processed?: number | null;
+  signals?: number | null;
+  orders_sent?: number | null;
+  errors?: number | null;
+  consecutive_errors?: number | null;
+  pipeline_stage?: string;
+  last_processed_bar?: string | null;
+  last_processed_bar_close?: string | null;
+  latest_closed_bar_open?: string | null;
+  latest_closed_bar_close?: string | null;
+  bar_convention?: string;
+  freshness_floor?: string | null;
+  bar_age_seconds?: number | null;
+  bar_open_age_seconds?: number | null;
+  lag_bars?: number | null;
+  data_fresh?: boolean | null;
+  waiting?: boolean | null;
+  poll_s?: number | null;
+  signal_engine: {
+    evaluations?: number | null;
+    generated?: number | null;
+    rejected?: number | null;
+    events_processed?: number | null;
+    strategy_errors?: number | null;
+    last_evaluation_time?: string | null;
+    last_rejection?: unknown;
+  };
+  risk: {
+    checks?: number | null;
+    approved?: number | null;
+    rejected?: number | null;
+    reject_reasons?: Record<string, number>;
+  };
+  execution: { blocked?: boolean | null; trade_allowed?: boolean | null; reason?: string };
+  assessment: string;
+  notes: string[];
+};
+
 export const api = {
   runtime: () => request<Runtime>("/api/v1/runtime"),
   start: (symbol: string, timeframe: string) =>
@@ -444,6 +492,7 @@ export const api = {
   risk: () => request<Risk>("/api/v1/risk/status"),
   outcomes: (limit = 25) => request<OutcomesPayload>(`/api/v1/outcomes?limit=${limit}`),
   status: () => request<Record<string, unknown>>("/api/v1/status"),
+  heartbeat: () => request<RuntimeHeartbeat>("/api/v1/runtime/heartbeat"),
   researchStatus: () => request<ResearchStatus>("/api/v1/research/status"),
   quote: (symbol: string) => request<{ symbol: string; bid: number; ask: number; spread_points: number }>(
     `/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`

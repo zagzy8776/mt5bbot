@@ -98,6 +98,37 @@ def test_live_trading_stays_disabled_by_default() -> None:
     assert settings.trading_mode.value == "demo"
 
 
+def test_threshold_follows_the_family_size_actually_tested() -> None:
+    """The bar must be derived from the honest family size — never trimmed to ease the threshold.
+
+    If 8.2 pre-registers six hypotheses, m = 6. If it pre-registers twenty-six, m = 26; handing the
+    correction a shortened list to obtain a looser alpha/m would recreate the selection problem 8.1
+    was built to prevent.
+    """
+    from mt5_platform.research.runner import CandidateReport, apply_multiplicity_pass
+
+    def candidate(name: str, p_value: float) -> CandidateReport:
+        return CandidateReport(
+            name=name,
+            params={},
+            symbol="XAUUSDm",
+            timeframe="M15",
+            data_range=("a", "b"),
+            oos_trades=100,
+            validation_passed=True,
+            p_value=p_value,
+            dependence={"n_effective": 100.0},
+        )
+
+    family = [candidate(f"c{i}", 0.02) for i in range(6)]
+    report = apply_multiplicity_pass(family, alpha=0.10)
+
+    assert report.tested == 6, "every testable candidate counts towards the family"
+    for entry in family:
+        assert entry.power["alpha_rank1"] == pytest.approx(0.10 / 6, rel=1e-9)
+        assert entry.power["note"].startswith("Approximation")
+
+
 @pytest.mark.parametrize(
     "needle", ["FROZEN", "RESEARCH CONTRACT 8.1", "Holdout reuse", "prohibited"]
 )

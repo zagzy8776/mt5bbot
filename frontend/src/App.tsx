@@ -13,6 +13,7 @@ import {
   type ResearchStatus,
   type Risk,
   type Runtime,
+  type RuntimeHeartbeat,
   type Signal
 } from "./lib/api";
 
@@ -56,6 +57,7 @@ export default function App() {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [research, setResearch] = useState<ResearchStatus | null>(null);
+  const [heartbeat, setHeartbeat] = useState<RuntimeHeartbeat | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
   const [busy, setBusy] = useState(false);
@@ -64,7 +66,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs, hb] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -75,7 +77,8 @@ export default function App() {
         api.audit(50).catch(() => ({ events: [] as AuditEvent[] })),
         api.outcomes().catch(() => null),
         api.executions().catch(() => [] as Execution[]),
-        api.researchStatus().catch(() => null)
+        api.researchStatus().catch(() => null),
+        api.heartbeat().catch(() => null)
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -89,6 +92,7 @@ export default function App() {
       setOutcomes(out);
       setExecutions(ex);
       setResearch(rs);
+      setHeartbeat(hb);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -224,7 +228,8 @@ export default function App() {
               <ExecutionContract runtime={runtime} executions={executions} />
 
               <ManagementCard runtime={runtime} />
-      <ResearchCard research={research} />
+              <HeartbeatCard heartbeat={heartbeat} />
+              <ResearchCard research={research} />
 
               <OutcomeLedger payload={outcomes} />
 
@@ -508,6 +513,137 @@ function ManagementCard({ runtime }: { runtime: Runtime | null }) {
         Every in-trade action still passes PositionManager → RiskEngine → OrderManager → broker.
         The agent/synthesis path may only propose <em>new</em> entries when explicitly enabled, so
         the strategy registry stays the entry source of record.
+      </p>
+    </section>
+  );
+}
+
+function heartbeatTone(assessment: string): "good" | "warn" | "neutral" {
+  if (assessment === "healthy" || assessment === "healthy_waiting_for_setup") return "good";
+  if (
+    assessment === "stale_data" ||
+    assessment === "execution_blocked" ||
+    assessment === "setups_rejected_by_risk"
+  ) {
+    return "warn";
+  }
+  return "neutral";
+}
+
+function ageText(seconds?: number | null): string {
+  if (seconds === null || seconds === undefined) return "—";
+  if (seconds < 90) return `${seconds.toFixed(0)}s`;
+  if (seconds < 5400) return `${(seconds / 60).toFixed(1)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+function intText(value?: number | null): string {
+  return value === null || value === undefined ? "—" : String(value);
+}
+
+function HeartbeatCard({ heartbeat }: { heartbeat: RuntimeHeartbeat | null }) {
+  if (!heartbeat) {
+    return (
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <div className="eyebrow">RUNTIME HEARTBEAT</div>
+            <h2>Loop liveness &amp; data freshness</h2>
+          </div>
+          <Badge tone="neutral">UNAVAILABLE</Badge>
+        </div>
+        <p className="muted">
+          Heartbeat unreachable — the runtime may be down, or the API token is missing. No claim is
+          made either way.
+        </p>
+      </section>
+    );
+  }
+  const engine = heartbeat.signal_engine ?? ({} as RuntimeHeartbeat["signal_engine"]);
+  const risk = heartbeat.risk ?? ({} as RuntimeHeartbeat["risk"]);
+  const execution = heartbeat.execution ?? ({} as RuntimeHeartbeat["execution"]);
+  const freshness =
+    heartbeat.data_fresh === null || heartbeat.data_fresh === undefined
+      ? "unknown"
+      : heartbeat.data_fresh
+        ? "yes"
+        : "STALE";
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">RUNTIME HEARTBEAT</div>
+          <h2>Loop liveness &amp; data freshness</h2>
+        </div>
+        <Badge tone={heartbeatTone(heartbeat.assessment)}>
+          {heartbeat.assessment.replace(/_/g, " ").toUpperCase()}
+        </Badge>
+      </div>
+
+      <div className="runtime-panel">
+        <div><span>Cycles</span><strong>{intText(heartbeat.cycles)}</strong></div>
+        <div><span>Bars processed</span><strong>{intText(heartbeat.bars_processed)}</strong></div>
+        <div><span>Age since bar closed</span><strong>{ageText(heartbeat.bar_age_seconds)}</strong></div>
+        <div><span>Data fresh</span><strong>{freshness}</strong></div>
+      </div>
+
+      <div className="kv">
+        <span>Last processed bar</span>
+        <strong>
+          {heartbeat.last_processed_bar || "—"}
+          {heartbeat.last_processed_bar_close
+            ? ` (closed ${heartbeat.last_processed_bar_close})`
+            : ""}
+          {heartbeat.lag_bars !== null && heartbeat.lag_bars !== undefined
+            ? ` · lag ${heartbeat.lag_bars} bar(s)`
+            : ""}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Latest closed bar (open → close)</span>
+        <strong>
+          {heartbeat.latest_closed_bar_open || "—"} → {heartbeat.latest_closed_bar_close || "—"}{" "}
+          ({heartbeat.timeframe || "?"})
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Stage</span>
+        <strong>
+          {heartbeat.pipeline_stage || "—"}
+          {heartbeat.waiting ? " · waiting for next candle" : ""}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Signal engine</span>
+        <strong>
+          evaluations {intText(engine.evaluations)} · generated {intText(engine.generated)} · rejected{" "}
+          {intText(engine.rejected)} · errors {intText(engine.strategy_errors)}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Risk checks</span>
+        <strong>
+          {intText(risk.checks)} (approved {intText(risk.approved)}, rejected {intText(risk.rejected)})
+        </strong>
+      </div>
+      <div className="kv"><span>Orders sent</span><strong>{intText(heartbeat.orders_sent)}</strong></div>
+      <div className="kv">
+        <span>Execution</span>
+        <strong>
+          {execution.blocked ? `BLOCKED${execution.reason ? ` (${execution.reason})` : ""}` : "not blocked"}{" "}
+          · trade allowed {String(execution.trade_allowed)}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Observed at</span>
+        <strong>{heartbeat.observed_at} · read-only</strong>
+      </div>
+      {heartbeat.notes && heartbeat.notes.length > 0 && (
+        <p className="muted">{heartbeat.notes.join(" · ")}</p>
+      )}
+      <p className="muted">
+        A healthy bot with no setup looks exactly like this: fresh data, stage{" "}
+        <code>candle_evaluated_no_setup</code>, zero signals. That is waiting, not broken.
       </p>
     </section>
   );
