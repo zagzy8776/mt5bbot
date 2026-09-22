@@ -86,7 +86,8 @@ class RiskEngine:
         if self._state_path is None or not self._state_path.exists():
             return
         try:
-            data = json.loads(self._state_path.read_text(encoding="utf-8"))
+            raw = self._state_path.read_text(encoding="utf-8-sig")  # utf-8-sig strips BOM
+            data = json.loads(raw)
         except (OSError, ValueError):
             # Unreadable state file: fail closed.
             self.kill_switch = True
