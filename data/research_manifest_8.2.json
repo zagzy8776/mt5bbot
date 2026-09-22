@@ -1,0 +1,632 @@
+{
+  "built_at": "2026-09-22T20:35:22.896091+00:00",
+  "candidates": [
+    {
+      "candidate_id": "donchian-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Donchian 20",
+      "parameter_set": {
+        "lookback": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "donchian-30",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Donchian 30",
+      "parameter_set": {
+        "lookback": 30
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "donchian-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Donchian 50",
+      "parameter_set": {
+        "lookback": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "donchian-100",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Donchian 100",
+      "parameter_set": {
+        "lookback": 100
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "sma-5-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "SMA 5/20",
+      "parameter_set": {
+        "fast_period": 5,
+        "slow_period": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "sma-8-30",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "SMA 8/30",
+      "parameter_set": {
+        "fast_period": 8,
+        "slow_period": 30
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "sma-10-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "SMA 10/50",
+      "parameter_set": {
+        "fast_period": 10,
+        "slow_period": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "sma-5-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "SMA 5/50",
+      "parameter_set": {
+        "fast_period": 5,
+        "slow_period": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "sma-20-100",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "SMA 20/100",
+      "parameter_set": {
+        "fast_period": 20,
+        "slow_period": 100
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "meanrev-w20-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "MeanRev w20 z2.0",
+      "parameter_set": {
+        "threshold": 2.0,
+        "window": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "meanrev-w20-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "MeanRev w20 z1.5",
+      "parameter_set": {
+        "threshold": 1.5,
+        "window": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "meanrev-w30-z2-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "MeanRev w30 z2.5",
+      "parameter_set": {
+        "threshold": 2.5,
+        "window": 30
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "meanrev-w50-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "MeanRev w50 z2.0",
+      "parameter_set": {
+        "threshold": 2.0,
+        "window": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "momentum-lb10-0-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Momentum lb10 0.5%",
+      "parameter_set": {
+        "lookback": 10,
+        "threshold_pct": 0.5
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "momentum-lb20-0-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Momentum lb20 0.5%",
+      "parameter_set": {
+        "lookback": 20,
+        "threshold_pct": 0.5
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "momentum-lb20-1-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Momentum lb20 1.0%",
+      "parameter_set": {
+        "lookback": 20,
+        "threshold_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "momentum-lb30-0-3",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Momentum lb30 0.3%",
+      "parameter_set": {
+        "lookback": 30,
+        "threshold_pct": 0.3
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "atr-20-x2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "ATR 20 x2.0",
+      "parameter_set": {
+        "atr_buffer": 0.25,
+        "atr_period": 14,
+        "lookback": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "atr-50-x1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "ATR 50 x1.5",
+      "parameter_set": {
+        "atr_buffer": 0.5,
+        "atr_period": 14,
+        "lookback": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "ema-12-26-adx20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "EMA 12/26 ADX20",
+      "parameter_set": {
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "ema-8-34-adx25",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "EMA 8/34 ADX25",
+      "parameter_set": {
+        "adx_threshold": 25.0,
+        "fast_period": 8,
+        "slow_period": 34
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "bollinger-20-2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Bollinger 20 2.0",
+      "parameter_set": {
+        "deviations": 2.0,
+        "period": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "rsi-14-ema50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "RSI 14 EMA50",
+      "parameter_set": {
+        "rsi_period": 14,
+        "trend_period": 50
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "session-orb-4-h7-16",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Session ORB 4 H7-16",
+      "parameter_set": {
+        "opening_range_bars": 4,
+        "session_start_hour": 7
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "mtf-h1-m15-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "MTF H1 M15 20",
+      "parameter_set": {
+        "htf_factor": 4,
+        "htf_period": 20,
+        "ltf_period": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "structure-2-2-r2",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Structure 2/2 R2",
+      "parameter_set": {
+        "swing_left": 2,
+        "swing_right": 2
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mb-10",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MB 10",
+      "parameter_set": {
+        "atr_buffer": 0.25,
+        "lookback": 10,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mb-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MB 20",
+      "parameter_set": {
+        "atr_buffer": 0.25,
+        "lookback": 20,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mb-20-b50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MB 20 b50",
+      "parameter_set": {
+        "atr_buffer": 0.5,
+        "lookback": 20,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mb-40-tight",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MB 40 tight",
+      "parameter_set": {
+        "atr_buffer": 0.5,
+        "lookback": 40,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-rev-20-z1-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp REV 20 z1.0",
+      "parameter_set": {
+        "deviations": 1.0,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0,
+        "window": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-rev-20-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp REV 20 z1.5",
+      "parameter_set": {
+        "deviations": 1.5,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0,
+        "window": 20
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-rev-40-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp REV 40 z1.5",
+      "parameter_set": {
+        "deviations": 1.5,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0,
+        "window": 40
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-rev-40-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp REV 40 z2.0",
+      "parameter_set": {
+        "deviations": 2.0,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.5,
+        "window": 40
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mom-07",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MOM 07",
+      "parameter_set": {
+        "session_end_hour": 9,
+        "session_start_hour": 7,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mom-13",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MOM 13",
+      "parameter_set": {
+        "session_end_hour": 15,
+        "session_start_hour": 13,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mom-07-13",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MOM 07 13",
+      "parameter_set": {
+        "session_end_hour": 15,
+        "session_start_hour": 7,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.5
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    },
+    {
+      "candidate_id": "scalp-mom-15",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "label": "Scalp MOM 15",
+      "parameter_set": {
+        "session_end_hour": 17,
+        "session_start_hour": 15,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0
+      },
+      "regime_definition": "",
+      "symbol": "XAUUSDm",
+      "timeframe": "M15"
+    }
+  ],
+  "code_commit": "a2555190c6bdaf1895178d87545047cbac2977c8",
+  "commission_per_lot": 0.0,
+  "correction": {
+    "alpha": 0.1,
+    "primary": "benjamini-hochberg",
+    "sensitivity": {
+      "benjamini-hochberg": {
+        "alpha": 0.1,
+        "survivors": []
+      },
+      "benjamini-yekutieli": {
+        "alpha": 0.1,
+        "survivors": []
+      },
+      "bonferroni": {
+        "alpha": 0.05,
+        "survivors": []
+      }
+    }
+  },
+  "dataset_path": "C:\\mt5bbot\\data\\xauusd_m15.csv",
+  "dataset_sha256": "3903c58b9d9789dc045d7eecdc81b59c254bcbcc0bb058c80cf272ee4d335996",
+  "date_range": [
+    "2025-09-21T22:00:00+00:00",
+    "2026-09-21T20:45:00+00:00"
+  ],
+  "family_id": "fam_gold_scalp_m15",
+  "holdout": {
+    "confirmations_on_record": 0,
+    "discovery_bars": 15063,
+    "holdout_bars": 3544,
+    "holdout_end": "2026-09-21T20:45:00+00:00",
+    "holdout_fraction": 0.15,
+    "holdout_sha256": "64e1377528d02c865930368e3182d0afd10217ff23080f1a468934ce8f050f22",
+    "holdout_start": "2026-07-29T06:30:00+00:00",
+    "research_bars": 20083,
+    "role": {
+      "discovery": "develop hypotheses",
+      "final_holdout": "sealed: one confirmation run after selection; it can never flow back into candidate development",
+      "validation": "select candidates (IS/OOS split lives here)"
+    },
+    "sealed": true,
+    "total_bars": 23627,
+    "validation_bars": 5020
+  },
+  "hypothesis_version": "2",
+  "max_exposure_pct": 300.0,
+  "max_volume": 0.1,
+  "platform": "Windows-2022Server-10.0.20348-SP0",
+  "python": "3.13.15",
+  "report_sha256": "4d98116ed5d5a4411ad3c08dff181e9c35093c54e7559941ffc7e919de16e283",
+  "research_bars": 20083,
+  "research_sha256": "a792c14a6e1e1a80b8c3cbdeff52aef952eecdd367b63b71e85e4a51b3966865",
+  "risk_pct": 1.0,
+  "slippage_price": 0.05,
+  "spread_price": 0.26,
+  "starting_balance": 100000.0,
+  "statistics": {
+    "assumptions": [
+      {
+        "id": "exchangeability",
+        "statement": "the sign of a trade's R is exchangeable under H0",
+        "testable": true,
+        "treatment": "measured: overlap, clustering and serial dependence are reported per candidate"
+      },
+      {
+        "id": "serial_dependence",
+        "statement": "residuals are not serially dependent (rho1 ~ 0)",
+        "testable": true,
+        "treatment": "measured: lag-1 autocorrelation and a runs test; n_eff_ar1 reported"
+      },
+      {
+        "id": "non_overlapping_trades",
+        "statement": "trades do not overlap in time",
+        "testable": true,
+        "treatment": "measured: overlap fraction and mean concurrency; n_eff_overlap reported"
+      },
+      {
+        "id": "independent_outcomes",
+        "statement": "outcomes are not clustered in a way that amplifies the same market move",
+        "testable": true,
+        "treatment": "measured: trades-per-day Fano factor"
+      },
+      {
+        "id": "costs_included",
+        "statement": "spread, slippage, commission are already embedded in each trade's R",
+        "testable": true,
+        "treatment": "enforced: the backtest applies configured costs; cost sensitivity is a gate"
+      },
+      {
+        "id": "iid_permutation_draws",
+        "statement": "permutation draws are independent and the p-value is uniform under H0",
+        "testable": false,
+        "treatment": "not directly testable here: size is calibrated on synthetic noise by test"
+      }
+    ],
+    "effective_sample_gate": 20,
+    "h0": "expected per-trade R <= 0 (no positive edge)",
+    "interpretation": "failing to reject H0 is not evidence of absence: see the power block for the smallest edge this sample could detect at the multiplicity-adjusted threshold",
+    "min_trades": 20,
+    "null_draws": "random sign flips of the observed |R| values (signs exchangeable under H0)",
+    "permutations": 2000,
+    "seed": 42,
+    "sidedness": "two-sided",
+    "statistic": "mean per-trade R over the evaluation window"
+  },
+  "symbol": "XAUUSDm",
+  "timeframe": "M15",
+  "total_bars": 23627
+}

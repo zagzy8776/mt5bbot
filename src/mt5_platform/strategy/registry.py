@@ -16,6 +16,11 @@ from mt5_platform.strategy.families import (
 from mt5_platform.strategy.mean_reversion import MeanReversionStrategy
 from mt5_platform.strategy.momentum import MomentumStrategy
 from mt5_platform.strategy.null_strategy import NullStrategy
+from mt5_platform.strategy.scalping import (
+    ScalpMicroBreakoutStrategy,
+    ScalpSessionMomentumStrategy,
+    ScalpVwapReversionStrategy,
+)
 from mt5_platform.strategy.sma_crossover import SmaCrossoverStrategy
 
 STRATEGY_FACTORIES = {
@@ -32,6 +37,11 @@ STRATEGY_FACTORIES = {
     "session_breakout": lambda **kwargs: SessionBreakoutStrategy(**kwargs),
     "mtf_trend": lambda **kwargs: MtfTrendStrategy(**kwargs),
     "structure_breakout": lambda **kwargs: StructureBreakoutStrategy(**kwargs),
+    # Contract 8.2 families (docs/research-contract-8.2.md): scalp-shaped candidates, pre-registered
+    # with a fixed size of 12. Candidates for measurement, not profitability claims.
+    "scalp_micro_breakout": lambda **kwargs: ScalpMicroBreakoutStrategy(**kwargs),
+    "scalp_vwap_reversion": lambda **kwargs: ScalpVwapReversionStrategy(**kwargs),
+    "scalp_session_momentum": lambda **kwargs: ScalpSessionMomentumStrategy(**kwargs),
 }
 
 

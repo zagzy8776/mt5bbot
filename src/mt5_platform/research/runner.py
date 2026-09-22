@@ -458,6 +458,37 @@ def main(argv: list[str] | None = None):
          {"session_start_hour": 7, "opening_range_bars": 4}),
         ("MTF H1 M15 20", "mtf_trend", {"htf_factor": 4, "htf_period": 20, "ltf_period": 20}),
         ("Structure 2/2 R2", "structure_breakout", {"swing_left": 2, "swing_right": 2}),
+        # F. Contract 8.2 (docs/research-contract-8.2.md): the gold scalp-shaped family, fixed at 12
+        # candidates before the run. Stops are wide (0.30% / 0.50%) because the cost audit shows a
+        # sub-0.15% stop surrenders ~half of a 0.10R edge to gold's ~240-point spread.
+        ("Scalp MB 10", "scalp_micro_breakout",
+         {"lookback": 10, "atr_buffer": 0.25, "stop_loss_pct": 0.5, "take_profit_pct": 1.0}),
+        ("Scalp MB 20", "scalp_micro_breakout",
+         {"lookback": 20, "atr_buffer": 0.25, "stop_loss_pct": 0.5, "take_profit_pct": 1.0}),
+        ("Scalp MB 20 b50", "scalp_micro_breakout",
+         {"lookback": 20, "atr_buffer": 0.5, "stop_loss_pct": 0.5, "take_profit_pct": 1.0}),
+        ("Scalp MB 40 tight", "scalp_micro_breakout",
+         {"lookback": 40, "atr_buffer": 0.5, "stop_loss_pct": 0.3, "take_profit_pct": 1.0}),
+        ("Scalp REV 20 z1.0", "scalp_vwap_reversion",
+         {"window": 20, "deviations": 1.0, "stop_loss_pct": 0.5, "take_profit_pct": 1.0}),
+        ("Scalp REV 20 z1.5", "scalp_vwap_reversion",
+         {"window": 20, "deviations": 1.5, "stop_loss_pct": 0.5, "take_profit_pct": 1.0}),
+        ("Scalp REV 40 z1.5", "scalp_vwap_reversion",
+         {"window": 40, "deviations": 1.5, "stop_loss_pct": 0.3, "take_profit_pct": 1.0}),
+        ("Scalp REV 40 z2.0", "scalp_vwap_reversion",
+         {"window": 40, "deviations": 2.0, "stop_loss_pct": 0.3, "take_profit_pct": 1.5}),
+        ("Scalp MOM 07", "scalp_session_momentum",
+         {"session_start_hour": 7, "session_end_hour": 9, "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0}),
+        ("Scalp MOM 13", "scalp_session_momentum",
+         {"session_start_hour": 13, "session_end_hour": 15, "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0}),
+        ("Scalp MOM 07 13", "scalp_session_momentum",
+         {"session_start_hour": 7, "session_end_hour": 15, "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.5}),
+        ("Scalp MOM 15", "scalp_session_momentum",
+         {"session_start_hour": 15, "session_end_hour": 17, "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0}),
     ]
     results = []
     print(f"\n{'='*70}")

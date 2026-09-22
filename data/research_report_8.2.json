@@ -1,0 +1,5189 @@
+{
+  "generated_at": "2026-09-22T20:35:22.896403+00:00",
+  "symbol": "XAUUSDm",
+  "timeframe": "M15",
+  "data_range": [
+    "2025-09-21T22:00:00+00:00",
+    "2026-07-29T06:15:00+00:00"
+  ],
+  "total_bars": 20083,
+  "passed": 0,
+  "methodology": {
+    "h0": "expected per-trade R <= 0 (no positive edge)",
+    "statistic": "mean per-trade R over the evaluation window",
+    "null_draws": "random sign flips of the observed |R| values (signs exchangeable under H0)",
+    "sidedness": "two-sided",
+    "permutations": 2000,
+    "seed": 42,
+    "min_trades": 20,
+    "interpretation": "failing to reject H0 is not evidence of absence: see the power block for the smallest edge this sample could detect at the multiplicity-adjusted threshold",
+    "assumptions": [
+      {
+        "id": "exchangeability",
+        "statement": "the sign of a trade's R is exchangeable under H0",
+        "treatment": "measured: overlap, clustering and serial dependence are reported per candidate",
+        "testable": true
+      },
+      {
+        "id": "serial_dependence",
+        "statement": "residuals are not serially dependent (rho1 ~ 0)",
+        "treatment": "measured: lag-1 autocorrelation and a runs test; n_eff_ar1 reported",
+        "testable": true
+      },
+      {
+        "id": "non_overlapping_trades",
+        "statement": "trades do not overlap in time",
+        "treatment": "measured: overlap fraction and mean concurrency; n_eff_overlap reported",
+        "testable": true
+      },
+      {
+        "id": "independent_outcomes",
+        "statement": "outcomes are not clustered in a way that amplifies the same market move",
+        "treatment": "measured: trades-per-day Fano factor",
+        "testable": true
+      },
+      {
+        "id": "costs_included",
+        "statement": "spread, slippage, commission are already embedded in each trade's R",
+        "treatment": "enforced: the backtest applies configured costs; cost sensitivity is a gate",
+        "testable": true
+      },
+      {
+        "id": "iid_permutation_draws",
+        "statement": "permutation draws are independent and the p-value is uniform under H0",
+        "treatment": "not directly testable here: size is calibrated on synthetic noise by test",
+        "testable": false
+      }
+    ],
+    "effective_sample_gate": 20
+  },
+  "multiplicity": {
+    "method": "benjamini-hochberg",
+    "alpha": 0.1,
+    "tested": 38,
+    "untestable": [],
+    "survivors": [],
+    "raw_p_values": {
+      "Donchian 20": 0.25737131434282856,
+      "Donchian 30": 0.2978510744627686,
+      "Donchian 50": 0.18590704647676162,
+      "Donchian 100": 0.8545727136431784,
+      "SMA 5/20": 0.2748625687156422,
+      "SMA 8/30": 0.30434782608695654,
+      "SMA 10/50": 0.07846076961519241,
+      "SMA 5/50": 0.32983508245877063,
+      "SMA 20/100": 0.33883058470764615,
+      "MeanRev w20 z2.0": 0.6691654172913544,
+      "MeanRev w20 z1.5": 0.624687656171914,
+      "MeanRev w30 z2.5": 0.5752123938030984,
+      "MeanRev w50 z2.0": 0.2283858070964518,
+      "Momentum lb10 0.5%": 0.1794102948525737,
+      "Momentum lb20 0.5%": 0.15692153923038482,
+      "Momentum lb20 1.0%": 0.5037481259370314,
+      "Momentum lb30 0.3%": 0.4847576211894053,
+      "ATR 20 x2.0": 0.8620689655172413,
+      "ATR 50 x1.5": 0.5327336331834083,
+      "EMA 12/26 ADX20": 0.4737631184407796,
+      "EMA 8/34 ADX25": 0.5877061469265368,
+      "Bollinger 20 2.0": 0.624687656171914,
+      "RSI 14 EMA50": 0.6756621689155422,
+      "Session ORB 4 H7-16": 0.8510744627686156,
+      "MTF H1 M15 20": 0.27386306846576713,
+      "Structure 2/2 R2": 0.17091454272863568,
+      "Scalp MB 10": 0.8415792103948025,
+      "Scalp MB 20": 0.5817091454272864,
+      "Scalp MB 20 b50": 0.40379810094952523,
+      "Scalp MB 40 tight": 0.8540729635182409,
+      "Scalp REV 20 z1.0": 0.9450274862568716,
+      "Scalp REV 20 z1.5": 0.43928035982008995,
+      "Scalp REV 40 z1.5": 0.047476261869065464,
+      "Scalp REV 40 z2.0": 0.5397301349325337,
+      "Scalp MOM 07": 0.6921539230384808,
+      "Scalp MOM 13": 0.8420789605197402,
+      "Scalp MOM 07 13": 0.6941529235382309,
+      "Scalp MOM 15": 0.5427286356821589
+    },
+    "adjusted_p_values": {
+      "Scalp REV 20 z1.0": 0.9450274862568717,
+      "ATR 20 x2.0": 0.8853681267474369,
+      "Donchian 100": 0.8853681267474369,
+      "Scalp MB 40 tight": 0.8853681267474369,
+      "Session ORB 4 H7-16": 0.8853681267474369,
+      "Scalp MOM 13": 0.8853681267474369,
+      "Scalp MB 10": 0.8853681267474369,
+      "Scalp MOM 07 13": 0.8508971320791218,
+      "Scalp MOM 07": 0.8508971320791218,
+      "RSI 14 EMA50": 0.8508971320791218,
+      "MeanRev w20 z2.0": 0.8508971320791218,
+      "Bollinger 20 2.0": 0.8508971320791218,
+      "MeanRev w20 z1.5": 0.8508971320791218,
+      "EMA 8/34 ADX25": 0.8508971320791218,
+      "Scalp MB 20": 0.8508971320791218,
+      "MeanRev w30 z2.5": 0.8508971320791218,
+      "Scalp MOM 15": 0.8508971320791218,
+      "Scalp REV 40 z2.0": 0.8508971320791218,
+      "ATR 50 x1.5": 0.8508971320791218,
+      "Momentum lb20 1.0%": 0.8508971320791218,
+      "Momentum lb30 0.3%": 0.8508971320791218,
+      "EMA 12/26 ADX20": 0.8508971320791218,
+      "Scalp REV 20 z1.5": 0.8508971320791218,
+      "Scalp MB 20 b50": 0.8508971320791218,
+      "SMA 20/100": 0.8508971320791218,
+      "SMA 5/50": 0.8508971320791218,
+      "SMA 8/30": 0.8508971320791218,
+      "Donchian 30": 0.8508971320791218,
+      "SMA 5/20": 0.8508971320791218,
+      "MTF H1 M15 20": 0.8508971320791218,
+      "Donchian 20": 0.8508971320791218,
+      "MeanRev w50 z2.0": 0.8508971320791218,
+      "Donchian 50": 0.8508971320791218,
+      "Momentum lb10 0.5%": 0.8508971320791218,
+      "Structure 2/2 R2": 0.8508971320791218,
+      "Momentum lb20 0.5%": 0.8508971320791218,
+      "SMA 10/50": 0.8508971320791218,
+      "Scalp REV 40 z1.5": 0.8508971320791218
+    }
+  },
+  "sensitivity": {
+    "benjamini-hochberg": {
+      "method": "benjamini-hochberg",
+      "alpha": 0.1,
+      "tested": 38,
+      "untestable": [],
+      "survivors": [],
+      "raw_p_values": {
+        "Donchian 20": 0.25737131434282856,
+        "Donchian 30": 0.2978510744627686,
+        "Donchian 50": 0.18590704647676162,
+        "Donchian 100": 0.8545727136431784,
+        "SMA 5/20": 0.2748625687156422,
+        "SMA 8/30": 0.30434782608695654,
+        "SMA 10/50": 0.07846076961519241,
+        "SMA 5/50": 0.32983508245877063,
+        "SMA 20/100": 0.33883058470764615,
+        "MeanRev w20 z2.0": 0.6691654172913544,
+        "MeanRev w20 z1.5": 0.624687656171914,
+        "MeanRev w30 z2.5": 0.5752123938030984,
+        "MeanRev w50 z2.0": 0.2283858070964518,
+        "Momentum lb10 0.5%": 0.1794102948525737,
+        "Momentum lb20 0.5%": 0.15692153923038482,
+        "Momentum lb20 1.0%": 0.5037481259370314,
+        "Momentum lb30 0.3%": 0.4847576211894053,
+        "ATR 20 x2.0": 0.8620689655172413,
+        "ATR 50 x1.5": 0.5327336331834083,
+        "EMA 12/26 ADX20": 0.4737631184407796,
+        "EMA 8/34 ADX25": 0.5877061469265368,
+        "Bollinger 20 2.0": 0.624687656171914,
+        "RSI 14 EMA50": 0.6756621689155422,
+        "Session ORB 4 H7-16": 0.8510744627686156,
+        "MTF H1 M15 20": 0.27386306846576713,
+        "Structure 2/2 R2": 0.17091454272863568,
+        "Scalp MB 10": 0.8415792103948025,
+        "Scalp MB 20": 0.5817091454272864,
+        "Scalp MB 20 b50": 0.40379810094952523,
+        "Scalp MB 40 tight": 0.8540729635182409,
+        "Scalp REV 20 z1.0": 0.9450274862568716,
+        "Scalp REV 20 z1.5": 0.43928035982008995,
+        "Scalp REV 40 z1.5": 0.047476261869065464,
+        "Scalp REV 40 z2.0": 0.5397301349325337,
+        "Scalp MOM 07": 0.6921539230384808,
+        "Scalp MOM 13": 0.8420789605197402,
+        "Scalp MOM 07 13": 0.6941529235382309,
+        "Scalp MOM 15": 0.5427286356821589
+      },
+      "adjusted_p_values": {
+        "Scalp REV 20 z1.0": 0.9450274862568717,
+        "ATR 20 x2.0": 0.8853681267474369,
+        "Donchian 100": 0.8853681267474369,
+        "Scalp MB 40 tight": 0.8853681267474369,
+        "Session ORB 4 H7-16": 0.8853681267474369,
+        "Scalp MOM 13": 0.8853681267474369,
+        "Scalp MB 10": 0.8853681267474369,
+        "Scalp MOM 07 13": 0.8508971320791218,
+        "Scalp MOM 07": 0.8508971320791218,
+        "RSI 14 EMA50": 0.8508971320791218,
+        "MeanRev w20 z2.0": 0.8508971320791218,
+        "Bollinger 20 2.0": 0.8508971320791218,
+        "MeanRev w20 z1.5": 0.8508971320791218,
+        "EMA 8/34 ADX25": 0.8508971320791218,
+        "Scalp MB 20": 0.8508971320791218,
+        "MeanRev w30 z2.5": 0.8508971320791218,
+        "Scalp MOM 15": 0.8508971320791218,
+        "Scalp REV 40 z2.0": 0.8508971320791218,
+        "ATR 50 x1.5": 0.8508971320791218,
+        "Momentum lb20 1.0%": 0.8508971320791218,
+        "Momentum lb30 0.3%": 0.8508971320791218,
+        "EMA 12/26 ADX20": 0.8508971320791218,
+        "Scalp REV 20 z1.5": 0.8508971320791218,
+        "Scalp MB 20 b50": 0.8508971320791218,
+        "SMA 20/100": 0.8508971320791218,
+        "SMA 5/50": 0.8508971320791218,
+        "SMA 8/30": 0.8508971320791218,
+        "Donchian 30": 0.8508971320791218,
+        "SMA 5/20": 0.8508971320791218,
+        "MTF H1 M15 20": 0.8508971320791218,
+        "Donchian 20": 0.8508971320791218,
+        "MeanRev w50 z2.0": 0.8508971320791218,
+        "Donchian 50": 0.8508971320791218,
+        "Momentum lb10 0.5%": 0.8508971320791218,
+        "Structure 2/2 R2": 0.8508971320791218,
+        "Momentum lb20 0.5%": 0.8508971320791218,
+        "SMA 10/50": 0.8508971320791218,
+        "Scalp REV 40 z1.5": 0.8508971320791218
+      }
+    },
+    "benjamini-yekutieli": {
+      "method": "benjamini-yekutieli",
+      "alpha": 0.1,
+      "tested": 38,
+      "untestable": [],
+      "survivors": [],
+      "raw_p_values": {
+        "Donchian 20": 0.25737131434282856,
+        "Donchian 30": 0.2978510744627686,
+        "Donchian 50": 0.18590704647676162,
+        "Donchian 100": 0.8545727136431784,
+        "SMA 5/20": 0.2748625687156422,
+        "SMA 8/30": 0.30434782608695654,
+        "SMA 10/50": 0.07846076961519241,
+        "SMA 5/50": 0.32983508245877063,
+        "SMA 20/100": 0.33883058470764615,
+        "MeanRev w20 z2.0": 0.6691654172913544,
+        "MeanRev w20 z1.5": 0.624687656171914,
+        "MeanRev w30 z2.5": 0.5752123938030984,
+        "MeanRev w50 z2.0": 0.2283858070964518,
+        "Momentum lb10 0.5%": 0.1794102948525737,
+        "Momentum lb20 0.5%": 0.15692153923038482,
+        "Momentum lb20 1.0%": 0.5037481259370314,
+        "Momentum lb30 0.3%": 0.4847576211894053,
+        "ATR 20 x2.0": 0.8620689655172413,
+        "ATR 50 x1.5": 0.5327336331834083,
+        "EMA 12/26 ADX20": 0.4737631184407796,
+        "EMA 8/34 ADX25": 0.5877061469265368,
+        "Bollinger 20 2.0": 0.624687656171914,
+        "RSI 14 EMA50": 0.6756621689155422,
+        "Session ORB 4 H7-16": 0.8510744627686156,
+        "MTF H1 M15 20": 0.27386306846576713,
+        "Structure 2/2 R2": 0.17091454272863568,
+        "Scalp MB 10": 0.8415792103948025,
+        "Scalp MB 20": 0.5817091454272864,
+        "Scalp MB 20 b50": 0.40379810094952523,
+        "Scalp MB 40 tight": 0.8540729635182409,
+        "Scalp REV 20 z1.0": 0.9450274862568716,
+        "Scalp REV 20 z1.5": 0.43928035982008995,
+        "Scalp REV 40 z1.5": 0.047476261869065464,
+        "Scalp REV 40 z2.0": 0.5397301349325337,
+        "Scalp MOM 07": 0.6921539230384808,
+        "Scalp MOM 13": 0.8420789605197402,
+        "Scalp MOM 07 13": 0.6941529235382309,
+        "Scalp MOM 15": 0.5427286356821589
+      },
+      "adjusted_p_values": {
+        "Scalp REV 20 z1.0": 1.0,
+        "ATR 20 x2.0": 1.0,
+        "Donchian 100": 1.0,
+        "Scalp MB 40 tight": 1.0,
+        "Session ORB 4 H7-16": 1.0,
+        "Scalp MOM 13": 1.0,
+        "Scalp MB 10": 1.0,
+        "Scalp MOM 07 13": 1.0,
+        "Scalp MOM 07": 1.0,
+        "RSI 14 EMA50": 1.0,
+        "MeanRev w20 z2.0": 1.0,
+        "Bollinger 20 2.0": 1.0,
+        "MeanRev w20 z1.5": 1.0,
+        "EMA 8/34 ADX25": 1.0,
+        "Scalp MB 20": 1.0,
+        "MeanRev w30 z2.5": 1.0,
+        "Scalp MOM 15": 1.0,
+        "Scalp REV 40 z2.0": 1.0,
+        "ATR 50 x1.5": 1.0,
+        "Momentum lb20 1.0%": 1.0,
+        "Momentum lb30 0.3%": 1.0,
+        "EMA 12/26 ADX20": 1.0,
+        "Scalp REV 20 z1.5": 1.0,
+        "Scalp MB 20 b50": 1.0,
+        "SMA 20/100": 1.0,
+        "SMA 5/50": 1.0,
+        "SMA 8/30": 1.0,
+        "Donchian 30": 1.0,
+        "SMA 5/20": 1.0,
+        "MTF H1 M15 20": 1.0,
+        "Donchian 20": 1.0,
+        "MeanRev w50 z2.0": 1.0,
+        "Donchian 50": 1.0,
+        "Momentum lb10 0.5%": 1.0,
+        "Structure 2/2 R2": 1.0,
+        "Momentum lb20 0.5%": 1.0,
+        "SMA 10/50": 1.0,
+        "Scalp REV 40 z1.5": 1.0
+      }
+    },
+    "bonferroni": {
+      "method": "bonferroni",
+      "alpha": 0.05,
+      "tested": 38,
+      "untestable": [],
+      "survivors": [],
+      "raw_p_values": {
+        "Donchian 20": 0.25737131434282856,
+        "Donchian 30": 0.2978510744627686,
+        "Donchian 50": 0.18590704647676162,
+        "Donchian 100": 0.8545727136431784,
+        "SMA 5/20": 0.2748625687156422,
+        "SMA 8/30": 0.30434782608695654,
+        "SMA 10/50": 0.07846076961519241,
+        "SMA 5/50": 0.32983508245877063,
+        "SMA 20/100": 0.33883058470764615,
+        "MeanRev w20 z2.0": 0.6691654172913544,
+        "MeanRev w20 z1.5": 0.624687656171914,
+        "MeanRev w30 z2.5": 0.5752123938030984,
+        "MeanRev w50 z2.0": 0.2283858070964518,
+        "Momentum lb10 0.5%": 0.1794102948525737,
+        "Momentum lb20 0.5%": 0.15692153923038482,
+        "Momentum lb20 1.0%": 0.5037481259370314,
+        "Momentum lb30 0.3%": 0.4847576211894053,
+        "ATR 20 x2.0": 0.8620689655172413,
+        "ATR 50 x1.5": 0.5327336331834083,
+        "EMA 12/26 ADX20": 0.4737631184407796,
+        "EMA 8/34 ADX25": 0.5877061469265368,
+        "Bollinger 20 2.0": 0.624687656171914,
+        "RSI 14 EMA50": 0.6756621689155422,
+        "Session ORB 4 H7-16": 0.8510744627686156,
+        "MTF H1 M15 20": 0.27386306846576713,
+        "Structure 2/2 R2": 0.17091454272863568,
+        "Scalp MB 10": 0.8415792103948025,
+        "Scalp MB 20": 0.5817091454272864,
+        "Scalp MB 20 b50": 0.40379810094952523,
+        "Scalp MB 40 tight": 0.8540729635182409,
+        "Scalp REV 20 z1.0": 0.9450274862568716,
+        "Scalp REV 20 z1.5": 0.43928035982008995,
+        "Scalp REV 40 z1.5": 0.047476261869065464,
+        "Scalp REV 40 z2.0": 0.5397301349325337,
+        "Scalp MOM 07": 0.6921539230384808,
+        "Scalp MOM 13": 0.8420789605197402,
+        "Scalp MOM 07 13": 0.6941529235382309,
+        "Scalp MOM 15": 0.5427286356821589
+      },
+      "adjusted_p_values": {
+        "Donchian 20": 1.0,
+        "Donchian 30": 1.0,
+        "Donchian 50": 1.0,
+        "Donchian 100": 1.0,
+        "SMA 5/20": 1.0,
+        "SMA 8/30": 1.0,
+        "SMA 10/50": 1.0,
+        "SMA 5/50": 1.0,
+        "SMA 20/100": 1.0,
+        "MeanRev w20 z2.0": 1.0,
+        "MeanRev w20 z1.5": 1.0,
+        "MeanRev w30 z2.5": 1.0,
+        "MeanRev w50 z2.0": 1.0,
+        "Momentum lb10 0.5%": 1.0,
+        "Momentum lb20 0.5%": 1.0,
+        "Momentum lb20 1.0%": 1.0,
+        "Momentum lb30 0.3%": 1.0,
+        "ATR 20 x2.0": 1.0,
+        "ATR 50 x1.5": 1.0,
+        "EMA 12/26 ADX20": 1.0,
+        "EMA 8/34 ADX25": 1.0,
+        "Bollinger 20 2.0": 1.0,
+        "RSI 14 EMA50": 1.0,
+        "Session ORB 4 H7-16": 1.0,
+        "MTF H1 M15 20": 1.0,
+        "Structure 2/2 R2": 1.0,
+        "Scalp MB 10": 1.0,
+        "Scalp MB 20": 1.0,
+        "Scalp MB 20 b50": 1.0,
+        "Scalp MB 40 tight": 1.0,
+        "Scalp REV 20 z1.0": 1.0,
+        "Scalp REV 20 z1.5": 1.0,
+        "Scalp REV 40 z1.5": 1.0,
+        "Scalp REV 40 z2.0": 1.0,
+        "Scalp MOM 07": 1.0,
+        "Scalp MOM 13": 1.0,
+        "Scalp MOM 07 13": 1.0,
+        "Scalp MOM 15": 1.0
+      }
+    }
+  },
+  "family": {
+    "family_id": "fam_gold_scalp_m15",
+    "hypothesis_version": "2",
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "candidate_count": 38,
+    "regime_definition": "",
+    "candidates": [
+      {
+        "candidate_id": "donchian-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-30",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 30",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 30
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-100",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 100",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 100
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-5-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 5/20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 5,
+          "slow_period": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-8-30",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 8/30",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 8,
+          "slow_period": 30
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-10-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 10/50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 10,
+          "slow_period": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-5-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 5/50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 5,
+          "slow_period": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-20-100",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 20/100",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 20,
+          "slow_period": 100
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w20-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w20 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "threshold": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w20-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w20 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "threshold": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w30-z2-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w30 z2.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 30,
+          "threshold": 2.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w50-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w50 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 50,
+          "threshold": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb10-0-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb10 0.5%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 10,
+          "threshold_pct": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb20-0-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb20 0.5%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "threshold_pct": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb20-1-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb20 1.0%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "threshold_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb30-0-3",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb30 0.3%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 30,
+          "threshold_pct": 0.3
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "atr-20-x2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "ATR 20 x2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_period": 14,
+          "atr_buffer": 0.25
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "atr-50-x1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "ATR 50 x1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 50,
+          "atr_period": 14,
+          "atr_buffer": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "ema-12-26-adx20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "EMA 12/26 ADX20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 12,
+          "slow_period": 26
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "ema-8-34-adx25",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "EMA 8/34 ADX25",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 8,
+          "slow_period": 34,
+          "adx_threshold": 25.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "bollinger-20-2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Bollinger 20 2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "period": 20,
+          "deviations": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "rsi-14-ema50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "RSI 14 EMA50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "trend_period": 50,
+          "rsi_period": 14
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "session-orb-4-h7-16",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Session ORB 4 H7-16",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "opening_range_bars": 4
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "mtf-h1-m15-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MTF H1 M15 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "htf_factor": 4,
+          "htf_period": 20,
+          "ltf_period": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "structure-2-2-r2",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Structure 2/2 R2",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "swing_left": 2,
+          "swing_right": 2
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-10",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 10",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 10,
+          "atr_buffer": 0.25,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_buffer": 0.25,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-20-b50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 20 b50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_buffer": 0.5,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-40-tight",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 40 tight",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 40,
+          "atr_buffer": 0.5,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-20-z1-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 20 z1.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "deviations": 1.0,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-20-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 20 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "deviations": 1.5,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-40-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 40 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 40,
+          "deviations": 1.5,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-40-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 40 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 40,
+          "deviations": 2.0,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-07",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 07",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "session_end_hour": 9,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-13",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 13",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 13,
+          "session_end_hour": 15,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-07-13",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 07 13",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "session_end_hour": 15,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-15",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 15",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 15,
+          "session_end_hour": 17,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      }
+    ]
+  },
+  "holdout": {
+    "total_bars": 23627,
+    "discovery_bars": 15063,
+    "validation_bars": 5020,
+    "research_bars": 20083,
+    "holdout_bars": 3544,
+    "holdout_start": "2026-07-29T06:30:00+00:00",
+    "holdout_end": "2026-09-21T20:45:00+00:00",
+    "holdout_sha256": "64e1377528d02c865930368e3182d0afd10217ff23080f1a468934ce8f050f22",
+    "sealed": true,
+    "holdout_fraction": 0.15,
+    "role": {
+      "discovery": "develop hypotheses",
+      "validation": "select candidates (IS/OOS split lives here)",
+      "final_holdout": "sealed: one confirmation run after selection; it can never flow back into candidate development"
+    },
+    "confirmations_on_record": 0
+  },
+  "manifest": {
+    "family_id": "fam_gold_scalp_m15",
+    "hypothesis_version": "2",
+    "dataset_path": "C:\\mt5bbot\\data\\xauusd_m15.csv",
+    "dataset_sha256": "3903c58b9d9789dc045d7eecdc81b59c254bcbcc0bb058c80cf272ee4d335996",
+    "research_sha256": "a792c14a6e1e1a80b8c3cbdeff52aef952eecdd367b63b71e85e4a51b3966865",
+    "total_bars": 23627,
+    "research_bars": 20083,
+    "date_range": [
+      "2025-09-21T22:00:00+00:00",
+      "2026-09-21T20:45:00+00:00"
+    ],
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "spread_price": 0.26,
+    "slippage_price": 0.05,
+    "commission_per_lot": 0.0,
+    "starting_balance": 100000.0,
+    "risk_pct": 1.0,
+    "max_volume": 0.1,
+    "max_exposure_pct": 300.0,
+    "candidates": [
+      {
+        "candidate_id": "donchian-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-30",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 30",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 30
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "donchian-100",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Donchian 100",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 100
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-5-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 5/20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 5,
+          "slow_period": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-8-30",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 8/30",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 8,
+          "slow_period": 30
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-10-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 10/50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 10,
+          "slow_period": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-5-50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 5/50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 5,
+          "slow_period": 50
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "sma-20-100",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "SMA 20/100",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 20,
+          "slow_period": 100
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w20-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w20 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "threshold": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w20-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w20 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "threshold": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w30-z2-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w30 z2.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 30,
+          "threshold": 2.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "meanrev-w50-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MeanRev w50 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 50,
+          "threshold": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb10-0-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb10 0.5%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 10,
+          "threshold_pct": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb20-0-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb20 0.5%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "threshold_pct": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb20-1-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb20 1.0%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "threshold_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "momentum-lb30-0-3",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Momentum lb30 0.3%",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 30,
+          "threshold_pct": 0.3
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "atr-20-x2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "ATR 20 x2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_period": 14,
+          "atr_buffer": 0.25
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "atr-50-x1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "ATR 50 x1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 50,
+          "atr_period": 14,
+          "atr_buffer": 0.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "ema-12-26-adx20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "EMA 12/26 ADX20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 12,
+          "slow_period": 26
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "ema-8-34-adx25",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "EMA 8/34 ADX25",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "fast_period": 8,
+          "slow_period": 34,
+          "adx_threshold": 25.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "bollinger-20-2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Bollinger 20 2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "period": 20,
+          "deviations": 2.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "rsi-14-ema50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "RSI 14 EMA50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "trend_period": 50,
+          "rsi_period": 14
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "session-orb-4-h7-16",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Session ORB 4 H7-16",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "opening_range_bars": 4
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "mtf-h1-m15-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "MTF H1 M15 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "htf_factor": 4,
+          "htf_period": 20,
+          "ltf_period": 20
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "structure-2-2-r2",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Structure 2/2 R2",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "swing_left": 2,
+          "swing_right": 2
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-10",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 10",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 10,
+          "atr_buffer": 0.25,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-20",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 20",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_buffer": 0.25,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-20-b50",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 20 b50",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 20,
+          "atr_buffer": 0.5,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mb-40-tight",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MB 40 tight",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "lookback": 40,
+          "atr_buffer": 0.5,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-20-z1-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 20 z1.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "deviations": 1.0,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-20-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 20 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 20,
+          "deviations": 1.5,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-40-z1-5",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 40 z1.5",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 40,
+          "deviations": 1.5,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-rev-40-z2-0",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp REV 40 z2.0",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "window": 40,
+          "deviations": 2.0,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-07",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 07",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "session_end_hour": 9,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-13",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 13",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 13,
+          "session_end_hour": 15,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-07-13",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 07 13",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 7,
+          "session_end_hour": 15,
+          "stop_loss_pct": 0.5,
+          "take_profit_pct": 1.5
+        },
+        "hypothesis_version": "2"
+      },
+      {
+        "candidate_id": "scalp-mom-15",
+        "family_id": "fam_gold_scalp_m15",
+        "label": "Scalp MOM 15",
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "regime_definition": "",
+        "parameter_set": {
+          "session_start_hour": 15,
+          "session_end_hour": 17,
+          "stop_loss_pct": 0.3,
+          "take_profit_pct": 1.0
+        },
+        "hypothesis_version": "2"
+      }
+    ],
+    "statistics": {
+      "h0": "expected per-trade R <= 0 (no positive edge)",
+      "statistic": "mean per-trade R over the evaluation window",
+      "null_draws": "random sign flips of the observed |R| values (signs exchangeable under H0)",
+      "sidedness": "two-sided",
+      "permutations": 2000,
+      "seed": 42,
+      "min_trades": 20,
+      "interpretation": "failing to reject H0 is not evidence of absence: see the power block for the smallest edge this sample could detect at the multiplicity-adjusted threshold",
+      "assumptions": [
+        {
+          "id": "exchangeability",
+          "statement": "the sign of a trade's R is exchangeable under H0",
+          "treatment": "measured: overlap, clustering and serial dependence are reported per candidate",
+          "testable": true
+        },
+        {
+          "id": "serial_dependence",
+          "statement": "residuals are not serially dependent (rho1 ~ 0)",
+          "treatment": "measured: lag-1 autocorrelation and a runs test; n_eff_ar1 reported",
+          "testable": true
+        },
+        {
+          "id": "non_overlapping_trades",
+          "statement": "trades do not overlap in time",
+          "treatment": "measured: overlap fraction and mean concurrency; n_eff_overlap reported",
+          "testable": true
+        },
+        {
+          "id": "independent_outcomes",
+          "statement": "outcomes are not clustered in a way that amplifies the same market move",
+          "treatment": "measured: trades-per-day Fano factor",
+          "testable": true
+        },
+        {
+          "id": "costs_included",
+          "statement": "spread, slippage, commission are already embedded in each trade's R",
+          "treatment": "enforced: the backtest applies configured costs; cost sensitivity is a gate",
+          "testable": true
+        },
+        {
+          "id": "iid_permutation_draws",
+          "statement": "permutation draws are independent and the p-value is uniform under H0",
+          "treatment": "not directly testable here: size is calibrated on synthetic noise by test",
+          "testable": false
+        }
+      ],
+      "effective_sample_gate": 20
+    },
+    "correction": {
+      "primary": "benjamini-hochberg",
+      "alpha": 0.1,
+      "sensitivity": {
+        "benjamini-hochberg": {
+          "alpha": 0.1,
+          "survivors": []
+        },
+        "benjamini-yekutieli": {
+          "alpha": 0.1,
+          "survivors": []
+        },
+        "bonferroni": {
+          "alpha": 0.05,
+          "survivors": []
+        }
+      }
+    },
+    "holdout": {
+      "total_bars": 23627,
+      "discovery_bars": 15063,
+      "validation_bars": 5020,
+      "research_bars": 20083,
+      "holdout_bars": 3544,
+      "holdout_start": "2026-07-29T06:30:00+00:00",
+      "holdout_end": "2026-09-21T20:45:00+00:00",
+      "holdout_sha256": "64e1377528d02c865930368e3182d0afd10217ff23080f1a468934ce8f050f22",
+      "sealed": true,
+      "holdout_fraction": 0.15,
+      "role": {
+        "discovery": "develop hypotheses",
+        "validation": "select candidates (IS/OOS split lives here)",
+        "final_holdout": "sealed: one confirmation run after selection; it can never flow back into candidate development"
+      },
+      "confirmations_on_record": 0
+    },
+    "code_commit": "a2555190c6bdaf1895178d87545047cbac2977c8",
+    "python": "3.13.15",
+    "platform": "Windows-2022Server-10.0.20348-SP0",
+    "built_at": "2026-09-22T20:35:22.896091+00:00",
+    "report_sha256": "4d98116ed5d5a4411ad3c08dff181e9c35093c54e7559941ffc7e919de16e283"
+  },
+  "conclusion": {
+    "verdict": "no_candidate_survived",
+    "validated": [],
+    "raw_gate_survivors": [
+      "Donchian 20",
+      "Donchian 30",
+      "Donchian 50",
+      "SMA 8/30",
+      "SMA 5/50",
+      "Momentum lb10 0.5%",
+      "Momentum lb20 0.5%",
+      "EMA 12/26 ADX20",
+      "EMA 8/34 ADX25",
+      "Session ORB 4 H7-16",
+      "MTF H1 M15 20",
+      "Scalp MB 10",
+      "Scalp MB 20",
+      "Scalp MB 20 b50",
+      "Scalp MOM 07 13",
+      "Scalp MOM 15"
+    ],
+    "effective_sample_rejections": [],
+    "primary_correction": {
+      "method": "benjamini-hochberg",
+      "alpha": 0.1
+    },
+    "survivors_by_method": {
+      "benjamini-hochberg": [],
+      "benjamini-yekutieli": [],
+      "bonferroni": []
+    },
+    "alpha_rank1": 0.002631578947368421,
+    "median_n_effective": 157.56497175141243,
+    "smallest_detectable_edge_r": 0.2396,
+    "trades_needed_for_0.05r_edge": 3618.7,
+    "interpretation": "no candidate survived the family-corrected threshold. This is a failure to reject the null at the multiplicity-adjusted threshold, NOT evidence that no edge exists: the power block reports the smallest edge this sample could have detected."
+  },
+  "candidates": [
+    {
+      "name": "Donchian 20",
+      "params": {
+        "lookback": 20
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "breakout",
+      "is_trades": 684,
+      "is_win_rate": 0.35964912280701755,
+      "is_profit_factor": 1.1069771445339016,
+      "is_expectancy": 15.917520431284272,
+      "is_return_pct": 10.887583974998444,
+      "is_max_drawdown_pct": 3.940065258179458,
+      "oos_trades": 246,
+      "oos_win_rate": 0.3780487804878049,
+      "oos_profit_factor": 1.1724981279129294,
+      "oos_expectancy": 23.43791056910323,
+      "oos_return_pct": 5.765725999999355,
+      "oos_max_drawdown_pct": 2.2076135527278704,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 1.0,
+      "wf_mean_pf": 1.0965727275265937,
+      "mc_pct_profitable": 0.9533333333333334,
+      "mc_median_dd_pct": 6.000402190726663,
+      "mc_p95_dd_pct": 11.767928726851999,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        17261.922275004472,
+        16881.172274997778,
+        16500.42227500338,
+        16119.67227499644,
+        15358.172275004472
+      ],
+      "param_net_profits": [
+        9197.107724997331,
+        16490.12414999801
+      ],
+      "oos_mean_r": 0.1052632323866678,
+      "p_value": 0.25737131434282856,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "donchian-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 246,
+        "n_used": 246,
+        "overlap_pairs": 82,
+        "overlap_fraction": 0.0027210884353741495,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.3333333333333333,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.28,
+        "fano_factor": 0.8175609756097562,
+        "autocorr_lag1": -0.20262639034186858,
+        "runs_z": 3.1686411631575755,
+        "n_eff_ar1": 246.0,
+        "n_eff_overlap": 184.5,
+        "n_effective": 184.5,
+        "flags": [
+          "serial_dependence:rho1=-0.203>|0.128|",
+          "runs_test_z=+3.17",
+          "overlapping_trades:pairs=82,mean_concurrency=1.33"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 184.5,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2214,
+        "raw_trades_for_that_edge": 184.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Donchian 30",
+      "params": {
+        "lookback": 30
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "breakout",
+      "is_trades": 590,
+      "is_win_rate": 0.3525423728813559,
+      "is_profit_factor": 1.0821012341941345,
+      "is_expectancy": 12.258602711862126,
+      "is_return_pct": 7.232575599998715,
+      "is_max_drawdown_pct": 6.0353958953183104,
+      "oos_trades": 205,
+      "oos_win_rate": 0.3804878048780488,
+      "oos_profit_factor": 1.1780462535229614,
+      "oos_expectancy": 23.95829292682691,
+      "oos_return_pct": 4.91145004999949,
+      "oos_max_drawdown_pct": 2.4588870840572747,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0671838850401603,
+      "mc_pct_profitable": 0.9166666666666666,
+      "mc_median_dd_pct": 6.235709570580868,
+      "mc_p95_dd_pct": 12.666118395673154,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        12932.408400003653,
+        12605.658399998152,
+        12278.908400002882,
+        11952.158399997192,
+        11298.658400003653
+      ],
+      "param_net_profits": [
+        16490.12414999801,
+        17551.5012499984
+      ],
+      "oos_mean_r": 0.10836380534725507,
+      "p_value": 0.2978510744627686,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "donchian-30",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 205,
+        "n_used": 205,
+        "overlap_pairs": 48,
+        "overlap_fraction": 0.0022955523672883787,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2341463414634146,
+        "trades_per_day_max": 6,
+        "trades_per_day_mean": 2.808219178082192,
+        "fano_factor": 0.6795856999665886,
+        "autocorr_lag1": -0.11193941875197826,
+        "runs_z": 1.2413741930979068,
+        "n_eff_ar1": 205.0,
+        "n_eff_overlap": 166.10671936758894,
+        "n_effective": 166.10671936758894,
+        "flags": [
+          "overlapping_trades:pairs=48,mean_concurrency=1.23"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 166.10671936758894,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2334,
+        "raw_trades_for_that_edge": 166.1,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Donchian 50",
+      "params": {
+        "lookback": 50
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "breakout",
+      "is_trades": 450,
+      "is_win_rate": 0.36666666666666664,
+      "is_profit_factor": 1.1520382168751322,
+      "is_expectancy": 22.13606366666425,
+      "is_return_pct": 9.961228649998914,
+      "is_max_drawdown_pct": 4.055749441381692,
+      "oos_trades": 167,
+      "oos_win_rate": 0.38922155688622756,
+      "oos_profit_factor": 1.2373495496198506,
+      "oos_expectancy": 31.52881526945917,
+      "oos_return_pct": 5.265312149999649,
+      "oos_max_drawdown_pct": 1.832459559416392,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0742824532372512,
+      "mc_pct_profitable": 0.9566666666666667,
+      "mc_median_dd_pct": 4.742406783438076,
+      "mc_p95_dd_pct": 9.422584028026865,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        15753.597600002948,
+        15502.347599998538,
+        15251.097600002264,
+        14999.847599997593,
+        14497.347600002948
+      ],
+      "param_net_profits": [
+        14423.367949998501,
+        14827.516899998693
+      ],
+      "oos_mean_r": 0.15058026422428794,
+      "p_value": 0.18590704647676162,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "donchian-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 167,
+        "n_used": 167,
+        "overlap_pairs": 10,
+        "overlap_fraction": 0.0007214486689272058,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0598802395209581,
+        "trades_per_day_max": 6,
+        "trades_per_day_mean": 2.420289855072464,
+        "fano_factor": 0.5078538575023864,
+        "autocorr_lag1": -0.10748566359749791,
+        "runs_z": 1.0775670241054327,
+        "n_eff_ar1": 167.0,
+        "n_eff_overlap": 157.56497175141243,
+        "n_effective": 157.56497175141243,
+        "flags": [
+          "overlapping_trades:pairs=10,mean_concurrency=1.06"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 157.56497175141243,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2396,
+        "raw_trades_for_that_edge": 157.6,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Donchian 100",
+      "params": {
+        "lookback": 100
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "breakout",
+      "is_trades": 330,
+      "is_win_rate": 0.38484848484848483,
+      "is_profit_factor": 1.2441698773833998,
+      "is_expectancy": 34.624318787876476,
+      "is_return_pct": 11.426025199999188,
+      "is_max_drawdown_pct": 3.681733921984226,
+      "oos_trades": 128,
+      "oos_win_rate": 0.328125,
+      "oos_profit_factor": 0.9619013748669328,
+      "oos_expectancy": -5.538520703127041,
+      "oos_return_pct": -0.7089306500002713,
+      "oos_max_drawdown_pct": 3.433134702132306,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "OOS E=-5.54<=0"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0516546282635166,
+      "mc_pct_profitable": 0.9433333333333334,
+      "mc_median_dd_pct": 4.4707773869222205,
+      "mc_p95_dd_pct": 9.018724097077008,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        11886.846400002221,
+        11699.596399998918,
+        11512.346400001741,
+        11325.09639999838,
+        10950.596400002221
+      ],
+      "param_net_profits": [
+        11978.333349998764,
+        13240.766699998887
+      ],
+      "oos_mean_r": -0.025571135606259288,
+      "p_value": 0.8545727136431784,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "donchian-100",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 128,
+        "n_used": 128,
+        "overlap_pairs": 0,
+        "overlap_fraction": 0.0,
+        "max_concurrency": 1,
+        "mean_concurrency": 1.0,
+        "trades_per_day_max": 6,
+        "trades_per_day_mean": 2.0317460317460316,
+        "fano_factor": 0.49950396825396826,
+        "autocorr_lag1": 0.07585951994403949,
+        "runs_z": -0.8940350063424142,
+        "n_eff_ar1": 109.94928171785455,
+        "n_eff_overlap": 128.0,
+        "n_effective": 109.94928171785455,
+        "flags": [],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 109.94928171785455,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2868,
+        "raw_trades_for_that_edge": 109.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "SMA 5/20",
+      "params": {
+        "fast_period": 5,
+        "slow_period": 20
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "sma_crossover",
+      "is_trades": 619,
+      "is_win_rate": 0.34248788368336025,
+      "is_profit_factor": 1.037207880146332,
+      "is_expectancy": 4.520837479803959,
+      "is_return_pct": 2.798398399998885,
+      "is_max_drawdown_pct": 3.439286186098584,
+      "oos_trades": 276,
+      "oos_win_rate": 0.31521739130434784,
+      "oos_profit_factor": 0.8648812048289681,
+      "oos_expectancy": -16.665025507248213,
+      "oos_return_pct": -4.599547040000514,
+      "oos_max_drawdown_pct": 5.25934989766544,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "OOS PF=0.86<0.9",
+        "OOS E=-16.67<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 43% of paths",
+        "spread unstable: profitable at 0/5 cost levels"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.9521080843163692,
+      "mc_pct_profitable": 0.43333333333333335,
+      "mc_median_dd_pct": 9.20535684363187,
+      "mc_p95_dd_pct": 18.991428423350786,
+      "spread_stable": false,
+      "param_stable": true,
+      "spread_net_profits": [
+        -1428.6486399952555,
+        -1801.1486400016147,
+        -2173.648639996376,
+        -2546.1486400029244,
+        -3291.1486399952555
+      ],
+      "param_net_profits": [
+        4952.822679998091,
+        1643.1823199982464,
+        6939.215599997711,
+        507.6111999982677
+      ],
+      "oos_mean_r": -0.09797834538708716,
+      "p_value": 0.2748625687156422,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "sma-5-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 276,
+        "n_used": 276,
+        "overlap_pairs": 109,
+        "overlap_fraction": 0.0028722002635046115,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.394927536231884,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.68,
+        "fano_factor": 0.646086956521739,
+        "autocorr_lag1": -0.11593032991550219,
+        "runs_z": 2.214951392456098,
+        "n_eff_ar1": 276.0,
+        "n_eff_overlap": 197.85974025974025,
+        "n_effective": 197.85974025974025,
+        "flags": [
+          "runs_test_z=+2.21",
+          "overlapping_trades:pairs=109,mean_concurrency=1.39"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 197.85974025974025,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2138,
+        "raw_trades_for_that_edge": 197.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "SMA 8/30",
+      "params": {
+        "fast_period": 8,
+        "slow_period": 30
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "sma_crossover",
+      "is_trades": 466,
+      "is_win_rate": 0.33905579399141633,
+      "is_profit_factor": 1.0267766507199647,
+      "is_expectancy": 3.2397143347621116,
+      "is_return_pct": 1.5097068799988338,
+      "is_max_drawdown_pct": 4.8635560361709596,
+      "oos_trades": 206,
+      "oos_win_rate": 0.3786407766990291,
+      "oos_profit_factor": 1.1851859304883083,
+      "oos_expectancy": 20.163555728153483,
+      "oos_return_pct": 4.153692479999591,
+      "oos_max_drawdown_pct": 2.3566535806112654,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.952554084713942,
+      "mc_pct_profitable": 0.7866666666666666,
+      "mc_median_dd_pct": 5.182850026010661,
+      "mc_p95_dd_pct": 10.145511960755012,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        5940.149360003721,
+        5663.399359998439,
+        5386.649360002964,
+        5109.899359998119,
+        4556.399360003721
+      ],
+      "param_net_profits": [
+        2627.1100399985007,
+        9751.449099998543,
+        4025.5722399982624,
+        5295.678039998558
+      ],
+      "oos_mean_r": 0.10781064225088469,
+      "p_value": 0.30434782608695654,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "sma-8-30",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 206,
+        "n_used": 206,
+        "overlap_pairs": 60,
+        "overlap_fraction": 0.0028415818138763913,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2912621359223302,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 2.7837837837837838,
+        "fano_factor": 0.6336919443715561,
+        "autocorr_lag1": -0.195798830105794,
+        "runs_z": 2.682690478443854,
+        "n_eff_ar1": 206.0,
+        "n_eff_overlap": 159.53383458646616,
+        "n_effective": 159.53383458646616,
+        "flags": [
+          "serial_dependence:rho1=-0.196>|0.139|",
+          "runs_test_z=+2.68",
+          "overlapping_trades:pairs=60,mean_concurrency=1.29"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 159.53383458646616,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2381,
+        "raw_trades_for_that_edge": 159.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "SMA 10/50",
+      "params": {
+        "fast_period": 10,
+        "slow_period": 50
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "sma_crossover",
+      "is_trades": 329,
+      "is_win_rate": 0.3343465045592705,
+      "is_profit_factor": 0.9981389738364377,
+      "is_expectancy": -0.22707179331552174,
+      "is_return_pct": -0.07470662000073934,
+      "is_max_drawdown_pct": 5.502653470889028,
+      "oos_trades": 129,
+      "oos_win_rate": 0.4263565891472868,
+      "oos_profit_factor": 1.426344457551192,
+      "oos_expectancy": 43.77039131782754,
+      "oos_return_pct": 5.646380479999687,
+      "oos_max_drawdown_pct": 1.1720865062554442,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=1.00<1.0",
+        "IS E=-0.23<=0"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.1748859486894283,
+      "mc_pct_profitable": 0.85,
+      "mc_median_dd_pct": 4.4297990798729545,
+      "mc_p95_dd_pct": 8.727322857788177,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        5575.934620002226,
+        5387.684619998952,
+        5199.434620001688,
+        5011.184619998414,
+        4634.684620002226
+      ],
+      "param_net_profits": [
+        6957.137539998977,
+        2783.891179999089,
+        8055.593979998768,
+        3164.187359999196
+      ],
+      "oos_mean_r": 0.24094627737476593,
+      "p_value": 0.07846076961519241,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "sma-10-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 129,
+        "n_used": 129,
+        "overlap_pairs": 24,
+        "overlap_fraction": 0.0029069767441860465,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.186046511627907,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 1.9545454545454546,
+        "fano_factor": 0.42529950669485556,
+        "autocorr_lag1": -0.15037704134046156,
+        "runs_z": 1.246922389611902,
+        "n_eff_ar1": 129.0,
+        "n_eff_overlap": 108.76470588235293,
+        "n_effective": 108.76470588235293,
+        "flags": [
+          "overlapping_trades:pairs=24,mean_concurrency=1.19"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 108.76470588235293,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2884,
+        "raw_trades_for_that_edge": 108.8,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "SMA 5/50",
+      "params": {
+        "fast_period": 5,
+        "slow_period": 50
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "sma_crossover",
+      "is_trades": 385,
+      "is_win_rate": 0.34025974025974026,
+      "is_profit_factor": 1.0133978689785594,
+      "is_expectancy": 1.6352849870109858,
+      "is_return_pct": 0.6295847199990384,
+      "is_max_drawdown_pct": 6.944813624991123,
+      "oos_trades": 152,
+      "oos_win_rate": 0.39473684210526316,
+      "oos_profit_factor": 1.212380917370585,
+      "oos_expectancy": 22.966549473681628,
+      "oos_return_pct": 3.4909155199995587,
+      "oos_max_drawdown_pct": 2.38663645943673,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0458088943541761,
+      "mc_pct_profitable": 0.76,
+      "mc_median_dd_pct": 5.2797418958608695,
+      "mc_p95_dd_pct": 9.909441695475758,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        4156.725120002768,
+        3935.975119998606,
+        3715.2251200019527,
+        3494.4751199980965,
+        3052.9751200027677
+      ],
+      "param_net_profits": [
+        2467.2614799988223,
+        573.8618399986444,
+        4215.0417599983775,
+        -5238.58006000123
+      ],
+      "oos_mean_r": 0.11865763775501054,
+      "p_value": 0.32983508245877063,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "sma-5-50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 152,
+        "n_used": 152,
+        "overlap_pairs": 38,
+        "overlap_fraction": 0.0033112582781456954,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.25,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 2.140845070422535,
+        "fano_factor": 0.8591549295774649,
+        "autocorr_lag1": -0.06524993661715012,
+        "runs_z": 0.7442142135165082,
+        "n_eff_ar1": 152.0,
+        "n_eff_overlap": 121.6,
+        "n_effective": 121.6,
+        "flags": [
+          "overlapping_trades:pairs=38,mean_concurrency=1.25"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 121.6,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2728,
+        "raw_trades_for_that_edge": 121.6,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "SMA 20/100",
+      "params": {
+        "fast_period": 20,
+        "slow_period": 100
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "sma_crossover",
+      "is_trades": 172,
+      "is_win_rate": 0.313953488372093,
+      "is_profit_factor": 0.9246405134245668,
+      "is_expectancy": -9.365928604652835,
+      "is_return_pct": -1.6109397200002276,
+      "is_max_drawdown_pct": 3.1747773804267063,
+      "oos_trades": 63,
+      "oos_win_rate": 0.3968253968253968,
+      "oos_profit_factor": 1.2890251086578244,
+      "oos_expectancy": 30.664650158728147,
+      "oos_return_pct": 1.9318729599998479,
+      "oos_max_drawdown_pct": 1.2612768109292918,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.92<1.0",
+        "IS E=-9.37<=0",
+        "MC profitable only 52% of paths",
+        "param unstable: 2/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0412993327013917,
+      "mc_pct_profitable": 0.52,
+      "mc_median_dd_pct": 4.040357291117044,
+      "mc_p95_dd_pct": 8.08134316131211,
+      "spread_stable": true,
+      "param_stable": false,
+      "spread_net_profits": [
+        418.6832400010462,
+        320.9332399996201,
+        223.1832400009589,
+        125.43323999922723,
+        -70.06675999895378
+      ],
+      "param_net_profits": [
+        2637.8731199993927,
+        -1748.8019600004482,
+        2975.262959999629,
+        -1984.3002000004053
+      ],
+      "oos_mean_r": 0.17687360201561503,
+      "p_value": 0.33883058470764615,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "sma-20-100",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 63,
+        "n_used": 63,
+        "overlap_pairs": 2,
+        "overlap_fraction": 0.0010240655401945725,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0317460317460319,
+        "trades_per_day_max": 3,
+        "trades_per_day_mean": 1.2857142857142858,
+        "fano_factor": 0.22222222222222218,
+        "autocorr_lag1": 0.15271962476598044,
+        "runs_z": -1.36977055767877,
+        "n_eff_ar1": 46.30671890450369,
+        "n_eff_overlap": 61.061538461538454,
+        "n_effective": 46.30671890450369,
+        "flags": [
+          "overlapping_trades:pairs=2,mean_concurrency=1.03"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 46.30671890450369,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.442,
+        "raw_trades_for_that_edge": 46.3,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "MeanRev w20 z2.0",
+      "params": {
+        "window": 20,
+        "threshold": 2.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "mean_reversion",
+      "is_trades": 364,
+      "is_win_rate": 0.29120879120879123,
+      "is_profit_factor": 0.8188945792745542,
+      "is_expectancy": -27.928980082419653,
+      "is_return_pct": -10.166148750000692,
+      "is_max_drawdown_pct": 10.199222376399465,
+      "oos_trades": 260,
+      "oos_win_rate": 0.33076923076923076,
+      "oos_profit_factor": 0.9420687172712026,
+      "oos_expectancy": -8.505161153848384,
+      "oos_return_pct": -2.2113419000006105,
+      "oos_max_drawdown_pct": 4.323105753563543,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.82<1.0",
+        "IS E=-27.93<=0",
+        "OOS E=-8.51<=0",
+        "MC profitable only 5% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0015383412360779,
+      "mc_pct_profitable": 0.05333333333333334,
+      "mc_median_dd_pct": 12.419775076558908,
+      "mc_p95_dd_pct": 20.83436400190358,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10010.648749998392,
+        -10166.148750000692,
+        -10081.486399998466,
+        -10001.923550000982,
+        -10089.882149998462
+      ],
+      "param_net_profits": [
+        -9978.504700001009,
+        -10215.157900000762,
+        -10117.709150001101,
+        -6761.401500001171
+      ],
+      "oos_mean_r": -0.03823346941039157,
+      "p_value": 0.6691654172913544,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "meanrev-w20-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 260,
+        "n_used": 260,
+        "overlap_pairs": 68,
+        "overlap_fraction": 0.0020196020196020198,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2615384615384615,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 3.5135135135135136,
+        "fano_factor": 0.7172557172557172,
+        "autocorr_lag1": -0.16020380855516975,
+        "runs_z": 2.512503094549954,
+        "n_eff_ar1": 260.0,
+        "n_eff_overlap": 206.09756097560975,
+        "n_effective": 206.09756097560975,
+        "flags": [
+          "serial_dependence:rho1=-0.160>|0.124|",
+          "runs_test_z=+2.51",
+          "overlapping_trades:pairs=68,mean_concurrency=1.26"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 206.09756097560975,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2095,
+        "raw_trades_for_that_edge": 206.1,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "MeanRev w20 z1.5",
+      "params": {
+        "window": 20,
+        "threshold": 1.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "mean_reversion",
+      "is_trades": 452,
+      "is_win_rate": 0.3030973451327434,
+      "is_profit_factor": 0.8540648213662283,
+      "is_expectancy": -22.45260652655092,
+      "is_return_pct": -10.148578150001006,
+      "is_max_drawdown_pct": 10.181658245269274,
+      "oos_trades": 330,
+      "oos_win_rate": 0.3515151515151515,
+      "oos_profit_factor": 1.0510198512690714,
+      "oos_expectancy": 7.2418046969677645,
+      "oos_return_pct": 2.389795549999355,
+      "oos_max_drawdown_pct": 2.8343729418322705,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.85<1.0",
+        "IS E=-22.45<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 4% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.9665039245776568,
+      "mc_pct_profitable": 0.04,
+      "mc_median_dd_pct": 13.739537876800922,
+      "mc_p95_dd_pct": 22.70445457612679,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10195.515599997976,
+        -10148.578150001005,
+        -10101.171349998243,
+        -10049.98625000134,
+        -10186.061049998025
+      ],
+      "param_net_profits": [
+        -9991.497550001164,
+        -10035.049700001196,
+        -9836.85965000125,
+        -10116.991800000978
+      ],
+      "oos_mean_r": 0.03675485435031604,
+      "p_value": 0.624687656171914,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "meanrev-w20-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 330,
+        "n_used": 330,
+        "overlap_pairs": 122,
+        "overlap_fraction": 0.002247397992078843,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.3696969696969696,
+        "trades_per_day_max": 11,
+        "trades_per_day_mean": 4.4,
+        "fano_factor": 1.1696969696969695,
+        "autocorr_lag1": -0.2562170320524108,
+        "runs_z": 4.30047469012134,
+        "n_eff_ar1": 330.0,
+        "n_eff_overlap": 240.92920353982302,
+        "n_effective": 240.92920353982302,
+        "flags": [
+          "serial_dependence:rho1=-0.256>|0.110|",
+          "runs_test_z=+4.30",
+          "overlapping_trades:pairs=122,mean_concurrency=1.37"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 240.92920353982302,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1938,
+        "raw_trades_for_that_edge": 240.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "MeanRev w30 z2.5",
+      "params": {
+        "window": 30,
+        "threshold": 2.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "mean_reversion",
+      "is_trades": 311,
+      "is_win_rate": 0.28938906752411575,
+      "is_profit_factor": 0.81389153887066,
+      "is_expectancy": -30.30968504823348,
+      "is_return_pct": -9.426312050000561,
+      "is_max_drawdown_pct": 10.105074991751458,
+      "oos_trades": 148,
+      "oos_win_rate": 0.31756756756756754,
+      "oos_profit_factor": 0.9073151401806421,
+      "oos_expectancy": -13.686156081083187,
+      "oos_return_pct": -2.025551100000244,
+      "oos_max_drawdown_pct": 4.648485051121081,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.81<1.0",
+        "IS E=-30.31<=0",
+        "OOS E=-13.69<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 6% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.8589597185377167,
+      "mc_pct_profitable": 0.06,
+      "mc_median_dd_pct": 11.958330266052123,
+      "mc_p95_dd_pct": 20.43172910192549,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10051.35359999814,
+        -9426.31205000056,
+        -9373.694599999042,
+        -9479.194600000788,
+        -9450.1171499989
+      ],
+      "param_net_profits": [
+        -9736.924000000407,
+        -9561.427300000592,
+        -10151.624850000837,
+        -2286.4329500005697
+      ],
+      "oos_mean_r": -0.06734167433149393,
+      "p_value": 0.5752123938030984,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "meanrev-w30-z2-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 148,
+        "n_used": 148,
+        "overlap_pairs": 20,
+        "overlap_fraction": 0.0018385732671446957,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.135135135135135,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 2.176470588235294,
+        "fano_factor": 0.5262321144674086,
+        "autocorr_lag1": -0.228147157127591,
+        "runs_z": 2.8291036135915126,
+        "n_eff_ar1": 148.0,
+        "n_eff_overlap": 130.38095238095238,
+        "n_effective": 130.38095238095238,
+        "flags": [
+          "serial_dependence:rho1=-0.228>|0.164|",
+          "runs_test_z=+2.83",
+          "overlapping_trades:pairs=20,mean_concurrency=1.14"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 130.38095238095238,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2634,
+        "raw_trades_for_that_edge": 130.4,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "MeanRev w50 z2.0",
+      "params": {
+        "window": 50,
+        "threshold": 2.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "mean_reversion",
+      "is_trades": 304,
+      "is_win_rate": 0.29276315789473684,
+      "is_profit_factor": 0.8087522058681845,
+      "is_expectancy": -30.194796052633734,
+      "is_return_pct": -9.179218000000722,
+      "is_max_drawdown_pct": 10.024637839753966,
+      "oos_trades": 194,
+      "oos_win_rate": 0.29896907216494845,
+      "oos_profit_factor": 0.8382426939048793,
+      "oos_expectancy": -24.448192268043442,
+      "oos_return_pct": -4.742949300000401,
+      "oos_max_drawdown_pct": 6.345417128095186,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.81<1.0",
+        "IS E=-30.19<=0",
+        "OOS PF=0.84<0.9",
+        "OOS E=-24.45<=0",
+        "MC profitable only 4% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.9930327841763231,
+      "mc_pct_profitable": 0.043333333333333335,
+      "mc_median_dd_pct": 11.857934350000637,
+      "mc_p95_dd_pct": 19.20366010000072,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -9296.510349998367,
+        -9179.218000000721,
+        -9308.967999998757,
+        -9188.833850000898,
+        -9195.942349998411
+      ],
+      "param_net_profits": [
+        -9868.780800000852,
+        -9216.71960000055,
+        -9973.58800000076,
+        -8443.487200000483
+      ],
+      "oos_mean_r": -0.1199937375328652,
+      "p_value": 0.2283858070964518,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "meanrev-w50-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 194,
+        "n_used": 194,
+        "overlap_pairs": 23,
+        "overlap_fraction": 0.0012285668500614283,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.1185567010309279,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 2.8115942028985508,
+        "fano_factor": 0.7244882713282534,
+        "autocorr_lag1": -0.12165596626311137,
+        "runs_z": 1.8359394621421132,
+        "n_eff_ar1": 194.0,
+        "n_eff_overlap": 173.43778801843317,
+        "n_effective": 173.43778801843317,
+        "flags": [
+          "overlapping_trades:pairs=23,mean_concurrency=1.12"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 173.43778801843317,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2284,
+        "raw_trades_for_that_edge": 173.4,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Momentum lb10 0.5%",
+      "params": {
+        "lookback": 10,
+        "threshold_pct": 0.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "momentum",
+      "is_trades": 568,
+      "is_win_rate": 0.3345070422535211,
+      "is_profit_factor": 1.0037735967210366,
+      "is_expectancy": 0.5835067781668667,
+      "is_return_pct": 0.3314318499987858,
+      "is_max_drawdown_pct": 9.223845145789648,
+      "oos_trades": 188,
+      "oos_win_rate": 0.3882978723404255,
+      "oos_profit_factor": 1.2448235075265934,
+      "oos_expectancy": 32.83741622340256,
+      "oos_return_pct": 6.1734342499997,
+      "oos_max_drawdown_pct": 2.0547160967490448,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0246657665364283,
+      "mc_pct_profitable": 0.7566666666666667,
+      "mc_median_dd_pct": 7.255415814550088,
+      "mc_p95_dd_pct": 14.20985868481088,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        6866.19750000404,
+        6554.447499998496,
+        6242.697500003138,
+        5930.947499997172,
+        5307.44750000404
+      ],
+      "param_net_profits": [
+        7109.252349998555,
+        4830.239699998536,
+        16843.620699998355,
+        -8893.848600000973
+      ],
+      "oos_mean_r": 0.14897768398536593,
+      "p_value": 0.1794102948525737,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "momentum-lb10-0-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 188,
+        "n_used": 188,
+        "overlap_pairs": 48,
+        "overlap_fraction": 0.0027306860848788257,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2553191489361701,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 2.7246376811594204,
+        "fano_factor": 0.5732346592661116,
+        "autocorr_lag1": -0.13727736221572884,
+        "runs_z": 1.8002919457749116,
+        "n_eff_ar1": 188.0,
+        "n_eff_overlap": 149.76271186440678,
+        "n_effective": 149.76271186440678,
+        "flags": [
+          "overlapping_trades:pairs=48,mean_concurrency=1.26"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 149.76271186440678,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2458,
+        "raw_trades_for_that_edge": 149.8,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Momentum lb20 0.5%",
+      "params": {
+        "lookback": 20,
+        "threshold_pct": 0.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "momentum",
+      "is_trades": 481,
+      "is_win_rate": 0.3492723492723493,
+      "is_profit_factor": 1.0625757301631666,
+      "is_expectancy": 9.429668762991723,
+      "is_return_pct": 4.535670674998924,
+      "is_max_drawdown_pct": 8.005458092943881,
+      "oos_trades": 175,
+      "oos_win_rate": 0.4,
+      "oos_profit_factor": 1.2603035237050224,
+      "oos_expectancy": 34.483817142854555,
+      "oos_return_pct": 6.034667999999554,
+      "oos_max_drawdown_pct": 1.8426549456901062,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.065760181813133,
+      "mc_pct_profitable": 0.94,
+      "mc_median_dd_pct": 5.804992518776839,
+      "mc_p95_dd_pct": 11.352195988311289,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        11530.228925003044,
+        11261.978924998504,
+        10993.728925002535,
+        10725.478924997762,
+        10188.978925003044
+      ],
+      "param_net_profits": [
+        7531.500024998357,
+        16207.855924998817,
+        11687.406574998662,
+        10602.952149998542
+      ],
+      "oos_mean_r": 0.16149139322817355,
+      "p_value": 0.15692153923038482,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "momentum-lb20-0-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 175,
+        "n_used": 175,
+        "overlap_pairs": 37,
+        "overlap_fraction": 0.0024302134646962234,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2114285714285715,
+        "trades_per_day_max": 6,
+        "trades_per_day_mean": 2.364864864864865,
+        "fano_factor": 0.5894208494208494,
+        "autocorr_lag1": -0.16592484572985325,
+        "runs_z": 2.053710801227245,
+        "n_eff_ar1": 175.0,
+        "n_eff_overlap": 144.4575471698113,
+        "n_effective": 144.4575471698113,
+        "flags": [
+          "serial_dependence:rho1=-0.166>|0.151|",
+          "runs_test_z=+2.05",
+          "overlapping_trades:pairs=37,mean_concurrency=1.21"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 144.4575471698113,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2503,
+        "raw_trades_for_that_edge": 144.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Momentum lb20 1.0%",
+      "params": {
+        "lookback": 20,
+        "threshold_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "momentum",
+      "is_trades": 276,
+      "is_win_rate": 0.35144927536231885,
+      "is_profit_factor": 1.0762801042526624,
+      "is_expectancy": 11.70109873188186,
+      "is_return_pct": 3.229503249999383,
+      "is_max_drawdown_pct": 3.241342882393864,
+      "oos_trades": 94,
+      "oos_win_rate": 0.30851063829787234,
+      "oos_profit_factor": 0.8714317510342009,
+      "oos_expectancy": -19.418460106385282,
+      "oos_return_pct": -1.825335250000251,
+      "oos_max_drawdown_pct": 3.434741867431143,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "OOS PF=0.87<0.9",
+        "OOS E=-19.42<=0",
+        "param unstable: 2/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.088325387428665,
+      "mc_pct_profitable": 0.6133333333333333,
+      "mc_median_dd_pct": 6.235649398619694,
+      "mc_p95_dd_pct": 12.588445082941375,
+      "spread_stable": true,
+      "param_stable": false,
+      "spread_net_profits": [
+        1833.7248000019026,
+        1679.9747999991087,
+        1526.224800001466,
+        1372.4747999985557,
+        1064.9748000019026
+      ],
+      "param_net_profits": [
+        1973.4037499990518,
+        -1625.6843000007793,
+        7991.16514999872,
+        -1232.551750000639
+      ],
+      "oos_mean_r": -0.09200207148291766,
+      "p_value": 0.5037481259370314,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "momentum-lb20-1-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 94,
+        "n_used": 94,
+        "overlap_pairs": 1,
+        "overlap_fraction": 0.00022878059940517045,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0106382978723405,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 1.7735849056603774,
+        "fano_factor": 0.5242874347651546,
+        "autocorr_lag1": 0.10545162276027266,
+        "runs_z": -0.9999317364127059,
+        "n_eff_ar1": 76.06623910919848,
+        "n_eff_overlap": 93.01052631578946,
+        "n_effective": 76.06623910919848,
+        "flags": [
+          "overlapping_trades:pairs=1,mean_concurrency=1.01"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 76.06623910919848,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.3449,
+        "raw_trades_for_that_edge": 76.1,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Momentum lb30 0.3%",
+      "params": {
+        "lookback": 30,
+        "threshold_pct": 0.3
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "momentum",
+      "is_trades": 406,
+      "is_win_rate": 0.31527093596059114,
+      "is_profit_factor": 0.8933960438210771,
+      "is_expectancy": -16.909257758622825,
+      "is_return_pct": -6.865158650000856,
+      "is_max_drawdown_pct": 10.041998790178212,
+      "oos_trades": 174,
+      "oos_win_rate": 0.367816091954023,
+      "oos_profit_factor": 1.1366638445214348,
+      "oos_expectancy": 18.693131321837317,
+      "oos_return_pct": 3.252604849999654,
+      "oos_max_drawdown_pct": 2.4264159395503784,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.89<1.0",
+        "IS E=-16.91<=0",
+        "MC profitable only 12% of paths",
+        "spread unstable: profitable at 0/5 cost levels"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0400075478689774,
+      "mc_pct_profitable": 0.11666666666666667,
+      "mc_median_dd_pct": 10.517536235607041,
+      "mc_p95_dd_pct": 17.969163427672825,
+      "spread_stable": false,
+      "param_stable": true,
+      "spread_net_profits": [
+        -6923.887799997887,
+        -6865.158650000856,
+        -7036.158649998411,
+        -6975.858350001581,
+        -7054.718199997937
+      ],
+      "param_net_profits": [
+        15313.887049998506,
+        4075.6901999988477,
+        -7382.439350000728,
+        2815.068549998832
+      ],
+      "oos_mean_r": 0.07418686571575947,
+      "p_value": 0.4847576211894053,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "momentum-lb30-0-3",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 174,
+        "n_used": 174,
+        "overlap_pairs": 54,
+        "overlap_fraction": 0.0035878014749850507,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.3103448275862069,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 2.3513513513513513,
+        "fano_factor": 0.37278657968313145,
+        "autocorr_lag1": -0.16676998619767253,
+        "runs_z": 2.3029615972507953,
+        "n_eff_ar1": 174.0,
+        "n_eff_overlap": 132.78947368421052,
+        "n_effective": 132.78947368421052,
+        "flags": [
+          "serial_dependence:rho1=-0.167>|0.152|",
+          "runs_test_z=+2.30",
+          "overlapping_trades:pairs=54,mean_concurrency=1.31"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 132.78947368421052,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.261,
+        "raw_trades_for_that_edge": 132.8,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "ATR 20 x2.0",
+      "params": {
+        "lookback": 20,
+        "atr_period": 14,
+        "atr_buffer": 0.25
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "atr_breakout",
+      "is_trades": 497,
+      "is_win_rate": 0.30784708249496984,
+      "is_profit_factor": 0.8220932516994587,
+      "is_expectancy": -19.840089106067175,
+      "is_return_pct": -9.860524285715394,
+      "is_max_drawdown_pct": 10.110861683535108,
+      "oos_trades": 262,
+      "oos_win_rate": 0.3435114503816794,
+      "oos_profit_factor": 0.9789093026188332,
+      "oos_expectancy": -1.8365703380609444,
+      "oos_return_pct": -0.4811814285719156,
+      "oos_max_drawdown_pct": 3.340982416668599,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.82<1.0",
+        "IS E=-19.84<=0",
+        "OOS E=-1.84<=0",
+        "WF pass rate 0% < 50% (0/4)",
+        "MC profitable only 4% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/6 nearby positive"
+      ],
+      "wf_pass_rate": 0.0,
+      "wf_mean_pf": 0.9044960647122875,
+      "mc_pct_profitable": 0.03666666666666667,
+      "mc_median_dd_pct": 12.065675917477757,
+      "mc_p95_dd_pct": 20.325486785715125,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -9777.68857142626,
+        -9860.524285715393,
+        -9415.124999998196,
+        -9781.066785715899,
+        -9925.225714283573
+      ],
+      "param_net_profits": [
+        -9071.403928573607,
+        -9742.758214286965,
+        -4673.742590910959,
+        -8338.093823531352,
+        -9670.143571430672,
+        -9832.68035714388
+      ],
+      "oos_mean_r": 0.014299497843484837,
+      "p_value": 0.8620689655172413,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "atr-20-x2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 262,
+        "n_used": 262,
+        "overlap_pairs": 7,
+        "overlap_fraction": 0.00020473223947822526,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0267175572519085,
+        "trades_per_day_max": 9,
+        "trades_per_day_mean": 3.5405405405405403,
+        "fano_factor": 0.7877037342686198,
+        "autocorr_lag1": -0.06999698124311193,
+        "runs_z": 1.075330819882882,
+        "n_eff_ar1": 262.0,
+        "n_eff_overlap": 255.18215613382898,
+        "n_effective": 255.18215613382898,
+        "flags": [
+          "overlapping_trades:pairs=7,mean_concurrency=1.03"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 255.18215613382898,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1883,
+        "raw_trades_for_that_edge": 255.2,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "ATR 50 x1.5",
+      "params": {
+        "lookback": 50,
+        "atr_period": 14,
+        "atr_buffer": 0.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "atr_breakout",
+      "is_trades": 307,
+      "is_win_rate": 0.3289902280130293,
+      "is_profit_factor": 0.9779408083676512,
+      "is_expectancy": -2.5225418799465773,
+      "is_return_pct": -0.7744203571435646,
+      "is_max_drawdown_pct": 4.206551982407828,
+      "oos_trades": 125,
+      "oos_win_rate": 0.312,
+      "oos_profit_factor": 0.903360634733473,
+      "oos_expectancy": -9.15126000000193,
+      "oos_return_pct": -1.1439075000002048,
+      "oos_max_drawdown_pct": 2.519938142045458,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.98<1.0",
+        "IS E=-2.52<=0",
+        "OOS E=-9.15<=0",
+        "WF pass rate 0% < 50% (0/4)",
+        "MC profitable only 36% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/6 nearby positive"
+      ],
+      "wf_pass_rate": 0.0,
+      "wf_mean_pf": 0.8671692875040931,
+      "mc_pct_profitable": 0.36333333333333334,
+      "mc_median_dd_pct": 6.852959241100674,
+      "mc_p95_dd_pct": 13.315503381465223,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -1886.2871428549697,
+        -2067.7871428580547,
+        -2249.287142855552,
+        -2430.787142858637,
+        -2793.7871428549697
+      ],
+      "param_net_profits": [
+        -3229.6632142868475,
+        -615.8600000008882,
+        -4119.323045455574,
+        -1084.1970588244876,
+        -2687.8846428580873,
+        -1701.527142857958
+      ],
+      "oos_mean_r": -0.0765558954700138,
+      "p_value": 0.5327336331834083,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "atr-50-x1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 125,
+        "n_used": 125,
+        "overlap_pairs": 0,
+        "overlap_fraction": 0.0,
+        "max_concurrency": 1,
+        "mean_concurrency": 1.0,
+        "trades_per_day_max": 6,
+        "trades_per_day_mean": 2.0491803278688523,
+        "fano_factor": 0.5988196721311476,
+        "autocorr_lag1": -0.1113410519921182,
+        "runs_z": 1.1177076463272293,
+        "n_eff_ar1": 125.0,
+        "n_eff_overlap": 125.0,
+        "n_effective": 125.0,
+        "flags": [],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 125.0,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.269,
+        "raw_trades_for_that_edge": 125.0,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "EMA 12/26 ADX20",
+      "params": {
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "ema_adx_trend",
+      "is_trades": 826,
+      "is_win_rate": 0.3595641646489104,
+      "is_profit_factor": 1.1056318757698975,
+      "is_expectancy": 15.796526361983144,
+      "is_return_pct": 13.047930774998271,
+      "is_max_drawdown_pct": 4.160531221101369,
+      "oos_trades": 267,
+      "oos_win_rate": 0.36329588014981273,
+      "oos_profit_factor": 1.1106729537787863,
+      "oos_expectancy": 15.34367134831194,
+      "oos_return_pct": 4.096760249999352,
+      "oos_max_drawdown_pct": 3.7660826602906003,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0585258874709718,
+      "mc_pct_profitable": 0.9766666666666667,
+      "mc_median_dd_pct": 6.630556309712983,
+      "mc_p95_dd_pct": 12.385874947521618,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        18051.414225005385,
+        17602.91422499757,
+        17154.41422500393,
+        16705.914224995984,
+        15808.914225005385
+      ],
+      "param_net_profits": [
+        19411.074849997312,
+        11257.15544999743,
+        11000.899199997424,
+        10014.265874997378
+      ],
+      "oos_mean_r": 0.0640436814800268,
+      "p_value": 0.4737631184407796,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "ema-12-26-adx20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 267,
+        "n_used": 267,
+        "overlap_pairs": 72,
+        "overlap_fraction": 0.002027540762017403,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2696629213483146,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.7083333333333335,
+        "fano_factor": 0.8122659176029962,
+        "autocorr_lag1": -0.1220099503372964,
+        "runs_z": 2.0522048569484395,
+        "n_eff_ar1": 267.0,
+        "n_eff_overlap": 210.2920353982301,
+        "n_effective": 210.2920353982301,
+        "flags": [
+          "runs_test_z=+2.05",
+          "overlapping_trades:pairs=72,mean_concurrency=1.27"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 210.2920353982301,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2074,
+        "raw_trades_for_that_edge": 210.3,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "EMA 8/34 ADX25",
+      "params": {
+        "fast_period": 8,
+        "slow_period": 34,
+        "adx_threshold": 25.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "ema_adx_trend",
+      "is_trades": 782,
+      "is_win_rate": 0.3516624040920716,
+      "is_profit_factor": 1.070995016405712,
+      "is_expectancy": 10.716767039639512,
+      "is_return_pct": 8.380511824998015,
+      "is_max_drawdown_pct": 5.647285595922693,
+      "oos_trades": 242,
+      "oos_win_rate": 0.35537190082644626,
+      "oos_profit_factor": 1.080279410470825,
+      "oos_expectancy": 11.227987190080242,
+      "oos_return_pct": 2.7171728999994227,
+      "oos_max_drawdown_pct": 2.6196309426695006,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.9748827982423505,
+      "mc_pct_profitable": 0.8466666666666667,
+      "mc_median_dd_pct": 7.527470207072623,
+      "mc_p95_dd_pct": 15.611584893705889,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        11749.5722250049,
+        11327.322224997391,
+        10905.072225003794,
+        10482.822224995936,
+        9638.3222250049
+      ],
+      "param_net_profits": [
+        7435.59132499744,
+        8960.206249997194,
+        18272.738324997612,
+        12963.289874997383,
+        14320.658949997276,
+        8818.2355749977
+      ],
+      "oos_mean_r": 0.04880580023785627,
+      "p_value": 0.5877061469265368,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "ema-8-34-adx25",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 242,
+        "n_used": 242,
+        "overlap_pairs": 56,
+        "overlap_fraction": 0.0019203731010596344,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2314049586776858,
+        "trades_per_day_max": 10,
+        "trades_per_day_mean": 3.27027027027027,
+        "fano_factor": 0.9859280768371679,
+        "autocorr_lag1": -0.09334871848978103,
+        "runs_z": 1.423930899434096,
+        "n_eff_ar1": 242.0,
+        "n_eff_overlap": 196.52348993288592,
+        "n_effective": 196.52348993288592,
+        "flags": [
+          "overlapping_trades:pairs=56,mean_concurrency=1.23"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 196.52348993288592,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2146,
+        "raw_trades_for_that_edge": 196.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Bollinger 20 2.0",
+      "params": {
+        "period": 20,
+        "deviations": 2.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "bollinger_reversion",
+      "is_trades": 476,
+      "is_win_rate": 0.36764705882352944,
+      "is_profit_factor": 0.8498994957344461,
+      "is_expectancy": -20.95227103466601,
+      "is_return_pct": -9.97328101250119,
+      "is_max_drawdown_pct": 10.006425645935794,
+      "oos_trades": 306,
+      "oos_win_rate": 0.39215686274509803,
+      "oos_profit_factor": 0.9429522162145629,
+      "oos_expectancy": -7.565611928106995,
+      "oos_return_pct": -2.3150772500007735,
+      "oos_max_drawdown_pct": 4.6028328748667,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.85<1.0",
+        "IS E=-20.95<=0",
+        "OOS E=-7.57<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 7% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/4 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.9897257384043325,
+      "mc_pct_profitable": 0.06666666666666667,
+      "mc_median_dd_pct": 12.953391320257104,
+      "mc_p95_dd_pct": 21.43758940445962,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10026.073362497875,
+        -9973.28101250119,
+        -10167.53101249809,
+        -10111.89686250157,
+        -9998.554012497916
+      ],
+      "param_net_profits": [
+        -6889.45553750261,
+        -7975.757487501382,
+        -10005.448662501338,
+        -10141.146025000868
+      ],
+      "oos_mean_r": -0.03411906714336775,
+      "p_value": 0.624687656171914,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "bollinger-20-2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 306,
+        "n_used": 306,
+        "overlap_pairs": 62,
+        "overlap_fraction": 0.0013286188792456873,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2026143790849673,
+        "trades_per_day_max": 9,
+        "trades_per_day_mean": 4.135135135135135,
+        "fano_factor": 0.8975446034269564,
+        "autocorr_lag1": -0.1307835770012246,
+        "runs_z": 2.2965464522574472,
+        "n_eff_ar1": 306.0,
+        "n_eff_overlap": 254.44565217391306,
+        "n_effective": 254.44565217391306,
+        "flags": [
+          "serial_dependence:rho1=-0.131>|0.114|",
+          "runs_test_z=+2.30",
+          "overlapping_trades:pairs=62,mean_concurrency=1.20"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 254.44565217391306,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1886,
+        "raw_trades_for_that_edge": 254.4,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "RSI 14 EMA50",
+      "params": {
+        "trend_period": 50,
+        "rsi_period": 14
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "rsi_ema_pullback",
+      "is_trades": 259,
+      "is_win_rate": 0.3281853281853282,
+      "is_profit_factor": 0.9547502435126624,
+      "is_expectancy": -7.02242210424913,
+      "is_return_pct": -1.8188073250004382,
+      "is_max_drawdown_pct": 5.032457120085492,
+      "oos_trades": 104,
+      "oos_win_rate": 0.36538461538461536,
+      "oos_profit_factor": 1.0835068417503266,
+      "oos_expectancy": 11.719460576921174,
+      "oos_return_pct": 1.218823899999843,
+      "oos_max_drawdown_pct": 2.5754042500971384,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.95<1.0",
+        "IS E=-7.02<=0",
+        "MC profitable only 56% of paths",
+        "spread unstable: profitable at 1/5 cost levels"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.9188069448146379,
+      "mc_pct_profitable": 0.5566666666666666,
+      "mc_median_dd_pct": 6.443984191902,
+      "mc_p95_dd_pct": 12.672770000000732,
+      "spread_stable": false,
+      "param_stable": true,
+      "spread_net_profits": [
+        8.758575001978897,
+        -141.94142500057933,
+        -292.64142499856825,
+        -443.3414250010974,
+        -744.7414249980211
+      ],
+      "param_net_profits": [
+        -485.37375000072643,
+        1690.989499999312,
+        8373.81429999898,
+        1555.2668999995367
+      ],
+      "oos_mean_r": 0.06018242934206141,
+      "p_value": 0.6756621689155422,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "rsi-14-ema50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 104,
+        "n_used": 104,
+        "overlap_pairs": 6,
+        "overlap_fraction": 0.0011202389843166542,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0576923076923077,
+        "trades_per_day_max": 4,
+        "trades_per_day_mean": 1.6507936507936507,
+        "fano_factor": 0.34920634920634924,
+        "autocorr_lag1": -0.17731233514113265,
+        "runs_z": 1.439406065804767,
+        "n_eff_ar1": 104.0,
+        "n_eff_overlap": 98.32727272727273,
+        "n_effective": 98.32727272727273,
+        "flags": [
+          "overlapping_trades:pairs=6,mean_concurrency=1.06"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 98.32727272727273,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.3033,
+        "raw_trades_for_that_edge": 98.3,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Session ORB 4 H7-16",
+      "params": {
+        "session_start_hour": 7,
+        "opening_range_bars": 4
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "session_breakout",
+      "is_trades": 362,
+      "is_win_rate": 0.4419889502762431,
+      "is_profit_factor": 1.021002554919891,
+      "is_expectancy": 3.1862817679533095,
+      "is_return_pct": 1.1534339999990189,
+      "is_max_drawdown_pct": 8.011628954488332,
+      "oos_trades": 158,
+      "oos_win_rate": 0.47468354430379744,
+      "oos_profit_factor": 1.0379892752497342,
+      "oos_expectancy": 5.441411392402631,
+      "oos_return_pct": 0.8597429999995801,
+      "oos_max_drawdown_pct": 3.7621344523762943,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.885:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0087683678593167,
+      "mc_pct_profitable": 0.6333333333333333,
+      "mc_median_dd_pct": 7.7613841458481225,
+      "mc_p95_dd_pct": 15.590402005618573,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        2291.8360000023968,
+        2092.9859999985783,
+        1997.4630000017205,
+        1767.426999998017,
+        1369.877000002365
+      ],
+      "param_net_profits": [
+        10796.428999998956,
+        5802.790999998979,
+        890.2319999987376,
+        9728.44799999913
+      ],
+      "oos_mean_r": 0.017018015863418893,
+      "p_value": 0.8510744627686156,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "session-orb-4-h7-16",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 158,
+        "n_used": 158,
+        "overlap_pairs": 12,
+        "overlap_fraction": 0.0009675078610013706,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.0759493670886076,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 2.393939393939394,
+        "fano_factor": 0.5427694668200997,
+        "autocorr_lag1": -0.00568572448258189,
+        "runs_z": -1.4078898402655162,
+        "n_eff_ar1": 158.0,
+        "n_eff_overlap": 146.8470588235294,
+        "n_effective": 146.8470588235294,
+        "flags": [
+          "overlapping_trades:pairs=12,mean_concurrency=1.08"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 146.8470588235294,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2482,
+        "raw_trades_for_that_edge": 146.8,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "MTF H1 M15 20",
+      "params": {
+        "htf_factor": 4,
+        "htf_period": 20,
+        "ltf_period": 20
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "mtf_trend",
+      "is_trades": 521,
+      "is_win_rate": 0.33589251439539347,
+      "is_profit_factor": 1.0024682461469174,
+      "is_expectancy": 0.3777464491341996,
+      "is_return_pct": 0.19680589999891526,
+      "is_max_drawdown_pct": 5.96161856770347,
+      "oos_trades": 217,
+      "oos_win_rate": 0.3824884792626728,
+      "oos_profit_factor": 1.1782112454652838,
+      "oos_expectancy": 24.46917096773923,
+      "oos_return_pct": 5.309810099999406,
+      "oos_max_drawdown_pct": 1.6490242711148195,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0485870137344007,
+      "mc_pct_profitable": 0.77,
+      "mc_median_dd_pct": 7.165790585563708,
+      "mc_p95_dd_pct": 14.955450879738866,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        6502.083750003643,
+        6198.383749998306,
+        5894.683750002849,
+        5590.983749997598,
+        4983.583750003643
+      ],
+      "param_net_profits": [
+        5166.2916499985295,
+        750.4048499986093,
+        7251.289399998466,
+        462.23129999851517,
+        6457.5490999982285,
+        5416.978199998353
+      ],
+      "oos_mean_r": 0.1083222268873935,
+      "p_value": 0.27386306846576713,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "mtf-h1-m15-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 217,
+        "n_used": 217,
+        "overlap_pairs": 69,
+        "overlap_fraction": 0.002944188428059396,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.3179723502304148,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.1911764705882355,
+        "fano_factor": 0.6106668473841148,
+        "autocorr_lag1": -0.28320889359966456,
+        "runs_z": 3.8171134248191794,
+        "n_eff_ar1": 217.0,
+        "n_eff_overlap": 164.64685314685315,
+        "n_effective": 164.64685314685315,
+        "flags": [
+          "serial_dependence:rho1=-0.283>|0.136|",
+          "runs_test_z=+3.82",
+          "overlapping_trades:pairs=69,mean_concurrency=1.32"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 164.64685314685315,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2344,
+        "raw_trades_for_that_edge": 164.6,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Structure 2/2 R2",
+      "params": {
+        "swing_left": 2,
+        "swing_right": 2
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "structure_breakout",
+      "is_trades": 1060,
+      "is_win_rate": 0.3594339622641509,
+      "is_profit_factor": 1.0996126328600457,
+      "is_expectancy": 8.695871949526207,
+      "is_return_pct": 9.217624266497646,
+      "is_max_drawdown_pct": 4.141159103337187,
+      "oos_trades": 469,
+      "oos_win_rate": 0.31343283582089554,
+      "oos_profit_factor": 0.9191211450624501,
+      "oos_expectancy": -6.147986823030643,
+      "oos_return_pct": -2.883405820001251,
+      "oos_max_drawdown_pct": 5.07828577423912,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "OOS E=-6.15<=0"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0509157904062496,
+      "mc_pct_profitable": 0.7533333333333333,
+      "mc_median_dd_pct": 7.830558845104507,
+      "mc_p95_dd_pct": 15.787282673445283,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        7092.279981507396,
+        6459.754981496386,
+        5827.229981505778,
+        5194.704981494608,
+        3929.654981507396
+      ],
+      "param_net_profits": [
+        6459.754981496386
+      ],
+      "oos_mean_r": -0.09242331381946506,
+      "p_value": 0.17091454272863568,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "structure-2-2-r2",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 469,
+        "n_used": 469,
+        "overlap_pairs": 106,
+        "overlap_fraction": 0.0009658666375084285,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2260127931769722,
+        "trades_per_day_max": 17,
+        "trades_per_day_mean": 6.253333333333333,
+        "fano_factor": 1.7786496090973702,
+        "autocorr_lag1": 0.06998847784559005,
+        "runs_z": -1.5955826308455172,
+        "n_eff_ar1": 407.64495405469467,
+        "n_eff_overlap": 382.5408695652174,
+        "n_effective": 382.5408695652174,
+        "flags": [
+          "overlapping_trades:pairs=106,mean_concurrency=1.23"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 382.5408695652174,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1538,
+        "raw_trades_for_that_edge": 382.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MB 10",
+      "params": {
+        "lookback": 10,
+        "atr_buffer": 0.25,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_micro_breakout",
+      "is_trades": 576,
+      "is_win_rate": 0.3645833333333333,
+      "is_profit_factor": 1.126823352774783,
+      "is_expectancy": 18.623126215275743,
+      "is_return_pct": 10.726920699998983,
+      "is_max_drawdown_pct": 4.8230328253705235,
+      "oos_trades": 225,
+      "oos_win_rate": 0.3511111111111111,
+      "oos_profit_factor": 1.0296470212267397,
+      "oos_expectancy": 4.243215333330954,
+      "oos_return_pct": 0.9547234499994519,
+      "oos_max_drawdown_pct": 3.330433807354859,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.885:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0610857147741724,
+      "mc_pct_profitable": 0.8666666666666667,
+      "mc_median_dd_pct": 6.533529588374859,
+      "mc_p95_dd_pct": 12.172714600508117,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        12647.783650004058,
+        12319.283649998411,
+        11990.783650003199,
+        11662.283649997218,
+        11005.283650004058
+      ],
+      "param_net_profits": [
+        5486.101749998023,
+        15167.375599998326,
+        12707.879949998387,
+        11301.375999998403,
+        6654.911859997912,
+        12734.320519998422,
+        16212.604009998366,
+        12278.266579998395
+      ],
+      "oos_mean_r": 0.016078170213052512,
+      "p_value": 0.8415792103948025,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mb-10",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 225,
+        "n_used": 225,
+        "overlap_pairs": 58,
+        "overlap_fraction": 0.0023015873015873015,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2577777777777779,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.0405405405405403,
+        "fano_factor": 0.8039039039039039,
+        "autocorr_lag1": -0.20285332792054353,
+        "runs_z": 3.0037285340756266,
+        "n_eff_ar1": 225.0,
+        "n_eff_overlap": 178.88692579505297,
+        "n_effective": 178.88692579505297,
+        "flags": [
+          "serial_dependence:rho1=-0.203>|0.133|",
+          "runs_test_z=+3.00",
+          "overlapping_trades:pairs=58,mean_concurrency=1.26"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 178.88692579505297,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2249,
+        "raw_trades_for_that_edge": 178.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MB 20",
+      "params": {
+        "lookback": 20,
+        "atr_buffer": 0.25,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_micro_breakout",
+      "is_trades": 468,
+      "is_win_rate": 0.37393162393162394,
+      "is_profit_factor": 1.1619280124305356,
+      "is_expectancy": 23.43992467948516,
+      "is_return_pct": 10.969884749999096,
+      "is_max_drawdown_pct": 3.556445680454503,
+      "oos_trades": 179,
+      "oos_win_rate": 0.36312849162011174,
+      "oos_profit_factor": 1.0944759472069387,
+      "oos_expectancy": 13.099631284914071,
+      "oos_return_pct": 2.3448339999994934,
+      "oos_max_drawdown_pct": 2.4008440330677447,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.0514941301419978,
+      "mc_pct_profitable": 0.97,
+      "mc_median_dd_pct": 5.1341136280300805,
+      "mc_p95_dd_pct": 9.596383929409983,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        13984.948300003423,
+        13720.698299998548,
+        13456.448300002507,
+        13192.198299997879,
+        12663.698300003423
+      ],
+      "param_net_profits": [
+        12697.738449998447,
+        10375.67084999867,
+        14187.263499998575,
+        11978.155199998655,
+        13983.756819998365,
+        10456.599399998566,
+        17174.511809998585,
+        16093.431529998852
+      ],
+      "oos_mean_r": 0.060028070721012614,
+      "p_value": 0.5817091454272864,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mb-20",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 179,
+        "n_used": 179,
+        "overlap_pairs": 27,
+        "overlap_fraction": 0.0016948088632226476,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.1508379888268156,
+        "trades_per_day_max": 7,
+        "trades_per_day_mean": 2.418918918918919,
+        "fano_factor": 0.7486788464442096,
+        "autocorr_lag1": -0.1806794563249993,
+        "runs_z": 2.303280809720615,
+        "n_eff_ar1": 179.0,
+        "n_eff_overlap": 155.53883495145632,
+        "n_effective": 155.53883495145632,
+        "flags": [
+          "serial_dependence:rho1=-0.181>|0.149|",
+          "runs_test_z=+2.30",
+          "overlapping_trades:pairs=27,mean_concurrency=1.15"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 155.53883495145632,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2412,
+        "raw_trades_for_that_edge": 155.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MB 20 b50",
+      "params": {
+        "lookback": 20,
+        "atr_buffer": 0.5,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_micro_breakout",
+      "is_trades": 382,
+      "is_win_rate": 0.3717277486910995,
+      "is_profit_factor": 1.1482044102416533,
+      "is_expectancy": 21.55235287957914,
+      "is_return_pct": 8.23299879999923,
+      "is_max_drawdown_pct": 5.004819162096904,
+      "oos_trades": 136,
+      "oos_win_rate": 0.375,
+      "oos_profit_factor": 1.162545446413523,
+      "oos_expectancy": 22.15578713235118,
+      "oos_return_pct": 3.01318704999976,
+      "oos_max_drawdown_pct": 2.4308053143106285,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.147339069366521,
+      "mc_pct_profitable": 0.93,
+      "mc_median_dd_pct": 4.967037446707931,
+      "mc_p95_dd_pct": 9.136849336864207,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        11403.855300002833,
+        11192.605299998962,
+        10981.355300002033,
+        10770.105299998235,
+        10347.605300002833
+      ],
+      "param_net_profits": [
+        12357.161349998845,
+        11895.103549999141,
+        11714.816799998807,
+        10652.184199999116,
+        11454.416419998815,
+        9057.12003999902,
+        15096.581989999075,
+        12525.106879999003
+      ],
+      "oos_mean_r": 0.1008544873660251,
+      "p_value": 0.40379810094952523,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mb-20-b50",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 136,
+        "n_used": 136,
+        "overlap_pairs": 17,
+        "overlap_fraction": 0.001851851851851852,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.125,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 1.9154929577464788,
+        "fano_factor": 0.5845070422535211,
+        "autocorr_lag1": -0.006512163254683333,
+        "runs_z": -0.13777841616728473,
+        "n_eff_ar1": 136.0,
+        "n_eff_overlap": 120.88888888888889,
+        "n_effective": 120.88888888888889,
+        "flags": [
+          "overlapping_trades:pairs=17,mean_concurrency=1.12"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 120.88888888888889,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2736,
+        "raw_trades_for_that_edge": 120.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MB 40 tight",
+      "params": {
+        "lookback": 40,
+        "atr_buffer": 0.5,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_micro_breakout",
+      "is_trades": 290,
+      "is_win_rate": 0.2482758620689655,
+      "is_profit_factor": 1.0445857741111826,
+      "is_expectancy": 4.638893517239043,
+      "is_return_pct": 1.345279119999119,
+      "is_max_drawdown_pct": 5.953775964509762,
+      "oos_trades": 113,
+      "oos_win_rate": 0.24778761061946902,
+      "oos_profit_factor": 1.048438107482264,
+      "oos_expectancy": 4.801834867254259,
+      "oos_return_pct": 0.5426073399997549,
+      "oos_max_drawdown_pct": 3.0149733415033775,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "WF pass rate 0% < 50% (0/4)"
+      ],
+      "wf_pass_rate": 0.0,
+      "wf_mean_pf": 0.825661537425705,
+      "mc_pct_profitable": 0.6333333333333333,
+      "mc_median_dd_pct": 4.433468265812925,
+      "mc_p95_dd_pct": 10.69486892994116,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        2102.5578900020773,
+        1925.5578899988614,
+        1748.5578900016553,
+        1571.5578899985558,
+        1217.5578900020773
+      ],
+      "param_net_profits": [
+        2572.8406299988274,
+        1769.651269998998,
+        2585.5190399987623,
+        2868.4640099989774,
+        2980.816591999028,
+        3406.5908439991617,
+        1050.699199998955,
+        4284.581419998809
+      ],
+      "oos_mean_r": 0.031543737054102274,
+      "p_value": 0.8540729635182409,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mb-40-tight",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 113,
+        "n_used": 113,
+        "overlap_pairs": 1,
+        "overlap_fraction": 0.00015802781289506955,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.008849557522124,
+        "trades_per_day_max": 4,
+        "trades_per_day_mean": 1.8524590163934427,
+        "fano_factor": 0.4395763818366458,
+        "autocorr_lag1": -0.011395640762930852,
+        "runs_z": -0.28577413553799413,
+        "n_eff_ar1": 113.0,
+        "n_eff_overlap": 112.00877192982456,
+        "n_effective": 112.00877192982456,
+        "flags": [
+          "overlapping_trades:pairs=1,mean_concurrency=1.01"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 112.00877192982456,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2842,
+        "raw_trades_for_that_edge": 112.0,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp REV 20 z1.0",
+      "params": {
+        "window": 20,
+        "deviations": 1.0,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_vwap_reversion",
+      "is_trades": 504,
+      "is_win_rate": 0.30753968253968256,
+      "is_profit_factor": 0.8701599392819113,
+      "is_expectancy": -19.89059563492313,
+      "is_return_pct": -10.024860200001203,
+      "is_max_drawdown_pct": 10.057985843814928,
+      "oos_trades": 356,
+      "oos_win_rate": 0.33707865168539325,
+      "oos_profit_factor": 0.9908555498624514,
+      "oos_expectancy": -1.3238575842721725,
+      "oos_return_pct": -0.47129330000080516,
+      "oos_max_drawdown_pct": 4.017144211148228,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.87<1.0",
+        "IS E=-19.89<=0",
+        "OOS E=-1.32<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 7% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/8 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.912689840446031,
+      "mc_pct_profitable": 0.07333333333333333,
+      "mc_median_dd_pct": 12.813189465019894,
+      "mc_p95_dd_pct": 23.19213898402862,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10054.801449997802,
+        -10024.860200001203,
+        -9988.616549998114,
+        -10201.366550001592,
+        -10113.118599997906
+      ],
+      "param_net_profits": [
+        -8659.714450001498,
+        -9885.840850001186,
+        -10229.51840000118,
+        -10178.367150001446,
+        -9131.751340003102,
+        -9252.777060000852,
+        -9928.914460001324,
+        -9885.79615000129
+      ],
+      "oos_mean_r": -0.005568182274889589,
+      "p_value": 0.9450274862568716,
+      "p_value_adjusted": 0.9450274862568717,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-rev-20-z1-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 356,
+        "n_used": 356,
+        "overlap_pairs": 147,
+        "overlap_fraction": 0.002326317455293559,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.4129213483146068,
+        "trades_per_day_max": 11,
+        "trades_per_day_mean": 4.8108108108108105,
+        "fano_factor": 1.2734588521105377,
+        "autocorr_lag1": -0.21710296439627408,
+        "runs_z": 3.7895309714173213,
+        "n_eff_ar1": 356.0,
+        "n_eff_overlap": 251.96023856858847,
+        "n_effective": 251.96023856858847,
+        "flags": [
+          "serial_dependence:rho1=-0.217>|0.106|",
+          "runs_test_z=+3.79",
+          "overlapping_trades:pairs=147,mean_concurrency=1.41"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 251.96023856858847,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1895,
+        "raw_trades_for_that_edge": 252.0,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp REV 20 z1.5",
+      "params": {
+        "window": 20,
+        "deviations": 1.5,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_vwap_reversion",
+      "is_trades": 513,
+      "is_win_rate": 0.3079922027290448,
+      "is_profit_factor": 0.8733596602444502,
+      "is_expectancy": -19.51546510721503,
+      "is_return_pct": -10.01143360000127,
+      "is_max_drawdown_pct": 10.064053818041101,
+      "oos_trades": 337,
+      "oos_win_rate": 0.32047477744807124,
+      "oos_profit_factor": 0.9162554496092564,
+      "oos_expectancy": -12.438033531159652,
+      "oos_return_pct": -4.191617300000798,
+      "oos_max_drawdown_pct": 5.448777095998801,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.87<1.0",
+        "IS E=-19.52<=0",
+        "OOS E=-12.44<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 10% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/8 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.9106893523714619,
+      "mc_pct_profitable": 0.10333333333333333,
+      "mc_median_dd_pct": 13.098193464144057,
+      "mc_p95_dd_pct": 23.240159703679442,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -10041.47594999778,
+        -10011.43360000127,
+        -10031.844699998357,
+        -9989.187900001605,
+        -10138.752799998125
+      ],
+      "param_net_profits": [
+        -9357.470700001344,
+        -10057.795400001196,
+        -10178.367150001446,
+        -10159.66670000089,
+        -4409.372980003347,
+        -10084.113440000889,
+        -9790.721600001241,
+        -10150.593080001127
+      ],
+      "oos_mean_r": -0.05811762861309766,
+      "p_value": 0.43928035982008995,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-rev-20-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 337,
+        "n_used": 337,
+        "overlap_pairs": 123,
+        "overlap_fraction": 0.002172530733361594,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.3649851632047478,
+        "trades_per_day_max": 11,
+        "trades_per_day_mean": 4.554054054054054,
+        "fano_factor": 1.1165690913465394,
+        "autocorr_lag1": -0.2109527814055274,
+        "runs_z": 3.787267082662557,
+        "n_eff_ar1": 337.0,
+        "n_eff_overlap": 246.8891304347826,
+        "n_effective": 246.8891304347826,
+        "flags": [
+          "serial_dependence:rho1=-0.211>|0.109|",
+          "runs_test_z=+3.79",
+          "overlapping_trades:pairs=123,mean_concurrency=1.36"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 246.8891304347826,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1914,
+        "raw_trades_for_that_edge": 246.9,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp REV 40 z1.5",
+      "params": {
+        "window": 40,
+        "deviations": 1.5,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_vwap_reversion",
+      "is_trades": 1058,
+      "is_win_rate": 0.22589792060491493,
+      "is_profit_factor": 0.9479275479876728,
+      "is_expectancy": -5.647407211722454,
+      "is_return_pct": -5.974956830002091,
+      "is_max_drawdown_pct": 8.388964075663646,
+      "oos_trades": 410,
+      "oos_win_rate": 0.1975609756097561,
+      "oos_profit_factor": 0.7920133600984761,
+      "oos_expectancy": -22.215254658538825,
+      "oos_return_pct": -9.108254410001084,
+      "oos_max_drawdown_pct": 9.940092734788946,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.95<1.0",
+        "IS E=-5.65<=0",
+        "OOS PF=0.79<0.9",
+        "OOS E=-22.22<=0",
+        "MC profitable only 17% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/8 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.9484583994881333,
+      "mc_pct_profitable": 0.16666666666666666,
+      "mc_median_dd_pct": 13.66589412356741,
+      "mc_p95_dd_pct": 27.718366760002056,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -9443.112819992268,
+        -9649.477940002325,
+        -9820.915229994862,
+        -9940.071630005172,
+        -10015.572449992935
+      ],
+      "param_net_profits": [
+        -10096.426520002467,
+        -10020.085690001884,
+        -9979.089775002634,
+        -9856.610190002306,
+        -9531.250280002598,
+        -9170.444428002607,
+        -8565.928060002116,
+        -10094.446520001919
+      ],
+      "oos_mean_r": -0.17052374055163377,
+      "p_value": 0.047476261869065464,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-rev-40-z1-5",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 410,
+        "n_used": 410,
+        "overlap_pairs": 68,
+        "overlap_fraction": 0.0008110203351422268,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.1658536585365853,
+        "trades_per_day_max": 18,
+        "trades_per_day_mean": 5.774647887323944,
+        "fano_factor": 1.48388869804191,
+        "autocorr_lag1": -0.09763961888042894,
+        "runs_z": 2.0310366785992278,
+        "n_eff_ar1": 410.0,
+        "n_eff_overlap": 351.67364016736406,
+        "n_effective": 351.67364016736406,
+        "flags": [
+          "runs_test_z=+2.03",
+          "overlapping_trades:pairs=68,mean_concurrency=1.17"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 351.67364016736406,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1604,
+        "raw_trades_for_that_edge": 351.7,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp REV 40 z2.0",
+      "params": {
+        "window": 40,
+        "deviations": 2.0,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_vwap_reversion",
+      "is_trades": 514,
+      "is_win_rate": 0.14785992217898833,
+      "is_profit_factor": 0.8488723828748661,
+      "is_expectancy": -17.628200622570755,
+      "is_return_pct": -9.06089512000137,
+      "is_max_drawdown_pct": 10.030650188978644,
+      "oos_trades": 306,
+      "oos_win_rate": 0.16013071895424835,
+      "oos_profit_factor": 0.9100581561633576,
+      "oos_expectancy": -10.070107679740964,
+      "oos_return_pct": -3.0814529500006462,
+      "oos_max_drawdown_pct": 5.987563287448797,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.85<1.0",
+        "IS E=-17.63<=0",
+        "OOS E=-10.07<=0",
+        "WF pass rate 25% < 50% (1/4)",
+        "MC profitable only 11% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/8 nearby positive"
+      ],
+      "wf_pass_rate": 0.25,
+      "wf_mean_pf": 0.9537794489222411,
+      "mc_pct_profitable": 0.10666666666666667,
+      "mc_median_dd_pct": 11.932820240001544,
+      "mc_p95_dd_pct": 20.723933755468785,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -9028.055299996835,
+        -9060.895120001369,
+        -9144.561049998127,
+        -9099.263070001936,
+        -9237.950699997498
+      ],
+      "param_net_profits": [
+        -9663.861010001448,
+        -8660.58979000141,
+        -9188.725200001747,
+        -7539.818930001944,
+        -9194.12152800143,
+        -9327.772502001244,
+        -9553.156820001066,
+        -9340.067890001315
+      ],
+      "oos_mean_r": -0.0782199781252315,
+      "p_value": 0.5397301349325337,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-rev-40-z2-0",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 306,
+        "n_used": 306,
+        "overlap_pairs": 77,
+        "overlap_fraction": 0.0016500589306760955,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.2516339869281046,
+        "trades_per_day_max": 11,
+        "trades_per_day_mean": 4.5,
+        "fano_factor": 0.9248366013071896,
+        "autocorr_lag1": -0.08930749444103413,
+        "runs_z": 1.428811984986911,
+        "n_eff_ar1": 306.0,
+        "n_eff_overlap": 244.4804177545692,
+        "n_effective": 244.4804177545692,
+        "flags": [
+          "overlapping_trades:pairs=77,mean_concurrency=1.25"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 244.4804177545692,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.1924,
+        "raw_trades_for_that_edge": 244.5,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MOM 07",
+      "params": {
+        "session_start_hour": 7,
+        "session_end_hour": 9,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_session_momentum",
+      "is_trades": 287,
+      "is_win_rate": 0.30662020905923343,
+      "is_profit_factor": 0.8474147553043857,
+      "is_expectancy": -24.428762369340376,
+      "is_return_pct": -7.011054800000725,
+      "is_max_drawdown_pct": 10.24942005763295,
+      "oos_trades": 120,
+      "oos_win_rate": 0.35833333333333334,
+      "oos_profit_factor": 1.0838912964284761,
+      "oos_expectancy": 11.737659583331228,
+      "oos_return_pct": 1.4085191499998035,
+      "oos_max_drawdown_pct": 1.7323454925388015,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "IS PF=0.85<1.0",
+        "IS E=-24.43<=0",
+        "MC profitable only 10% of paths",
+        "spread unstable: profitable at 0/5 cost levels",
+        "param unstable: 0/7 nearby positive"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 0.9107109500654769,
+      "mc_pct_profitable": 0.1,
+      "mc_median_dd_pct": 9.494811791666782,
+      "mc_p95_dd_pct": 16.28196490000053,
+      "spread_stable": false,
+      "param_stable": false,
+      "spread_net_profits": [
+        -6889.554799998528,
+        -7011.054800000726,
+        -6891.32744999892,
+        -7012.327450001205,
+        -7010.767799998532
+      ],
+      "param_net_profits": [
+        -6291.917850001351,
+        -5733.700250000416,
+        -6889.738600001117,
+        -2383.660860000935,
+        -7183.719140000641,
+        -8431.037400000801,
+        -6812.822870000586
+      ],
+      "oos_mean_r": 0.051027034399286395,
+      "p_value": 0.6921539230384808,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mom-07",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 120,
+        "n_used": 120,
+        "overlap_pairs": 55,
+        "overlap_fraction": 0.007703081232492998,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.4583333333333333,
+        "trades_per_day_max": 3,
+        "trades_per_day_mean": 1.8461538461538463,
+        "fano_factor": 0.12051282051282051,
+        "autocorr_lag1": -0.13169368745230517,
+        "runs_z": 1.3599054478250003,
+        "n_eff_ar1": 120.0,
+        "n_eff_overlap": 82.28571428571429,
+        "n_effective": 82.28571428571429,
+        "flags": [
+          "overlapping_trades:pairs=55,mean_concurrency=1.46"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 82.28571428571429,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.3316,
+        "raw_trades_for_that_edge": 82.3,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MOM 13",
+      "params": {
+        "session_start_hour": 13,
+        "session_end_hour": 15,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_session_momentum",
+      "is_trades": 365,
+      "is_win_rate": 0.34794520547945207,
+      "is_profit_factor": 1.0603260558410277,
+      "is_expectancy": 9.160270547943595,
+      "is_return_pct": 3.343498749999388,
+      "is_max_drawdown_pct": 3.969652498966843,
+      "oos_trades": 149,
+      "oos_win_rate": 0.3288590604026846,
+      "oos_profit_factor": 0.9744029472500528,
+      "oos_expectancy": -3.7382050335591526,
+      "oos_return_pct": -0.5569925500002136,
+      "oos_max_drawdown_pct": 3.7643437071502284,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "OOS E=-3.74<=0"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.0629468178651151,
+      "mc_pct_profitable": 0.6766666666666666,
+      "mc_median_dd_pct": 6.836189265228038,
+      "mc_p95_dd_pct": 13.43824573625326,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        2999.506200002914,
+        2786.506199999174,
+        2573.5062000023318,
+        2360.5061999983445,
+        1934.506200002943
+      ],
+      "param_net_profits": [
+        -2225.7144000013795,
+        1358.73974999864,
+        4656.822759999181,
+        2855.059679999278,
+        -1985.1697200008202,
+        4298.249099999273
+      ],
+      "oos_mean_r": -0.02472650000090596,
+      "p_value": 0.8420789605197402,
+      "p_value_adjusted": 0.8853681267474369,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mom-13",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 149,
+        "n_used": 149,
+        "overlap_pairs": 60,
+        "overlap_fraction": 0.005441683294032287,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.4026845637583893,
+        "trades_per_day_max": 5,
+        "trades_per_day_mean": 2.257575757575758,
+        "fano_factor": 0.23235712833028266,
+        "autocorr_lag1": -0.191140048404341,
+        "runs_z": 2.2791873965545726,
+        "n_eff_ar1": 149.0,
+        "n_eff_overlap": 106.22488038277511,
+        "n_effective": 106.22488038277511,
+        "flags": [
+          "serial_dependence:rho1=-0.191>|0.164|",
+          "runs_test_z=+2.28",
+          "overlapping_trades:pairs=60,mean_concurrency=1.40"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 106.22488038277511,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2918,
+        "raw_trades_for_that_edge": 106.2,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MOM 07 13",
+      "params": {
+        "session_start_hour": 7,
+        "session_end_hour": 15,
+        "stop_loss_pct": 0.5,
+        "take_profit_pct": 1.5
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_session_momentum",
+      "is_trades": 525,
+      "is_win_rate": 0.26666666666666666,
+      "is_profit_factor": 1.0619298238177575,
+      "is_expectancy": 10.618385714283553,
+      "is_return_pct": 5.574652499998919,
+      "is_max_drawdown_pct": 5.480867462157557,
+      "oos_trades": 210,
+      "oos_win_rate": 0.26666666666666666,
+      "oos_profit_factor": 1.0670080621641644,
+      "oos_expectancy": 10.68850666666445,
+      "oos_return_pct": 2.244586399999549,
+      "oos_max_drawdown_pct": 2.505130475621409,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.5,
+      "wf_mean_pf": 1.1416404859839746,
+      "mc_pct_profitable": 0.75,
+      "mc_median_dd_pct": 8.93513241181383,
+      "mc_p95_dd_pct": 18.080500942550497,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        8093.602000003957,
+        7775.351999998486,
+        7457.102000002924,
+        7138.851999997394,
+        6502.352000003957
+      ],
+      "param_net_profits": [
+        1522.8975499981316,
+        4573.1412499987055,
+        3507.209399998843,
+        3944.1573499979277,
+        5030.741429998263,
+        5666.725869998685,
+        2302.8712099982804,
+        5150.027089998766
+      ],
+      "oos_mean_r": 0.05017961596674422,
+      "p_value": 0.6941529235382309,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mom-07-13",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 210,
+        "n_used": 210,
+        "overlap_pairs": 124,
+        "overlap_fraction": 0.005650489861016177,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.5904761904761904,
+        "trades_per_day_max": 8,
+        "trades_per_day_mean": 3.3333333333333335,
+        "fano_factor": 0.6285714285714286,
+        "autocorr_lag1": -0.17416769544925934,
+        "runs_z": 2.4557595125388967,
+        "n_eff_ar1": 210.0,
+        "n_eff_overlap": 132.0359281437126,
+        "n_effective": 132.0359281437126,
+        "flags": [
+          "serial_dependence:rho1=-0.174>|0.138|",
+          "runs_test_z=+2.46",
+          "overlapping_trades:pairs=124,mean_concurrency=1.59"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 132.0359281437126,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.2618,
+        "raw_trades_for_that_edge": 132.0,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    },
+    {
+      "name": "Scalp MOM 15",
+      "params": {
+        "session_start_hour": 15,
+        "session_end_hour": 17,
+        "stop_loss_pct": 0.3,
+        "take_profit_pct": 1.0
+      },
+      "symbol": "XAUUSDm",
+      "timeframe": "M15",
+      "data_range": [
+        "2025-09-21",
+        "2026-07-29"
+      ],
+      "strategy": "scalp_session_momentum",
+      "is_trades": 383,
+      "is_win_rate": 0.2454308093994778,
+      "is_profit_factor": 1.0939270909163354,
+      "is_expectancy": 9.92425248041547,
+      "is_return_pct": 3.8009886999991576,
+      "is_max_drawdown_pct": 4.564774196034927,
+      "oos_trades": 139,
+      "oos_win_rate": 0.2589928057553957,
+      "oos_profit_factor": 1.131361113368598,
+      "oos_expectancy": 13.06341071942164,
+      "oos_return_pct": 1.8158140899996071,
+      "oos_max_drawdown_pct": 1.5229261511346064,
+      "validation_passed": false,
+      "rejection_reasons": [
+        "fails_multiplicity_control:p_adj=0.851:alpha=0.1"
+      ],
+      "wf_pass_rate": 0.75,
+      "wf_mean_pf": 1.360398306559251,
+      "mc_pct_profitable": 0.8266666666666667,
+      "mc_median_dd_pct": 4.6159095774621735,
+      "mc_p95_dd_pct": 8.803142392068954,
+      "spread_stable": true,
+      "param_stable": true,
+      "spread_net_profits": [
+        5845.052790002766,
+        5616.80278999875,
+        5388.552790002097,
+        5160.302789998139,
+        4703.802790002766
+      ],
+      "param_net_profits": [
+        2278.7871699975512,
+        4264.251329997962,
+        2883.6149919986347,
+        4472.6033399988955,
+        2884.552859998672,
+        8351.815349998578
+      ],
+      "oos_mean_r": 0.09719730448130559,
+      "p_value": 0.5427286356821589,
+      "p_value_adjusted": 0.8508971320791218,
+      "multiplicity_survivor": false,
+      "multiplicity_method": "benjamini-hochberg",
+      "n_permutations": 2000,
+      "candidate_id": "scalp-mom-15",
+      "family_id": "fam_gold_scalp_m15",
+      "hypothesis_version": "2",
+      "regime_definition": "",
+      "dependence": {
+        "n_raw": 139,
+        "n_used": 139,
+        "overlap_pairs": 56,
+        "overlap_fraction": 0.005838807215097487,
+        "max_concurrency": 2,
+        "mean_concurrency": 1.4028776978417266,
+        "trades_per_day_max": 3,
+        "trades_per_day_mean": 2.106060606060606,
+        "fano_factor": 0.13134946588184,
+        "autocorr_lag1": -0.22785426078440152,
+        "runs_z": 2.8112363900293764,
+        "n_eff_ar1": 139.0,
+        "n_eff_overlap": 99.08205128205128,
+        "n_effective": 99.08205128205128,
+        "flags": [
+          "serial_dependence:rho1=-0.228>|0.170|",
+          "runs_test_z=+2.81",
+          "overlapping_trades:pairs=56,mean_concurrency=1.40"
+        ],
+        "note": "n_effective is the conservative minimum of an AR(1) approximation and an overlap approximation. The permutation p-value reported alongside does NOT account for dependence yet: treat it as optimistic when any dependence flag is set."
+      },
+      "power": {
+        "n_effective": 99.08205128205128,
+        "alpha_rank1": 0.002631578947368421,
+        "z_critical": 3.0078,
+        "sigma_r_assumed": 1.0,
+        "smallest_detectable_edge_r": 0.3022,
+        "raw_trades_for_that_edge": 99.1,
+        "note": "Approximation: null SD of the mean is sigma_r/sqrt(n_effective) with sigma_r ~ 1R because R is normalized by the stop distance. Independent of the observed result, so it says what the experiment COULD have found."
+      }
+    }
+  ],
+  "report_sha256": "4d98116ed5d5a4411ad3c08dff181e9c35093c54e7559941ffc7e919de16e283"
+}
