@@ -290,6 +290,15 @@ class OrderManager:
             return
         order = self.get(order_id)
         if order is not None:
+            # The stored row must explain itself: status alone loses why an order was refused, so
+            # the rejection reason and the filled volume travel with it (metadata is part of the
+            # order's stored snapshot and survives restarts).
+            order.metadata = {
+                **order.metadata,
+                "status": order.status.value,
+                "rejection_reason": order.rejection_reason,
+                "filled_volume": order.filled_volume,
+            }
             await self.store.write_order(order)
 
     async def _persist_execution(self, record: ExecutionRecord) -> None:

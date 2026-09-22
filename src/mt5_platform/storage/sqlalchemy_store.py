@@ -105,47 +105,63 @@ class SqlAlchemyMarketDataStore(MarketDataStore):
             await session.commit()
 
     async def write_order(self, order: OrderRequest) -> None:
+        """Upsert by order_id: an order changes status several times (created -> approved ->
+        submitted -> filled/rejected). Insert-only here meant every status change after the first
+        raised a duplicate-key error, so a broker rejection was never persisted and the loop
+        counted a cycle error instead — the broker's own reason stayed invisible."""
+        values = {
+            "signal_id": order.signal_id,
+            "created_at": order.created_at,
+            "symbol": order.symbol,
+            "side": order.side.value,
+            "volume": order.volume,
+            "entry": order.entry,
+            "stop_loss": order.stop_loss,
+            "take_profit": order.take_profit,
+            "status": order.status.value,
+            "metadata_json": order.metadata,
+            "correlation_id": order.correlation_id,
+        }
         async with self._session_factory() as session:
-            session.add(
-                OrderRow(
-                    order_id=order.order_id,
-                    signal_id=order.signal_id,
-                    created_at=order.created_at,
-                    symbol=order.symbol,
-                    side=order.side.value,
-                    volume=order.volume,
-                    entry=order.entry,
-                    stop_loss=order.stop_loss,
-                    take_profit=order.take_profit,
-                    status=order.status.value,
-                    metadata_json=order.metadata,
-                    correlation_id=order.correlation_id,
-                )
+            existing = await session.scalar(
+                select(OrderRow).where(OrderRow.order_id == order.order_id)
             )
+            if existing is None:
+                session.add(OrderRow(order_id=order.order_id, **values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
             await session.commit()
 
     async def write_execution(self, execution: ExecutionRecord) -> None:
+        """Upsert by execution_id (idempotent: a retried persist cannot fail or duplicate)."""
+        values = {
+            "order_id": execution.order_id,
+            "timestamp": execution.timestamp,
+            "symbol": execution.symbol,
+            "side": execution.side.value,
+            "requested_volume": execution.requested_volume,
+            "requested_price": execution.requested_price,
+            "stop_loss": execution.stop_loss,
+            "take_profit": execution.take_profit,
+            "mt5_response": execution.mt5_response,
+            "execution_price": execution.execution_price,
+            "slippage": execution.slippage,
+            "rejection_reason": execution.rejection_reason,
+            "final_status": execution.final_status.value,
+            "correlation_id": execution.correlation_id,
+        }
         async with self._session_factory() as session:
-            session.add(
-                ExecutionRow(
-                    execution_id=execution.execution_id,
-                    order_id=execution.order_id,
-                    timestamp=execution.timestamp,
-                    symbol=execution.symbol,
-                    side=execution.side.value,
-                    requested_volume=execution.requested_volume,
-                    requested_price=execution.requested_price,
-                    stop_loss=execution.stop_loss,
-                    take_profit=execution.take_profit,
-                    mt5_response=execution.mt5_response,
-                    execution_price=execution.execution_price,
-                    slippage=execution.slippage,
-                    rejection_reason=execution.rejection_reason,
-                    final_status=execution.final_status.value,
-                    correlation_id=execution.correlation_id,
-                )
+            existing = await session.scalar(
+                select(ExecutionRow).where(ExecutionRow.execution_id == execution.execution_id)
             )
+            if existing is None:
+                session.add(ExecutionRow(execution_id=execution.execution_id, **values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
             await session.commit()
+
 
     async def write_account_snapshot(self, snapshot: AccountSnapshot) -> None:
         async with self._session_factory() as session:

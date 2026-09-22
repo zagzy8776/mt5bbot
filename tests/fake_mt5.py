@@ -28,9 +28,16 @@ class FakeMT5:
     TIMEFRAME_M15 = 15
     TRADE_RETCODE_REQUOTE = 10004
     TRADE_RETCODE_REJECT = 10006
+    TRADE_RETCODE_INVALID_VOLUME = 10014
+    TRADE_RETCODE_INVALID_PRICE = 10015
     TRADE_RETCODE_INVALID_STOPS = 10016
+    TRADE_RETCODE_TRADE_DISABLED = 10017
     TRADE_RETCODE_MARKET_CLOSED = 10018
     TRADE_RETCODE_NO_MONEY = 10019
+    TRADE_RETCODE_PRICE_CHANGED = 10020
+    TRADE_RETCODE_PRICE_OFF = 10021
+    TRADE_RETCODE_CLIENT_DISABLES_AT = 10027
+    TRADE_RETCODE_INVALID_FILL = 10030
     TRADE_RETCODE_DONE = 10009
     TRADE_RETCODE_DONE_PARTIAL = 10010
     TRADE_RETCODE_TIMEOUT = 10012
@@ -48,6 +55,12 @@ class FakeMT5:
         self.next_send_retcode = self.TRADE_RETCODE_DONE
         self.send_returns_none = False
         self.record_position_on_uncertain = False
+        # Terminal/account permission flags (AutoTrading button state is terminal-wide).
+        self.trade_allowed = True
+        self.tradeapi_disabled = False
+        self.dlls_allowed = False
+        self.build = 6205
+        self.send_comment = "fake"
         self.tick = SimpleNamespace(bid=2500.00, ask=2500.30, time=1, time_msc=1000)
         self.rates: list[dict] = []
         self.symbol = SimpleNamespace(
@@ -78,7 +91,13 @@ class FakeMT5:
         return (1, "fake")
 
     def terminal_info(self):
-        return SimpleNamespace(connected=True, trade_allowed=True)
+        return SimpleNamespace(
+            connected=True,
+            trade_allowed=self.trade_allowed,
+            tradeapi_disabled=self.tradeapi_disabled,
+            dlls_allowed=self.dlls_allowed,
+            build=self.build,
+        )
 
     def account_info(self):
         equity = self.balance + self.profit
@@ -187,7 +206,7 @@ class FakeMT5:
                 deal=self._next(),
                 volume=request["volume"],
                 price=request["price"],
-                comment="closed",
+                comment=self.send_comment,
                 request_id=1,
             )
         opened = code in (self.TRADE_RETCODE_DONE, self.TRADE_RETCODE_DONE_PARTIAL) or (
@@ -229,7 +248,7 @@ class FakeMT5:
             deal=self._next(),
             volume=request["volume"],
             price=request["price"],
-            comment="fake",
+            comment=self.send_comment,
             request_id=1,
         )
 

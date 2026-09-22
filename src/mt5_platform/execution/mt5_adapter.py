@@ -46,6 +46,11 @@ class MT5NotAvailable(RuntimeError):
     """The MetaTrader5 package/terminal is unavailable on this machine."""
 
 
+# The broker's own words when the terminal refuses to transmit: retcode 10027
+# (TRADE_RETCODE_CLIENT_DISABLES_AT) with this comment.
+TERMINAL_BLOCK_COMMENT = "AutoTrading disabled by client"
+
+
 # Broker outcomes that are definitively "not filled" (safe to mark BROKER_REJECTED).
 # Anything else that is not DONE/DONE_PARTIAL is treated as UNCERTAIN and raised, so the
 # order manager marks the order FAILED and reconciliation resolves it against broker truth.
@@ -79,6 +84,9 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         self._call_lock = asyncio.Lock()
         self._trade_lock = asyncio.Lock()
         self.executions: list[ExecutionRecord] = []
+        # Last known terminal availability + the (single) block reason while it is unavailable.
+        self._execution_availability: dict[str, Any] = {}
+        self._submit_block: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------ plumbing
 
@@ -188,6 +196,9 @@ class MT5ExecutionAdapter(ExecutionAdapter):
                 AuditEventType.MT5_DISCONNECTED,
                 {"reason": "algo_trading_disabled_in_terminal"},
             )
+        # Publish availability at connect time too: with AutoTrading off the dashboard must say so
+        # immediately, not only after the first signal has already been refused by the terminal.
+        self._note_execution_availability(await self.terminal_trade_state())
         self._peak_equity = max(float(info.balance), float(info.equity))
         self._connected = True
 
@@ -320,15 +331,121 @@ class MT5ExecutionAdapter(ExecutionAdapter):
     # -------------------------------------------------------------------- orders
 
     def _filling_mode(self, sym: Any) -> int:
+        """Pick a filling mode the symbol accepts.
+
+        Verified against the live Exness terminal with read-only order_check probes:
+        ``filling_mode`` there is 3 (FOK|IOC) and ORDER_FILLING_RETURN is answered with
+        TRADE_RETCODE_INVALID_FILL (10030) "Unsupported filling mode" because the symbol uses
+        MARKET execution. So RETURN is only ever used for non-market execution symbols — sending it
+        on a market symbol is a guaranteed rejection, never a fallback.
+        """
         client = self._mt5()
         modes = int(getattr(sym, "filling_mode", 0))
+        market_execution = int(getattr(sym, "trade_execution", 2)) == 2
         if modes & 2:  # SYMBOL_FILLING_IOC
             return client.ORDER_FILLING_IOC
         if modes & 1:  # SYMBOL_FILLING_FOK
             return client.ORDER_FILLING_FOK
+        if market_execution:
+            # Neither flag advertised but the symbol is market-executed: IOC is the only mode that
+            # can work; RETURN would be rejected with 10030 (probe-verified).
+            return client.ORDER_FILLING_IOC
         return client.ORDER_FILLING_RETURN
 
-    def _local_reject(self, order: OrderRequest, reason: str) -> ExecutionRecord:
+    async def terminal_trade_state(self) -> dict[str, Any]:
+        """Read-only: will the terminal transmit trades at all?
+
+        While the MT5 terminal's AutoTrading button is off, EVERY order_send is refused with
+        TRADE_RETCODE_CLIENT_DISABLES_AT (10027) / "AutoTrading disabled by client" — even when the
+        request itself is perfectly valid (order_check still answers retcode 0 "Done"). Checking
+        this before submitting records the exact reason and avoids spamming the broker with
+        orders that cannot be transmitted.
+        """
+        terminal = await self._call("terminal_info")
+        if terminal is None:
+            return {
+                "available": False,
+                "trade_allowed": False,
+                "connected": False,
+                "reason": "terminal_info_unavailable",
+                "expected_retcode": None,
+                "expected_retcode_code": None,
+            }
+        allowed = bool(getattr(terminal, "trade_allowed", False))
+        return {
+            "available": allowed,
+            "trade_allowed": allowed,
+            "connected": bool(getattr(terminal, "connected", False)),
+            "tradeapi_disabled": bool(getattr(terminal, "tradeapi_disabled", False)),
+            "dlls_allowed": bool(getattr(terminal, "dlls_allowed", False)),
+            "build": int(getattr(terminal, "build", 0) or 0),
+            "reason": "" if allowed else "terminal_autotrading_disabled",
+            "expected_retcode": None if allowed else "TRADE_RETCODE_CLIENT_DISABLES_AT",
+            "expected_retcode_code": None if allowed else 10027,
+            "expected_comment": None if allowed else TERMINAL_BLOCK_COMMENT,
+        }
+
+    def _note_execution_availability(self, state: dict[str, Any]) -> None:
+        """Remember the last known availability; audit only on transitions (never per attempt)."""
+        self._execution_availability = dict(state)
+        if state["available"]:
+            if self._submit_block is not None:
+                self._submit_block = None
+                self._audit(
+                    Severity.INFO,
+                    AuditEventType.EXECUTION_UNBLOCKED,
+                    {"reason": "terminal_trade_allowed_restored", "terminal": state},
+                )
+            return
+        if self._submit_block is None:
+            self._submit_block = {
+                "reason": state["reason"],
+                "since": datetime.now(UTC).isoformat(),
+                "expected_retcode": state["expected_retcode"],
+                "expected_retcode_code": state["expected_retcode_code"],
+                "expected_comment": state["expected_comment"],
+                "terminal": state,
+            }
+            self._audit(
+                Severity.ERROR,
+                AuditEventType.EXECUTION_BLOCKED,
+                {
+                    "reason": state["reason"],
+                    "expected_retcode": state["expected_retcode"],
+                    "expected_retcode_code": state["expected_retcode_code"],
+                    "expected_comment": state["expected_comment"],
+                    "action_required": (
+                        "enable AutoTrading (Algo Trading) in the MT5 terminal toolbar; "
+                        "no request shape can succeed until then"
+                    ),
+                    "terminal": state,
+                },
+            )
+        else:
+            self._submit_block["attempts_while_blocked"] = (
+                int(self._submit_block.get("attempts_while_blocked", 0)) + 1
+            )
+
+    def execution_availability(self) -> dict[str, Any]:
+        """Explicit execution-availability state for the dashboard/health payload."""
+        return {
+            "terminal": dict(self._execution_availability),
+            "blocked": self._submit_block is not None,
+            "block": dict(self._submit_block) if self._submit_block else None,
+        }
+
+    def _local_reject(
+        self, order: OrderRequest, reason: str, detail: dict[str, Any] | None = None
+    ) -> ExecutionRecord:
+        """Rejection we can state exactly without (or before) sending anything to the broker."""
+        response: dict[str, Any] = {
+            "adapter": "mt5",
+            "ok": False,
+            "local_reject": reason,
+            "transmitted": False,
+            "credentials_included": False,
+        }
+        response.update(detail or {})
         record = ExecutionRecord(
             execution_id=new_execution_id(),
             order_id=order.order_id,
@@ -338,13 +455,140 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             requested_price=order.entry,
             stop_loss=order.stop_loss,
             take_profit=order.take_profit,
-            mt5_response={"adapter": "mt5", "ok": False, "local_reject": reason},
+            mt5_response=response,
             rejection_reason=reason,
             final_status=OrderStatus.BROKER_REJECTED,
             correlation_id=order.correlation_id,
         )
         self.executions.append(record)
+        self._audit(
+            Severity.ERROR if reason == "terminal_autotrading_disabled" else Severity.WARNING,
+            AuditEventType.ORDER_REJECTED,
+            {
+                "reason": reason,
+                "order_id": order.order_id,
+                "symbol": order.symbol,
+                "retcode": response.get("retcode"),
+                "retcode_code": response.get("retcode_code"),
+                "comment": response.get("comment"),
+                "transmitted": False,
+            },
+            symbol=order.symbol,
+            correlation_id=order.correlation_id,
+        )
         return record
+
+    async def _submit_diagnostics(
+        self,
+        order: OrderRequest,
+        request: dict[str, Any],
+        sym: Any,
+        tick: Any,
+        *,
+        price: float,
+        sl: float,
+        tp: float,
+        check: Any,
+        result: Any,
+        terminal: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Complete, credential-free evidence for one submission attempt.
+
+        Everything needed to explain a broker decision without guessing: the exact request, the
+        market at that moment, the broker's symbol contract, the account/terminal permission flags,
+        and the raw order_check/order_send answers. Persisted inside the execution record.
+        """
+        acct = await self._call("account_info")
+        point = float(getattr(sym, "point", 0.0) or 0.0)
+        spread_points = float(getattr(tick, "spread", 0.0) or 0.0)
+        deviation_points = float(self._settings.max_slippage_points)
+        deviation_price = deviation_points * point
+        warnings: list[str] = []
+        if spread_points and point and deviation_price < spread_points * point:
+            warnings.append(
+                "deviation_price_below_spread: with market execution this can be answered "
+                "TRADE_RETCODE_PRICE_OFF (10021) / REQUOTE (10004)"
+            )
+        stop_distance = abs(price - sl)
+        if spread_points and point and stop_distance < spread_points * point:
+            warnings.append(
+                "stop_distance_below_spread: broker may answer TRADE_RETCODE_INVALID_STOPS (10016)"
+            )
+        if int(getattr(sym, "trade_mode", 4)) != 4:
+            warnings.append("symbol trade_mode is not full trading")
+        if not terminal.get("connected", True):
+            warnings.append("terminal reports disconnected")
+
+        def _retcode(obj: Any) -> dict[str, Any] | None:
+            if obj is None:
+                return None
+            code = int(getattr(obj, "retcode", -1))
+            return {
+                "retcode": code,
+                "retcode_name": self._retcode_name(code),
+                "comment": str(getattr(obj, "comment", "")),
+                "margin": float(getattr(obj, "margin", 0.0) or 0.0),
+                "margin_free": float(getattr(obj, "margin_free", 0.0) or 0.0),
+            }
+
+        return {
+            "credentials_included": False,
+            "request": dict(request),
+            "requested": {
+                "symbol": order.symbol,
+                "broker_symbol": order.symbol,
+                "side": order.side.value,
+                "type": int(request.get("type", -1)),
+                "volume": float(order.volume),
+                "entry_reference": order.entry,
+                "price_sent": price,
+                "stop_loss": sl,
+                "take_profit": tp,
+                "deviation_points": deviation_points,
+                "deviation_price": deviation_price,
+                "magic": int(self._settings.mt5_magic),
+                "comment_tag": self._tag(order.order_id),
+                "type_time": int(request.get("type_time", -1)),
+            },
+            "market": {
+                "bid": float(getattr(tick, "bid", 0.0) or 0.0),
+                "ask": float(getattr(tick, "ask", 0.0) or 0.0),
+                "spread_points": spread_points,
+                "spread_price": spread_points * point,
+            },
+            "symbol_spec": {
+                "digits": int(getattr(sym, "digits", 0) or 0),
+                "point": point,
+                "trade_tick_size": float(getattr(sym, "trade_tick_size", 0.0) or 0.0),
+                "trade_tick_value": float(getattr(sym, "trade_tick_value", 0.0) or 0.0),
+                "trade_contract_size": float(getattr(sym, "trade_contract_size", 0.0) or 0.0),
+                "volume_min": float(getattr(sym, "volume_min", 0.0) or 0.0),
+                "volume_max": float(getattr(sym, "volume_max", 0.0) or 0.0),
+                "volume_step": float(getattr(sym, "volume_step", 0.0) or 0.0),
+                "trade_stops_level": int(getattr(sym, "trade_stops_level", 0) or 0),
+                "trade_freeze_level": int(getattr(sym, "trade_freeze_level", 0) or 0),
+                "filling_mode": int(getattr(sym, "filling_mode", 0) or 0),
+                "resolved_filling_mode": self._filling_mode(sym),
+                "trade_execution": int(getattr(sym, "trade_execution", -1) or 0),
+                "trade_mode": int(getattr(sym, "trade_mode", -1) or 0),
+                "trade_calc_mode": int(getattr(sym, "trade_calc_mode", -1) or 0),
+                "margin_initial": float(getattr(sym, "margin_initial", 0.0) or 0.0),
+                "margin_maintenance": float(getattr(sym, "margin_maintenance", 0.0) or 0.0),
+                "spread_float": bool(getattr(sym, "spread_float", False)),
+            },
+            "account": {
+                "trade_allowed": bool(getattr(acct, "trade_allowed", False)),
+                "trade_expert": bool(getattr(acct, "trade_expert", False)),
+                "margin_mode": int(getattr(acct, "margin_mode", -1)),
+                "leverage": int(getattr(acct, "leverage", 0) or 0),
+                "equity": float(getattr(acct, "equity", 0.0) or 0.0),
+                "margin_free": float(getattr(acct, "margin_free", 0.0) or 0.0),
+            },
+            "terminal": dict(terminal),
+            "order_check": _retcode(check),
+            "order_send": _retcode(result),
+            "warnings": warnings,
+        }
 
     async def _existing_for_order(self, order_id: str) -> Any | None:
         """Idempotency: an open position already carries this order's tag."""
@@ -405,6 +649,47 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         if problems:
             return self._local_reject(order, problems[0])
 
+        # Terminal-level availability, checked BEFORE any broker traffic. With AutoTrading off,
+        # order_send answers 10027 for every request; submitting anyway would just spam the broker
+        # and hide the real reason behind a generic "rejected".
+        terminal = await self.terminal_trade_state()
+        self._note_execution_availability(terminal)
+        if not terminal["available"]:
+            spec_snapshot = {
+                "digits": int(getattr(sym, "digits", 0) or 0),
+                "point": float(getattr(sym, "point", 0.0) or 0.0),
+                "volume_min": float(getattr(sym, "volume_min", 0.0) or 0.0),
+                "volume_max": float(getattr(sym, "volume_max", 0.0) or 0.0),
+                "volume_step": float(getattr(sym, "volume_step", 0.0) or 0.0),
+                "trade_stops_level": int(getattr(sym, "trade_stops_level", 0) or 0),
+                "trade_freeze_level": int(getattr(sym, "trade_freeze_level", 0) or 0),
+                "filling_mode": int(getattr(sym, "filling_mode", 0) or 0),
+                "resolved_filling_mode": self._filling_mode(sym),
+                "trade_execution": int(getattr(sym, "trade_execution", -1) or 0),
+                "trade_mode": int(getattr(sym, "trade_mode", -1) or 0),
+            }
+            return self._local_reject(
+                order,
+                "terminal_autotrading_disabled",
+                detail={
+                    "retcode": terminal["expected_retcode"],
+                    "retcode_code": terminal["expected_retcode_code"],
+                    "comment": terminal["expected_comment"],
+                    "broker_verdict_source": "verified by a read-only probe on this terminal",
+                    "symbol_spec": spec_snapshot,
+                    "requested": {
+                        "symbol": order.symbol,
+                        "side": order.side.value,
+                        "volume": float(order.volume),
+                        "entry_reference": order.entry,
+                        "stop_loss": order.stop_loss,
+                        "take_profit": order.take_profit,
+                        "magic": int(self._settings.mt5_magic),
+                    },
+                    "terminal": terminal,
+                },
+            )
+
         tick = await self._call("symbol_info_tick", order.symbol)
         if tick is None or not float(tick.ask) or not float(tick.bid):
             return self._local_reject(order, "no_tick_data")
@@ -443,10 +728,31 @@ class MT5ExecutionAdapter(ExecutionAdapter):
         }
 
         check = await self._call("order_check", request)
+        diagnostics = await self._submit_diagnostics(
+            order,
+            request,
+            sym,
+            tick,
+            price=price,
+            sl=sl,
+            tp=tp,
+            check=check,
+            result=None,
+            terminal=terminal,
+        )
         if check is None or int(check.retcode) != 0:
             code = int(check.retcode) if check is not None else -1
             comment = getattr(check, "comment", "") if check is not None else "no_result"
-            return self._local_reject(order, f"order_check_failed:{code}:{comment}")
+            return self._local_reject(
+                order,
+                f"order_check_failed:{code}:{comment}",
+                detail={
+                    "retcode": self._retcode_name(code) if code >= 0 else None,
+                    "retcode_code": code,
+                    "comment": str(comment),
+                    "diagnostics": diagnostics,
+                },
+            )
 
         result = await self._call("order_send", request)
         if result is None:
@@ -462,6 +768,19 @@ class MT5ExecutionAdapter(ExecutionAdapter):
             "deal": int(getattr(result, "deal", 0)),
             "comment": str(getattr(result, "comment", "")),
             "request_id": int(getattr(result, "request_id", 0)),
+            "transmitted": True,
+            "credentials_included": False,
+            "diagnostics": {
+                **diagnostics,
+                "order_send": {
+                    "retcode": code,
+                    "retcode_name": name,
+                    "comment": str(getattr(result, "comment", "")),
+                    "order": int(getattr(result, "order", 0) or 0),
+                    "deal": int(getattr(result, "deal", 0) or 0),
+                    "request_id": int(getattr(result, "request_id", 0) or 0),
+                },
+            },
         }
 
         if code in (client.TRADE_RETCODE_DONE, client.TRADE_RETCODE_DONE_PARTIAL):

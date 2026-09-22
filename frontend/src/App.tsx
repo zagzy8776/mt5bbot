@@ -5,6 +5,7 @@ import {
   setToken,
   type Account,
   type AuditEvent,
+  type Execution,
   type Order,
   type OutcomesPayload,
   type Position,
@@ -50,6 +51,7 @@ export default function App() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [risk, setRisk] = useState<Risk | null>(null);
   const [outcomes, setOutcomes] = useState<OutcomesPayload | null>(null);
+  const [executions, setExecutions] = useState<Execution[]>([]);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
@@ -59,7 +61,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev, out] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -68,7 +70,8 @@ export default function App() {
         api.risk(),
         api.status(),
         api.audit(50).catch(() => ({ events: [] as AuditEvent[] })),
-        api.outcomes().catch(() => null)
+        api.outcomes().catch(() => null),
+        api.executions().catch(() => [] as Execution[])
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -80,6 +83,7 @@ export default function App() {
       setStatus(st);
       setEvents(ev.events);
       setOutcomes(out);
+      setExecutions(ex);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -212,6 +216,8 @@ export default function App() {
 
               <SignalPipeline runtime={runtime} />
 
+              <ExecutionContract runtime={runtime} executions={executions} />
+
               <OutcomeLedger payload={outcomes} />
 
               <section className="card">
@@ -240,6 +246,7 @@ export default function App() {
           </>
         )}
         {view === "orders" && <section className="card"><div className="section-head"><h2>Recent orders</h2><Badge tone="neutral">{orders.length}</Badge></div><OrderTable orders={orders} /></section>}
+        {view === "orders" && <ExecutionContract runtime={runtime} executions={executions} />}
         {view === "signals" && <section className="card"><div className="section-head"><h2>Signals</h2><Badge tone="neutral">{signals.length}</Badge></div><SignalTable signals={signals} /></section>}
         {view === "risk" && <RiskView risk={risk} account={account} onKill={() => void doAction(() => api.kill(!risk?.kill_switch))} />}
         {view === "settings" && (
@@ -489,9 +496,66 @@ function LifecycleTable({ events }: { events: AuditEvent[] }) {
 
 function OrderTable({ orders }: { orders: Order[] }) {
   if (!orders.length) return <Empty text="No orders recorded yet." />;
-  return <div className="table-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Volume</th><th>Status</th><th>Entry</th><th>SL</th><th>TP</th></tr></thead><tbody>
-    {orders.map(o => <tr key={o.order_id}><td>{new Date(o.created_at).toLocaleTimeString()}</td><td>{o.symbol}</td><td>{o.side.toUpperCase()}</td><td>{o.volume}</td><td><Badge tone={o.status.includes("rejected") || o.status === "failed" ? "bad" : o.status === "filled" ? "good" : "warn"}>{o.status}</Badge></td><td>{fmt(o.entry)}</td><td>{fmt(o.stop_loss)}</td><td>{fmt(o.take_profit)}</td></tr>)}
+  return <div className="table-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Volume</th><th>Status</th><th>Reason</th><th>Entry</th><th>SL</th><th>TP</th></tr></thead><tbody>
+    {orders.map(o => <tr key={o.order_id}><td>{new Date(o.created_at).toLocaleTimeString()}</td><td>{o.symbol}</td><td>{o.side.toUpperCase()}</td><td>{o.volume}</td><td><Badge tone={o.status.includes("rejected") || o.status === "failed" ? "bad" : o.status === "filled" ? "good" : "warn"}>{o.status}</Badge></td><td>{o.rejection_reason || "—"}</td><td>{fmt(o.entry)}</td><td>{fmt(o.stop_loss)}</td><td>{fmt(o.take_profit)}</td></tr>)}
   </tbody></table></div>;
+}
+
+function ExecutionContract({ runtime, executions }: { runtime: Runtime | null; executions: Execution[] }) {
+  const availability = runtime?.stats?.execution;
+  const terminal = availability?.terminal;
+  const block = availability?.block;
+  const lastRejected = executions.find(e => e.final_status === "broker_rejected");
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">EXECUTION CONTRACT</div>
+          <h2>Can orders reach the broker?</h2>
+        </div>
+        <Badge tone={availability?.blocked ? "bad" : terminal?.trade_allowed ? "good" : "warn"}>
+          {availability?.blocked ? "BLOCKED" : terminal?.trade_allowed ? "TRANSMIT OK" : "UNKNOWN"}
+        </Badge>
+      </div>
+      <div className="runtime-panel">
+        <div><span>Terminal AutoTrading</span><strong>{terminal?.trade_allowed ? "enabled" : "disabled"}</strong></div>
+        <div><span>Terminal connected</span><strong>{String(terminal?.connected ?? "—")}</strong></div>
+        <div><span>API trading allowed</span><strong>{String(terminal?.tradeapi_disabled === false ? "yes" : "—")}</strong></div>
+        <div><span>Terminal build</span><strong>{terminal?.build ?? "—"}</strong></div>
+      </div>
+      {block ? (
+        <>
+          <div className="reason-list">
+            <strong>Submission blocked — nothing is being sent to the broker</strong>
+            <span>reason: {String(block.reason)}</span>
+            <span>expected broker answer: {String(block.expected_retcode)} ({String(block.expected_retcode_code)}) — “{String(block.expected_comment)}”</span>
+            <span>attempts while blocked: {String(block.attempts_while_blocked ?? 0)}</span>
+            <span>fix: enable <strong>Algo Trading / AutoTrading</strong> in the MT5 terminal toolbar. No request shape can succeed until then.</span>
+          </div>
+        </>
+      ) : (
+        <p className="muted">The terminal will transmit orders. Rejections would be reported here with the exact MT5 retcode and comment.</p>
+      )}
+      {lastRejected && (
+        <div className="kv">
+          <span>Last broker rejection</span>
+          <strong>
+            {`${
+              String(lastRejected.mt5_response?.retcode ?? lastRejected.rejection_reason ?? "unknown")
+            } @ ${new Date(lastRejected.timestamp).toLocaleTimeString()} · ${
+              String(lastRejected.mt5_response?.comment ?? "")
+            }${(lastRejected.mt5_response?.diagnostics?.warnings as string[] | undefined)?.length ? ` · warnings: ${
+              ((lastRejected.mt5_response?.diagnostics?.warnings as string[]) || []).join("; ")
+            }` : ""}`}
+          </strong>
+        </div>
+      )}
+      <p className="muted">
+        Every submission records the exact request (price, SL/TP, filling mode, deviation), the
+        market, the broker contract and the raw order_check/order_send answers — credential-free.
+      </p>
+    </section>
+  );
 }
 
 function SignalTable({ signals }: { signals: Signal[] }) {

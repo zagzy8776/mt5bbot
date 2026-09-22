@@ -112,6 +112,9 @@ class BotControlService:
         )
         stats["learning"] = self.learning.stats()
         stats["evidence"] = self.evidence_status()
+        # Can this runtime actually transmit an order right now? (AutoTrading off => 10027.)
+        availability = getattr(self.adapter, "execution_availability", None)
+        stats["execution"] = availability() if callable(availability) else {}
         snap.stats = stats
         return snap.to_dict()
 

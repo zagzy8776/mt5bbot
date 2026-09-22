@@ -125,6 +125,10 @@ export type RuntimeStats = {
     symbols?: Record<string, { bars: number; signals_discarded: number }>;
   };
   signal_engine?: SignalEngineDiagnostics;
+  execution?: ExecutionAvailability;
+  outcomes?: OutcomeSummary & { recorder?: Record<string, unknown> };
+  learning?: LearningStats;
+  evidence?: EvidenceStatus;
 };
 
 export type Runtime = {
@@ -184,6 +188,56 @@ export type Order = {
   status: string;
   created_at: string;
   rejection_reason?: string | null;
+};
+
+export type ExecutionAvailability = {
+  terminal?: {
+    available?: boolean;
+    trade_allowed?: boolean;
+    connected?: boolean;
+    tradeapi_disabled?: boolean;
+    build?: number;
+    reason?: string;
+    expected_retcode?: string | null;
+    expected_retcode_code?: number | null;
+    expected_comment?: string | null;
+  };
+  blocked?: boolean;
+  block?: {
+    reason?: string;
+    since?: string;
+    attempts_while_blocked?: number;
+    expected_retcode?: string | null;
+    expected_retcode_code?: number | null;
+    expected_comment?: string | null;
+  } | null;
+};
+
+export type Execution = {
+  execution_id: string;
+  order_id: string;
+  timestamp: string;
+  symbol: string;
+  side: "buy" | "sell";
+  requested_volume: number;
+  requested_price?: number | null;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  execution_price?: number | null;
+  rejection_reason?: string | null;
+  final_status: string;
+  mt5_response?: {
+    retcode?: string;
+    retcode_code?: number;
+    comment?: string;
+    transmitted?: boolean;
+    local_reject?: string;
+    diagnostics?: {
+      warnings?: string[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
 };
 
 export type Signal = {
@@ -312,6 +366,8 @@ export const api = {
   positions: () => request<Positions>("/api/v1/positions"),
   audit: (limit = 50) => request<{ events: AuditEvent[] }>(`/api/v1/audit/recent?limit=${limit}`),
   orders: async () => (await request<{ orders: Order[] }>("/api/v1/orders?limit=25")).orders,
+  executions: async () =>
+    (await request<{ executions: Execution[] }>("/api/v1/executions?limit=25")).executions,
   signals: async () => (await request<{ signals: Signal[] }>("/api/v1/signals?limit=25")).signals,
   risk: () => request<Risk>("/api/v1/risk/status"),
   outcomes: (limit = 25) => request<OutcomesPayload>(`/api/v1/outcomes?limit=${limit}`),
