@@ -78,12 +78,20 @@ class BotControlService:
     @property
     def snapshot(self) -> dict[str, Any]:
         snap = self._snapshot
+        stats: dict[str, Any] = dict(self._loop.stats.to_dict()) if self._loop is not None else {}
+        # Diagnostics are exposed even while stopped, so "0 signals" is always explainable.
+        stats["signal_engine"] = self.signal_engine.stats_snapshot()
+        stats["pipeline"] = self._loop.last_cycle if self._loop is not None else {}
+        stats["pipeline_stage"] = (
+            self._loop.last_cycle.get("stage") if self._loop is not None else "not_running"
+        )
+        stats["warmup_replay"] = self._loop.warmup_replay if self._loop is not None else {}
         if self._loop is not None:
             snap.connected = bool(getattr(self.adapter, "_connected", False))
             snap.kill_switch = self.risk_engine.kill_switch
-            snap.stats = self._loop.stats.to_dict()
             if self._loop.intelligence is not None:
-                snap.stats["intelligence"] = self._loop.intelligence.stats.to_dict()
+                stats["intelligence"] = self._loop.intelligence.stats.to_dict()
+        snap.stats = stats
         return snap.to_dict()
 
     def _validate_start(self) -> None:

@@ -61,6 +61,12 @@ class SignalEngine:
         self._recent: list[StrategySignal] = []
         self._max_recent = 500
         self._last_emitted: dict[tuple[str, str, str], datetime] = {}
+        # Diagnostics: "0 signals" must be explainable, never a bare counter.
+        self.evaluations: int = 0
+        self.last_evaluation_time: datetime | None = None
+        self.last_evaluation_symbol: str | None = None
+        self.last_signal: StrategySignal | None = None
+        self.last_rejection: dict[str, object] | None = None
 
     @staticmethod
     def _bump(stats: SignalEngineStats | None, **fields: int) -> None:
@@ -133,25 +139,53 @@ class SignalEngine:
         self._last_emitted.clear()
 
     def stats_snapshot(self) -> dict:
+        """Everything needed to explain why a signal did or did not happen."""
+        strategies: dict[str, dict] = {}
+        for name, stats in sorted(self.strategy_stats.items()):
+            data = stats.to_dict()
+            data["evaluations"] = data["events_processed"]
+            data["signals"] = data["signals_generated"]
+            data["rejections"] = data["signals_rejected"]
+            strategies[name] = data
+        last = self.last_signal
         return {
             **self.stats.to_dict(),
+            "evaluations": self.evaluations,
+            "last_evaluation_time": (
+                self.last_evaluation_time.isoformat() if self.last_evaluation_time else None
+            ),
+            "last_evaluation_symbol": self.last_evaluation_symbol,
+            "last_signal_time": last.timestamp.isoformat() if last else None,
+            "last_signal_strategy": last.strategy_name if last else None,
+            "last_signal_side": last.direction.value if last else None,
+            "last_signal_reason": last.reason if last else None,
+            "last_signal_entry": last.entry if last else None,
+            "last_signal_stop_loss": last.stop_loss if last else None,
+            "last_signal_take_profit": last.take_profit if last else None,
+            "last_signal_confidence": last.confidence if last else None,
+            "last_rejection": dict(self.last_rejection) if self.last_rejection else None,
             "cooldown_s": self.cooldown_s,
             "min_confidence": self.min_confidence,
             "require_stop_loss": self.require_stop_loss,
             "total_strategies": len(self.strategies),
             "active_strategies": sum(1 for s in self.strategies if s.enabled),
-            "strategy_stats": {
-                name: stats.to_dict() for name, stats in sorted(self.strategy_stats.items())
-            },
+            "strategy_stats": strategies,
         }
 
     async def on_market_data(self, event: MarketDataEvent) -> list[StrategySignal]:
         self._bump(self.stats, events_processed=1)
+        self.evaluations += 1
+        self.last_evaluation_time = event.timestamp
+        self.last_evaluation_symbol = event.symbol
         emitted: list[StrategySignal] = []
 
         for strategy in self.strategies:
             if not strategy.enabled:
                 continue
+            self._bump(
+                self.strategy_stats.setdefault(strategy.name, SignalEngineStats()),
+                events_processed=1,
+            )
             try:
                 signal = strategy.generate_signal(event)
             except Exception as exc:
@@ -181,6 +215,14 @@ class SignalEngine:
 
             if rejected:
                 self._bump(self.stats, signals_rejected=1)
+                self.last_rejection = {
+                    "at": signal.timestamp.isoformat(),
+                    "strategy": signal.strategy_name,
+                    "symbol": signal.symbol,
+                    "side": signal.direction.value,
+                    "reasons": list(rejected),
+                    "signal_id": signal.signal_id,
+                }
                 per = self.strategy_stats.get(
                     signal.strategy_name
                 ) or self.strategy_stats.setdefault(signal.strategy_name, SignalEngineStats())
@@ -205,6 +247,7 @@ class SignalEngine:
                 continue
 
             self._bump(self.stats, signals_generated=1)
+            self.last_signal = signal
             per = self.strategy_stats.get(signal.strategy_name) or self.strategy_stats.setdefault(
                 signal.strategy_name, SignalEngineStats()
             )

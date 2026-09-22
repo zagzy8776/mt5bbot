@@ -47,6 +47,79 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export type StrategyDiagnostics = {
+  evaluations: number;
+  signals: number;
+  rejections: number;
+  strategy_errors: number;
+  reject_reasons: Record<string, number>;
+};
+
+export type SignalEngineDiagnostics = {
+  evaluations: number;
+  events_processed: number;
+  signals_generated: number;
+  signals_rejected: number;
+  reject_reasons: Record<string, number>;
+  last_evaluation_time: string | null;
+  last_evaluation_symbol: string | null;
+  last_signal_time: string | null;
+  last_signal_strategy: string | null;
+  last_signal_side: string | null;
+  last_signal_reason: string | null;
+  last_signal_entry: number | null;
+  last_signal_stop_loss: number | null;
+  last_signal_take_profit: number | null;
+  last_rejection: {
+    at: string;
+    strategy: string;
+    side: string;
+    reasons: string[];
+    signal_id: string;
+  } | null;
+  total_strategies: number;
+  active_strategies: number;
+  strategy_stats: Record<string, StrategyDiagnostics>;
+};
+
+export type PipelineTrace = {
+  cycle?: number;
+  stage?: string;
+  at?: string;
+  symbol?: string | null;
+  bar_time?: string;
+  last_processed_bar?: string | null;
+  waiting?: boolean;
+  reasons?: string[];
+  status?: string;
+  order_id?: string;
+  side?: string;
+  strategy?: string;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  volume?: number;
+  rejection_reason?: string | null;
+  signal?: { strategy?: string; side?: string; reason?: string; entry?: number | null };
+};
+
+export type RuntimeStats = {
+  cycles?: number;
+  bars_processed?: number;
+  signals?: number;
+  orders_sent?: number;
+  errors?: number;
+  consecutive_errors?: number;
+  skipped?: Record<string, number>;
+  pipeline_stage?: string;
+  pipeline?: PipelineTrace;
+  warmup_replay?: {
+    bars: number;
+    signals: number;
+    symbols?: Record<string, { bars: number; signals_discarded: number }>;
+  };
+  signal_engine?: SignalEngineDiagnostics;
+};
+
 export type Runtime = {
   state: string;
   symbol: string;
@@ -55,7 +128,7 @@ export type Runtime = {
   last_error: string | null;
   connected: boolean;
   kill_switch: boolean;
-  stats: Record<string, unknown>;
+  stats: RuntimeStats;
 };
 
 export type Account = {

@@ -1,0 +1,1 @@
+{"kill_switch": true, "halt_reasons": ["test_halt", "manual", "max_drawdown_exceeded", "trading_loop_errors", "manual", "max_drawdown_exceeded", "trading_loop_errors"], "paused": false, "pause_reasons": []}

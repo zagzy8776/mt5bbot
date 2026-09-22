@@ -7,11 +7,23 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from mt5_platform.account import AccountMonitor
 from mt5_platform.backtest import symbols_match, write_validation
 from mt5_platform.backtest.metrics import GateReport, Metrics
 from mt5_platform.backtest.validation import live_block_reason
 from mt5_platform.common.enums import OrderSide
-from mt5_platform.common.events import MarketDataEvent, OrderRequest, StrategySignal
+from mt5_platform.common.events import (
+    AccountSnapshot,
+    MarketDataEvent,
+    OrderRequest,
+    StrategySignal,
+)
+from mt5_platform.config import Settings
+from mt5_platform.orders import OrderManager
+from mt5_platform.risk import RiskEngine
+from mt5_platform.runtime.feed import MT5CandleFeed
+from mt5_platform.runtime.loop import TradingLoop
+from mt5_platform.signals import SignalEngine
 from mt5_platform.strategy.registry import create_strategy
 
 
@@ -87,3 +99,92 @@ def test_live_block_reason_accepts_exact_symbol() -> None:
 def test_live_block_reason_rejects_other_symbol() -> None:
     report = {"passed": True, "symbol": "XAUUSDm", "timeframe": "M15"}
     assert live_block_reason(report, symbol="EURUSD", timeframe="M15") is not None
+
+
+# --------------------------------------------------------------- runtime loop + feed
+#
+# Regression: the loop used to upper-case every symbol, so the feed asked MT5 for "XAUUSDM"
+# (which does not exist). MT5 returned no rates, the loop logged "no_candle_available" and the
+# bot evaluated zero candles forever — the live "0 signals" outage.
+
+
+class _BrokerLikeAdapter:
+    """Minimal adapter that behaves like MT5 for symbol casing: unknown ids return nothing."""
+
+    class _Mt5:
+        TIMEFRAME_M15 = 15
+
+    mt5 = _Mt5()
+
+    def __init__(self) -> None:
+        self.copy_rate_symbols: list[str] = []
+
+    async def connect(self) -> bool:
+        return True
+
+    async def is_connected(self) -> bool:
+        return True
+
+    async def disconnect(self) -> bool:
+        return True
+
+    async def get_instrument(self, symbol: str):
+        return None
+
+    async def get_account(self) -> AccountSnapshot:
+        return AccountSnapshot(
+            balance=10_000.0,
+            equity=10_000.0,
+            free_margin=10_000.0,
+            used_margin=0.0,
+            floating_pnl=0.0,
+        )
+
+    async def get_positions(self) -> list:
+        return []
+
+    async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
+        return {}
+
+    async def call(self, name: str, *args):
+        if name == "copy_rates_from_pos":
+            symbol = str(args[0])
+            self.copy_rate_symbols.append(symbol)
+            if symbol != "XAUUSDm":  # does not exist at the broker
+                return None
+            return [
+                {
+                    "time": 1790074800 + 900 * i,
+                    "open": 4320.0,
+                    "high": 4321.0,
+                    "low": 4319.0,
+                    "close": 4320.5,
+                    "tick_volume": 100,
+                    "spread": 260,
+                }
+                for i in range(5)
+            ]
+        return None
+
+
+async def test_loop_and_feed_use_the_exact_broker_symbol() -> None:
+    settings = Settings(execution_backend="mt5", risk_state_path="")
+    adapter = _BrokerLikeAdapter()
+    risk = RiskEngine(settings=settings)
+    loop = TradingLoop(
+        settings=settings,
+        adapter=adapter,  # type: ignore[arg-type]
+        feed=MT5CandleFeed(adapter, "M15"),
+        signal_engine=SignalEngine([]),
+        risk_engine=risk,
+        order_manager=OrderManager(settings=settings, risk_engine=risk),
+        monitor=AccountMonitor(settings, risk),
+        symbols=["XAUUSDm"],
+        warmup_bars=3,
+    )
+
+    assert loop.symbols == ["XAUUSDm"]  # never "XAUUSDM"
+    await loop.start()
+
+    assert adapter.copy_rate_symbols == ["XAUUSDm"]  # the feed asked for the real id
+    assert loop._last_bar["XAUUSDm"] is not None  # and actually received closed candles

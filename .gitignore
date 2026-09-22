@@ -52,3 +52,6 @@ data/xauusd_m15.csv
 data/research_report.json
 risk_state.json
 validation_report.json
+
+# Runtime logs (broker/account details, large); the polluting evidence is tracked in docs/evidence/.
+logs/

@@ -196,6 +196,8 @@ export default function App() {
                   <div><span>Timeframe</span><strong>{runtime?.timeframe || timeframe}</strong></div>
                   <div><span>Signals</span><strong>{Number(runtime?.stats?.signals ?? 0)}</strong></div>
                   <div><span>Orders sent</span><strong>{Number(runtime?.stats?.orders_sent ?? 0)}</strong></div>
+                  <div><span>Closed candles</span><strong>{Number(runtime?.stats?.bars_processed ?? 0)}</strong></div>
+                  <div><span>Signal evaluations</span><strong>{Number(runtime?.stats?.signal_engine?.evaluations ?? 0)}</strong></div>
                 </div>
                 <div className="button-row">
                   <button className="primary" disabled={busy || running} onClick={() => void doAction(() => api.start(symbol, timeframe))}>Start bot</button>
@@ -203,6 +205,8 @@ export default function App() {
                   <button disabled={busy} onClick={() => void doAction(api.restart)}>Restart</button>
                 </div>
               </section>
+
+              <SignalPipeline runtime={runtime} />
 
               <section className="card">
                 <div className="section-head">
@@ -251,6 +255,106 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+const PIPELINE_STAGES: Record<
+  string,
+  { label: string; tone: "good" | "bad" | "warn" | "neutral"; hint: string }
+> = {
+  not_running: {
+    label: "runtime stopped",
+    tone: "neutral",
+    hint: "Start the runtime to evaluate closed candles."
+  },
+  warmup_complete: {
+    label: "primed · replaying history",
+    tone: "neutral",
+    hint: "Historical candles were replayed to prime the strategies. Those signals are never traded; live trading starts with the next closed candle."
+  },
+  waiting_for_closed_candle: {
+    label: "A · waiting for a closed candle",
+    tone: "neutral",
+    hint: "The last candle was already evaluated; the next one has not closed yet."
+  },
+  no_candle_available: {
+    label: "A · no candle data",
+    tone: "bad",
+    hint: "The feed returned no candles — check the symbol and timeframe."
+  },
+  candle_evaluated_no_setup: {
+    label: "B · candle evaluated, no setup",
+    tone: "neutral",
+    hint: "Strategies ran on the closed candle; no entry condition was met."
+  },
+  signal_not_actionable: {
+    label: "C · signal not actionable",
+    tone: "warn",
+    hint: "A signal existed but could not be sized or protected."
+  },
+  signal_rejected_by_risk: {
+    label: "D · rejected by risk",
+    tone: "warn",
+    hint: "The risk gate refused the signal — see the reasons below."
+  },
+  order_submitted: {
+    label: "E · order submitted",
+    tone: "neutral",
+    hint: "Sent to MT5; the outcome is not final yet."
+  },
+  order_rejected: {
+    label: "F · order rejected by broker",
+    tone: "bad",
+    hint: "MT5 refused the order — the broker reason is shown below."
+  },
+  order_filled: {
+    label: "G · order filled",
+    tone: "good",
+    hint: "The bot is in the market with broker-side SL/TP."
+  }
+};
+
+function SignalPipeline({ runtime }: { runtime: Runtime | null }) {
+  const stats = runtime?.stats;
+  const engine = stats?.signal_engine;
+  const trace = stats?.pipeline;
+  const stage = stats?.pipeline_stage || "not_running";
+  const info = PIPELINE_STAGES[stage] || { label: stage, tone: "neutral" as const, hint: "" };
+  const rejects =
+    engine && Object.keys(engine.reject_reasons || {}).length
+      ? Object.entries(engine.reject_reasons)
+          .map(([reason, count]) => `${reason} ×${count}`)
+          .join(", ")
+      : "none";
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">SIGNAL PIPELINE</div>
+          <h2>Candle → signal → risk → order</h2>
+        </div>
+        <Badge tone={info.tone}>{info.label}</Badge>
+      </div>
+      <p className="muted">{info.hint}</p>
+      <div className="runtime-panel">
+        <div><span>Closed candles</span><strong>{Number(stats?.bars_processed ?? 0)}</strong></div>
+        <div><span>Evaluations</span><strong>{Number(engine?.evaluations ?? 0)}</strong></div>
+        <div><span>Signals</span><strong>{Number(engine?.signals_generated ?? 0)}</strong></div>
+        <div><span>Rejected</span><strong>{Number(engine?.signals_rejected ?? 0)}</strong></div>
+        <div><span>Orders sent</span><strong>{Number(stats?.orders_sent ?? 0)}</strong></div>
+        <div><span>Last evaluation</span><strong>{engine?.last_evaluation_time ? new Date(engine.last_evaluation_time).toLocaleTimeString() : "—"}</strong></div>
+      </div>
+      <div className="kv"><span>Warm-up replay</span><strong>{stats?.warmup_replay?.bars ? `${stats.warmup_replay.bars} bars · ${stats.warmup_replay.signals} signals discarded (never traded)` : "—"}</strong></div>
+      <div className="kv"><span>Last signal</span><strong>{engine?.last_signal_strategy ? `${engine.last_signal_strategy} ${engine.last_signal_side?.toUpperCase()} @ ${fmt(engine.last_signal_entry)} (SL ${fmt(engine.last_signal_stop_loss)})` : "none yet"}</strong></div>
+      <div className="kv"><span>Last rejection</span><strong>{engine?.last_rejection ? `${engine.last_rejection.strategy}: ${engine.last_rejection.reasons.join(", ")}` : "none"}</strong></div>
+      <div className="kv"><span>Reject counts</span><strong>{rejects}</strong></div>
+      <div className="kv"><span>Last cycle</span><strong>{trace?.stage ? `${trace.stage}${trace.reasons?.length ? ` (${trace.reasons.join(", ")})` : ""}${trace.order_id ? ` · ${trace.order_id}` : ""}${trace.waiting ? " · waiting for the next closed candle" : ""}` : "—"}</strong></div>
+      {engine && Object.keys(engine.strategy_stats || {}).length > 0 && (
+        <div className="table-wrap"><table><thead><tr><th>Strategy</th><th>Evaluations</th><th>Signals</th><th>Rejections</th></tr></thead><tbody>
+          {Object.entries(engine.strategy_stats).map(([name, s]) => <tr key={name}><td>{name}</td><td>{s.evaluations}</td><td>{s.signals}</td><td>{s.rejections}</td></tr>)}
+        </tbody></table></div>
+      )}
+    </section>
   );
 }
 

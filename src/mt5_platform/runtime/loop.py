@@ -22,8 +22,21 @@ from typing import Any
 from mt5_platform.account import AccountMonitor
 from mt5_platform.backtest.data import bar_to_event
 from mt5_platform.common.audit import audit_log
-from mt5_platform.common.enums import AuditEventType, OrderSide, PositionDecision, Severity
-from mt5_platform.common.events import AuditEvent, PositionInfo, StrategySignal
+from mt5_platform.common.enums import (
+    AuditEventType,
+    OrderSide,
+    OrderStatus,
+    PositionDecision,
+    Severity,
+)
+from mt5_platform.common.events import (
+    AuditEvent,
+    ExecutionRecord,
+    PositionInfo,
+    RiskDecision,
+    StrategySignal,
+    utc_now,
+)
 from mt5_platform.common.instruments import position_size_for_risk
 from mt5_platform.config import ManualPositionPolicy, Settings
 from mt5_platform.execution.base import ExecutionAdapter
@@ -70,7 +83,10 @@ class TradingLoop:
         self.settings, self.adapter, self.feed = settings, adapter, feed
         self.signal_engine, self.risk_engine = signal_engine, risk_engine
         self.order_manager, self.monitor = order_manager, monitor
-        self.symbols = [s.upper() for s in symbols]
+        # NEVER upper-case broker symbols: ids are case-sensitive (XAUUSDm != XAUUSDM). An
+        # upper-cased symbol does not exist at the broker, so the feed returns no candles and
+        # the bot silently evaluates nothing (live outage: 0 candles, 0 signals).
+        self.symbols = [s.strip() for s in symbols]
         self.risk_pct = risk_pct if risk_pct is not None else settings.max_risk_per_trade_pct
         self.poll_s, self.warmup_bars = poll_s, warmup_bars
         self.max_consecutive_errors = max_consecutive_errors
@@ -81,6 +97,10 @@ class TradingLoop:
         # Lifecycle tracking: tickets seen on the broker, and the last broker view of each.
         self._discovered_tickets: set[str] = set()
         self._position_fingerprints: dict[str, tuple[object, ...]] = {}
+        # Most recent candle -> signal -> risk -> order trace (diagnostics, not control flow).
+        self._last_cycle: dict[str, Any] = {}
+        # Historical warm-up replay: bars evaluated and signals discarded (never traded).
+        self._warmup_replay: dict[str, Any] = {}
         self.stats = LoopStats()
         self.intelligence = intelligence
 
@@ -91,15 +111,33 @@ class TradingLoop:
         self.signal_engine.reset_state()
         await self.adapter.connect()
         await self.order_manager.reconcile(self.adapter)
+        replay: dict[str, Any] = {"bars": 0, "signals": 0, "symbols": {}}
         for symbol in self.symbols:
             bars = await self.feed.history(symbol, self.warmup_bars)
             spec = await self.adapter.get_instrument(symbol)
+            discarded = 0
             for bar in bars:  # signals from history are discarded: never trade the past
-                await self.signal_engine.on_market_data(
+                emitted = await self.signal_engine.on_market_data(
                     bar_to_event(bar, symbol, bar.spread * (spec.tick_size if spec else 0.0))
                 )
+                discarded += len(emitted)
+            replay["bars"] += len(bars)
+            replay["signals"] += discarded
+            replay["symbols"][symbol] = {"bars": len(bars), "signals_discarded": discarded}
             if bars:
                 self._last_bar[symbol] = bars[-1].time
+        # Keep the historical replay visible: it explains the engine counters before the first
+        # live candle and proves those signals were never sent to risk or the broker.
+        self._warmup_replay = replay
+        last_seed = self._last_bar.get(self.symbols[0]) if self.symbols else None
+        self._stage(
+            "warmup_complete",
+            bars_replayed=replay["bars"],
+            signals_discarded=replay["signals"],
+            last_replayed_bar=(
+                last_seed.isoformat() if hasattr(last_seed, "isoformat") else None
+            ),
+        )
 
     async def run(self, stop: asyncio.Event) -> None:
         await self.start()
@@ -167,28 +205,122 @@ class TradingLoop:
             await self._reconcile_positions()
             self._last_reconcile = self._clock()
 
+        quote: Any | None = None
+        new_bar_seen = False
+        missing_data = False
         for symbol in self.symbols:
             quote = await self.feed.quote(
                 symbol
             )  # polled every cycle: keeps staleness tracking live
             bar = await self.feed.latest_closed_bar(symbol)
-            if bar is None or bar.time == self._last_bar.get(symbol):
+            if bar is None:
+                missing_data = True
+                continue
+            if bar.time == self._last_bar.get(symbol):
                 continue
             self._last_bar[symbol] = bar.time
             self.stats.bars_processed += 1
+            new_bar_seen = True
             spec = await self.adapter.get_instrument(symbol)
             spread_price = bar.spread * spec.tick_size if spec and bar.spread > 0 else 0.0
             signals = await self.signal_engine.on_market_data(
                 bar_to_event(bar, symbol, spread_price)
             )
+            if not signals:
+                # Stage B: a closed candle was evaluated, no strategy produced a setup.
+                self._stage(
+                    "candle_evaluated_no_setup",
+                    symbol=symbol,
+                    bar_time=bar.time.isoformat(),
+                    bar_open=bar.open,
+                    bar_close=bar.close,
+                    bar_high=bar.high,
+                    bar_low=bar.low,
+                )
             for signal in signals:
                 self.stats.signals += 1
                 account = await self.adapter.get_account()
                 await self._handle_signal(signal, account, quote)
 
+        if not new_bar_seen:
+            symbol = self.symbols[0] if self.symbols else None
+            last_processed = self._last_bar.get(symbol) if symbol else None
+            wait_detail: dict[str, Any] = {
+                # Stage A only until a candle has actually been evaluated; afterwards the last
+                # real outcome (B..G) stays visible and "waiting" is reported as metadata.
+                "symbol": symbol,
+                "last_processed_bar": (
+                    last_processed.isoformat() if hasattr(last_processed, "isoformat") else None
+                ),
+                "poll_s": self.poll_s,
+                "waiting": True,
+            }
+            if missing_data or not self._last_cycle:
+                self._stage(
+                    "no_candle_available" if missing_data else "waiting_for_closed_candle",
+                    **wait_detail,
+                )
+            else:
+                self._last_cycle = {
+                    **self._last_cycle,
+                    "at": utc_now().isoformat(),
+                    **wait_detail,
+                }
+
         # Intelligence layer (optional, behind INTELLIGENCE_ENABLED flag)
         if self.intelligence is not None and quote is not None:
             await self._run_intelligence(quote)
+
+    @property
+    def last_cycle(self) -> dict[str, Any]:
+        """Most recent pipeline trace (empty until the first cycle has run)."""
+        return dict(self._last_cycle)
+
+    @property
+    def warmup_replay(self) -> dict[str, Any]:
+        """Bars and signals from the historical warm-up (those signals are never traded)."""
+        return dict(self._warmup_replay)
+
+    def _stage(self, stage: str, **detail: Any) -> None:
+        """Record where the candle -> signal -> risk -> order pipeline ended up.
+
+        Stages: no_candle_available / waiting_for_closed_candle (no candle),
+        candle_evaluated_no_setup (strategy condition false), signal_not_actionable,
+        signal_rejected_by_risk, order_submitted, order_rejected, order_filled.
+        """
+        self._last_cycle = {
+            "cycle": self.stats.cycles,
+            "stage": stage,
+            "at": utc_now().isoformat(),
+            **detail,
+        }
+
+    def _stage_order(
+        self, signal: StrategySignal, record: ExecutionRecord, decision: RiskDecision
+    ) -> None:
+        """Record the end of the chain: submitted, broker-rejected, or filled."""
+        status = record.final_status
+        if status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED):
+            stage = "order_filled"
+        elif status is OrderStatus.BROKER_REJECTED:
+            stage = "order_rejected"
+        else:
+            stage = "order_submitted"
+        self._stage(
+            stage,
+            symbol=signal.symbol,
+            strategy=signal.strategy_name,
+            side=signal.direction.value,
+            order_id=record.order_id,
+            status=status.value,
+            risk_approved=decision.approved,
+            volume=record.filled_volume or record.requested_volume,
+            entry=record.execution_price or signal.entry,
+            stop_loss=record.stop_loss or signal.stop_loss,
+            take_profit=record.take_profit or signal.take_profit,
+            rejection_reason=record.rejection_reason,
+            signal_reason=signal.reason,
+        )
 
     async def _reconcile_positions(self) -> list[PositionInfo]:
         """Record broker truth for every position: bot-owned and external/manual alike.
@@ -326,6 +458,21 @@ class TradingLoop:
             self.intelligence.stats.position_exits += 1
 
     @staticmethod
+    def _signal_ref(signal: StrategySignal) -> dict[str, Any]:
+        """Compact identity of a signal for the pipeline trace."""
+        return {
+            "strategy": signal.strategy_name,
+            "symbol": signal.symbol,
+            "side": signal.direction.value,
+            "entry": signal.entry,
+            "stop_loss": signal.stop_loss,
+            "take_profit": signal.take_profit,
+            "confidence": signal.confidence,
+            "signal_id": signal.signal_id,
+            "reason": signal.reason,
+        }
+
+    @staticmethod
     def _position_payload(position: PositionInfo) -> dict[str, Any]:
         """Everything the dashboard and the audit trail need to identify a broker position."""
         return {
@@ -367,13 +514,22 @@ class TradingLoop:
     async def _handle_signal(self, signal: StrategySignal, account, quote) -> None:
         if quote is None:
             self.stats.skipped["no_quote"] += 1
+            self._stage("signal_not_actionable", reason="no_quote", signal=self._signal_ref(signal))
             return
         spec = await self.adapter.get_instrument(signal.symbol)
         if spec is None:
             self.stats.skipped["no_instrument_spec"] += 1
+            self._stage(
+                "signal_not_actionable",
+                reason="no_instrument_spec",
+                signal=self._signal_ref(signal),
+            )
             return
         if signal.stop_loss is None:
             self.stats.skipped["no_stop_loss"] += 1
+            self._stage(
+                "signal_not_actionable", reason="no_stop_loss", signal=self._signal_ref(signal)
+            )
             return
         positions = await self.adapter.get_positions()
         est_entry = quote.ask if signal.direction is OrderSide.BUY else quote.bid
@@ -397,6 +553,13 @@ class TradingLoop:
                     "risk_pct": self.risk_pct,
                 },
             )
+            self._stage(
+                "signal_not_actionable",
+                reason="size_too_small",
+                equity=account.equity,
+                risk_pct=self.risk_pct,
+                signal=self._signal_ref(signal),
+            )
             return
         ctx = RiskContext(
             account=account,
@@ -414,9 +577,21 @@ class TradingLoop:
         _, decision, record = await self.order_manager.process_signal(signal, ctx, self.adapter)
         if record is not None:
             self.stats.orders_sent += 1
+            # Stages E/F/G: risk approved, broker was asked, outcome recorded.
+            self._stage_order(signal, record, decision)
         elif not decision.approved:
             for reason in decision.reasons:
                 self.stats.skipped[f"risk:{reason}"] += 1
+            # Stage D: a signal existed, but the risk gate refused it.
+            self._stage(
+                "signal_rejected_by_risk",
+                reasons=decision.reasons,
+                volume=volume,
+                spread_points=quote.spread_points,
+                data_age_ms=quote.age_ms,
+                open_positions=len(positions),
+                signal=self._signal_ref(signal),
+            )
 
     def _audit(self, severity: Severity, payload: dict, error: str | None = None) -> None:
         audit_log.emit(
