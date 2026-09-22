@@ -98,7 +98,12 @@ class TradingLoop:
         await self.run_started(stop)
 
     async def run_started(self, stop: asyncio.Event) -> None:
-        """Run the polling cycle after start() has completed successfully."""
+        """Run the polling cycle after start() has completed successfully.
+
+        The loop survives connection blips by attempting reconnection instead of
+        halting. Only truly unrecoverable errors (max_consecutive_errors reached
+        AND reconnect fails) engage the kill switch and exit.
+        """
         while not stop.is_set():
             try:
                 await self.run_once()
@@ -114,9 +119,30 @@ class TradingLoop:
                     str(exc),
                 )
                 if self.stats.consecutive_errors >= self.max_consecutive_errors:
-                    self.risk_engine.engage_kill_switch("trading_loop_errors")
-                    self._audit(Severity.CRITICAL, {"stage": "loop_halted"}, str(exc))
-                    return
+                    # Attempt reconnection before giving up
+                    try:
+                        self._audit(
+                            Severity.WARNING,
+                            {"stage": "reconnect_attempt"},
+                            f"attempting reconnect after {self.stats.consecutive_errors} errors",
+                        )
+                        await self.adapter.disconnect()
+                        await self.adapter.connect()
+                        await self.order_manager.reconcile(self.adapter)
+                        self.stats.consecutive_errors = 0
+                        self._audit(
+                            Severity.INFO,
+                            {"stage": "reconnect_success"},
+                            "reconnected after consecutive errors",
+                        )
+                    except Exception as reconnect_exc:  # noqa: BLE001
+                        self.risk_engine.engage_kill_switch("trading_loop_errors")
+                        self._audit(
+                            Severity.CRITICAL,
+                            {"stage": "loop_halted"},
+                            f"reconnect failed: {reconnect_exc}",
+                        )
+                        return
             try:
                 await asyncio.wait_for(stop.wait(), timeout=self.poll_s)
             except TimeoutError:

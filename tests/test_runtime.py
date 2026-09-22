@@ -212,7 +212,10 @@ async def test_repeated_errors_halt_the_loop_and_engage_kill_switch() -> None:
         raise RuntimeError("terminal gone")
 
     loop.adapter.get_account = boom  # type: ignore[method-assign]
-    await asyncio.wait_for(loop.run(asyncio.Event()), timeout=5)
+    # Also make reconnect fail so the loop truly halts
+    loop.adapter.disconnect = boom  # type: ignore[method-assign]
+    loop.adapter.connect = boom  # type: ignore[method-assign]
+    await asyncio.wait_for(loop.run_started(asyncio.Event()), timeout=5)
     assert risk.kill_switch and loop.stats.consecutive_errors == 3
 
 
