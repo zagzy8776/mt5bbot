@@ -529,3 +529,80 @@ async def test_real_position_manager_decision_is_routed_and_audited() -> None:
         assert adapter.modify_calls == [] and adapter.close_calls == []
     else:
         assert adapter.modify_calls or adapter.close_calls
+
+
+# ------------------------------------------- manage mode may only REDUCE risk (never open)
+
+
+async def test_manage_policy_may_trail_an_existing_stop_towards_price() -> None:
+    """Moving a stop closer to price lowers risk and is allowed."""
+    loop, fake, adapter, _, _, _ = await _rig(
+        ManualPositionPolicy.MANAGE,
+        _decision(PositionDecision.MODIFY, stop_loss=4325.0),
+        positions=[_broker_position(sl=4310.0)],
+    )
+    await loop.run_once()
+
+    assert adapter.modify_calls == [(str(MANUAL_TICKET), 4325.0, None)]
+    assert fake.positions[0].sl == 4325.0
+
+
+async def test_manage_policy_executes_an_emergency_exit_while_entries_stay_blocked() -> None:
+    loop, fake, adapter, _, _, risk = await _rig(
+        ManualPositionPolicy.MANAGE,
+        _decision(PositionDecision.EMERGENCY_EXIT, reason="volatility spike"),
+    )
+    risk.engage_kill_switch("test_halt")  # new entries blocked, risk reduction still allowed
+    await loop.run_once()
+
+    assert risk.kill_switch is True
+    assert adapter.close_calls == [(str(MANUAL_TICKET), None)]
+    assert fake.positions == []
+    assert _of(AuditEventType.POSITION_CLOSED)[-1].payload["decision"] == "emergency_exit"
+
+
+async def test_manage_mode_cannot_open_a_new_position() -> None:
+    """Manage mode is risk-reducing only: it must never submit an entry order."""
+    loop, fake, adapter, _, _, _ = await _rig(
+        ManualPositionPolicy.MANAGE, _decision(PositionDecision.EXIT)
+    )
+    opened: list[Any] = []
+
+    async def record_submit(order: Any) -> Any:
+        opened.append(order)
+        raise AssertionError("manage mode must never submit an order")
+
+    adapter.submit_order = record_submit  # type: ignore[method-assign]
+    await loop.run_once()
+
+    assert opened == []  # no entry was even attempted
+    assert adapter.close_calls == [(str(MANUAL_TICKET), None)]  # only the reduction
+    # Every broker request carried a position id: a close/reduce, never an entry.
+    assert len(fake.sent) == 1 and all("position" in req for req in fake.sent)
+    assert fake.positions == []
+
+
+async def test_position_pipeline_refuses_anything_but_modify_reduce_exit() -> None:
+    loop, fake, adapter, _, _, _ = await _rig(ManualPositionPolicy.MANAGE)
+    await adapter.connect()
+    position = (await adapter.get_positions())[0]
+    account = await adapter.get_account()
+
+    for action in (PositionDecision.HOLD, PositionDecision.NO_ACTION):
+        with pytest.raises(ValueError, match="not executable"):
+            await loop.order_manager.execute_position_decision(
+                position=position,
+                decision=_decision(action),
+                account=account,
+                adapter=adapter,
+            )
+    assert adapter.modify_calls == [] and adapter.close_calls == []
+    assert len(fake.positions) == 1
+
+
+def test_position_pipeline_has_no_entry_path() -> None:
+    """Structural guard: the position-action path cannot create or submit an order."""
+    source = inspect.getsource(OrderManager.execute_position_decision)
+    assert "submit_order" not in source
+    assert "process_signal" not in source
+    assert "create_from_signal" not in source
