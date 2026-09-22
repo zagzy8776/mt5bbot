@@ -24,8 +24,10 @@ def write_validation(
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
         "passed": gates.passed,
-        "symbol": symbol.upper(),
-        "timeframe": timeframe.upper(),
+        # Broker symbols are case-sensitive identifiers (XAUUSDm != XAUUSDM).
+        # Store exactly what the caller supplied; only the timeframe is normalized.
+        "symbol": symbol.strip(),
+        "timeframe": timeframe.strip().upper(),
         "strategy": strategy,
         "params": params,
         "data_range": list(data_range),
@@ -46,15 +48,22 @@ def read_validation(path: str | Path) -> dict | None:
         return None
 
 
+def symbols_match(a: str, b: str) -> bool:
+    """Case-insensitive symbol comparison (guards legacy upper-cased reports)."""
+    return a.strip().lower() == b.strip().lower()
+
+
 def live_block_reason(report: dict | None, *, symbol: str, timeframe: str) -> str | None:
     """Why live trading must not start (None = allowed)."""
     if report is None:
         return "no validation report found (run the backtest CLI on real data first)"
     if not report.get("passed"):
         return "the latest validation report FAILED its gates"
-    if report.get("symbol") != symbol.upper() or report.get("timeframe") != timeframe.upper():
+    report_symbol = str(report.get("symbol") or "")
+    report_timeframe = str(report.get("timeframe") or "").strip().upper()
+    if not symbols_match(report_symbol, symbol) or report_timeframe != timeframe.strip().upper():
         return (
-            f"validation was for {report.get('symbol')} {report.get('timeframe')}, "
-            f"not {symbol.upper()} {timeframe.upper()}"
+            f"validation was for {report_symbol} {report_timeframe}, "
+            f"not {symbol.strip()} {timeframe.strip().upper()}"
         )
     return None

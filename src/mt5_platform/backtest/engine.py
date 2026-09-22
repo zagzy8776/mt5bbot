@@ -43,7 +43,15 @@ class BacktestConfig:
     commission_per_lot: float = 0.0
 
     def resolved_spec(self) -> InstrumentSpec:
-        spec = self.spec or DEFAULT_SPECS.get(self.symbol.upper())
+        # Case-insensitive lookup: DEFAULT_SPECS keys are upper-case reference names,
+        # but broker symbols must keep their exact case (XAUUSDm != XAUUSDM).
+        spec = self.spec
+        if spec is None:
+            key = self.symbol.strip().lower()
+            for name, candidate in DEFAULT_SPECS.items():
+                if name.lower() == key:
+                    spec = candidate
+                    break
         if spec is None:
             raise ValueError(f"no instrument spec for {self.symbol}; pass BacktestConfig(spec=...)")
         return spec

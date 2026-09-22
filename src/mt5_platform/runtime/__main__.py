@@ -65,7 +65,9 @@ async def _run(args: argparse.Namespace) -> int:
         if reason:
             print(f"LIVE TRADING BLOCKED: {reason}")
             return 2
-    if report and report.get("passed") and report.get("symbol") == args.symbol.upper():
+    from mt5_platform.backtest.validation import symbols_match
+    report_symbol = str(report.get("symbol") or "") if report else ""
+    if report and report.get("passed") and symbols_match(report_symbol, args.symbol):
         strategies = [create_strategy(report["strategy"], **report["params"])]
         print(f"using validated strategy {report['strategy']} {report['params']}")
     else:

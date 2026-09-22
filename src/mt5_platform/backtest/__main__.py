@@ -55,7 +55,7 @@ def _config(a: argparse.Namespace) -> BacktestConfig:
     spec = None
     if a.contract_size:
         spec = InstrumentSpec(
-            a.symbol.upper(),
+            a.symbol.strip(),
             a.contract_size,
             a.tick_size,
             a.tick_value,
