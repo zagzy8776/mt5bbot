@@ -81,6 +81,7 @@ class TradingLoop:
         clock: Callable[[], float] = time.monotonic,
         intelligence: Any | None = None,
         outcome_recorder: Any | None = None,
+        news_ingestor: Any | None = None,
     ) -> None:
         self.settings, self.adapter, self.feed = settings, adapter, feed
         self.signal_engine, self.risk_engine = signal_engine, risk_engine
@@ -116,6 +117,10 @@ class TradingLoop:
         # Phase 3: in-trade management trace (what the position manager decided, and what happened).
         self._position_counts: Counter = Counter()
         self._position_management: dict[str, Any] = {}
+        # Phase 4: macro calendar ingestion + blackout state.
+        self.news_ingestor = news_ingestor
+        self._last_news_poll = float("-inf")
+        self._news_state: dict[str, Any] = {}
         # Entry context per (symbol, side): lets the recorder attribute a new position to the
         # signal that opened it (strategy, thesis, evidence, risk decision).
         self._entry_context: dict[tuple[str, str], dict[str, Any]] = {}
@@ -253,6 +258,11 @@ class TradingLoop:
             self._last_reconcile = self._clock()
         if self.outcome_recorder is not None:
             await self._track_outcomes()
+        if (
+            self.news_ingestor is not None
+            and self._clock() - self._last_news_poll >= float(self.settings.news_poll_interval_s)
+        ):
+            await self._poll_news()
 
         quote: Any | None = None
         new_bar_seen = False
@@ -543,6 +553,72 @@ class TradingLoop:
             ),
         }
 
+    def _strategy_version(self, name: str) -> str:
+        """Version of the strategy that produced a signal (promotion version id when promoted)."""
+        strategy = None
+        engine = self.signal_engine
+        getter = getattr(engine, "get_strategy", None)
+        if callable(getter):
+            strategy = getter(name)
+        if strategy is None:
+            return ""
+        return str(getattr(strategy, "version", "") or "")
+
+    @property
+    def news_state(self) -> dict[str, Any]:
+        """Last news ingestion/blackout state (empty until a provider is configured)."""
+        return dict(self._news_state)
+
+    async def _poll_news(self) -> None:
+        """Refresh the macro calendar. Never fatal: trading does not depend on the news feed."""
+        ingestor = self.news_ingestor
+        if ingestor is None:
+            return
+        try:
+            result = await ingestor.run()
+            self._last_news_poll = self._clock()
+            self._news_state = {
+                "at": utc_now().isoformat(),
+                "ingest": result.to_dict(),
+                "ingestor": ingestor.stats(),
+            }
+        except Exception as exc:
+            self.stats.errors += 1
+            self._audit(
+                Severity.WARNING,
+                {"stage": "news_ingest_failed", "error": str(exc)},
+            )
+
+    def _news_currencies(self) -> list[str]:
+        from mt5_platform.ingestion.news import currencies_for_symbol
+
+        found: list[str] = []
+        for symbol in self.symbols:
+            for currency in currencies_for_symbol(symbol):
+                if currency not in found:
+                    found.append(currency)
+        return found
+
+    async def _news_blackout_for(self, symbol: str) -> dict[str, Any]:
+        """Scheduled high-impact news state for one instrument (opt-in; off unless enabled)."""
+        from mt5_platform.ingestion.news import blackout_state, currencies_for_symbol
+
+        enabled = bool(getattr(self.settings, "news_blackout_enabled", False))
+        currencies = currencies_for_symbol(symbol)
+        base: dict[str, Any] = {"enabled": enabled, "currencies": currencies}
+        if not enabled or self.news_ingestor is None or not currencies:
+            return {**base, "blocked": False, "reason": ""}
+        events = await self.news_ingestor.recent(currencies=currencies, hours=24.0)
+        state = blackout_state(
+            events,
+            now=utc_now(),
+            currencies=currencies,
+            before_minutes=float(self.settings.news_blackout_before_min),
+            after_minutes=float(self.settings.news_blackout_after_min),
+            min_impact=str(self.settings.news_blackout_min_impact),
+        )
+        return {**base, **state.to_dict(), "events_considered": len(events)}
+
     @property
     def position_management(self) -> dict[str, Any]:
         """Latest in-trade decision plus counters (empty until intelligence is enabled)."""
@@ -750,7 +826,8 @@ class TradingLoop:
         thesis = metadata.get("thesis") if isinstance(metadata.get("thesis"), dict) else {}
         self._entry_context[(signal.symbol, signal.direction.value)] = {
             "strategy": signal.strategy_name,
-            "strategy_version": str(metadata.get("strategy_version", "")),
+            "strategy_version": str(metadata.get("strategy_version", ""))
+            or self._strategy_version(signal.strategy_name),
             "timeframe": str(metadata.get("timeframe", self.timeframe)),
             "signal": signal,
             "thesis": thesis or {},
@@ -843,6 +920,7 @@ class TradingLoop:
             return
         positions = await self.adapter.get_positions()
         est_entry = quote.ask if signal.direction is OrderSide.BUY else quote.bid
+        blackout = await self._news_blackout_for(signal.symbol)
         volume = position_size_for_risk(
             equity=account.equity,
             risk_pct=self.risk_pct,
@@ -883,6 +961,8 @@ class TradingLoop:
             proposed_volume=volume,
             instrument=spec,
             execution_entry=est_entry,
+            news_blackout=bool(blackout.get("blocked", False)),
+            news_blackout_reason=str(blackout.get("reason", "")),
         )
         _, decision, record = await self.order_manager.process_signal(signal, ctx, self.adapter)
         if record is not None:

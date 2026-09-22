@@ -5,6 +5,7 @@ Signals are not orders. Orders are not executions until broker-reconciled.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -148,6 +149,57 @@ class AuditEvent(BaseModel):
     correlation_id: str = Field(default_factory=new_correlation_id)
     payload: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
+
+
+class NewsEvent(BaseModel):
+    """One macroeconomic/calendar event, as a producer actually reported it.
+
+    Provenance first: the provider, the source label and the times are stored as given. Fields the
+    provider does not supply stay ``None`` — nothing is inferred or back-filled.
+    """
+
+    event_id: str = Field(default_factory=new_correlation_id)
+    dedup_key: str = ""  # stable identity so a re-fetch cannot duplicate a row
+    published_at: datetime  # when the event is scheduled/published (UTC)
+    fetched_at: datetime = Field(default_factory=utc_now)
+    source: str = ""  # provider label, e.g. "file:news_events.json"
+    provider: str = ""  # file | http | static | manual
+    currencies: list[str] = Field(default_factory=list)  # e.g. ["USD"]
+    country: str = ""
+    title: str = ""
+    impact: str = ""  # high | medium | low | unknown
+    event_type: str = ""
+    actual: str | None = None
+    forecast: str | None = None
+    previous: str | None = None
+    url: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def affects(self, currencies: Iterable[str]) -> bool:
+        wanted = {c.strip().upper() for c in currencies if c and c.strip()}
+        if not wanted:
+            return False
+        return bool({c.strip().upper() for c in self.currencies} & wanted)
+
+
+class ResearchNote(BaseModel):
+    """A structured finding from an autonomous research run, with its provenance.
+
+    Research output is evidence with a source, never an instruction: a note cannot change
+    configuration, and it carries the URL, fetch time, provider and content hash it came from.
+    """
+
+    note_id: str = Field(default_factory=new_correlation_id)
+    url: str = ""
+    domain: str = ""
+    title: str = ""
+    summary: str = ""
+    text_excerpt: str = ""
+    tags: list[str] = Field(default_factory=list)
+    source_kind: str = ""  # intel | research | documentation
+    content_hash: str = ""
+    fetched_at: datetime = Field(default_factory=utc_now)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class AccountSnapshot(BaseModel):

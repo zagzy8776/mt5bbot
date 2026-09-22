@@ -122,12 +122,18 @@ def _approved_order(*, side: OrderSide = OrderSide.BUY) -> OrderRequest:
 
 
 def _rig(
-    *, entries_enabled: bool = False, intelligence: Any | None = None, store: Any | None = None
+    *,
+    entries_enabled: bool = False,
+    intelligence: Any | None = None,
+    store: Any | None = None,
+    news_ingestor: Any | None = None,
+    news_blackout_enabled: bool = False,
 ):
     settings = Settings(
         execution_backend="mt5",
         default_symbol=SYMBOL,
         intelligence_entries_enabled=entries_enabled,
+        news_blackout_enabled=news_blackout_enabled,
     )
     fake = FakeMT5(balance=10_000.0)
     adapter = MT5ExecutionAdapter(settings, client=fake)
@@ -149,6 +155,7 @@ def _rig(
         reconcile_every_s=0.0,
         intelligence=intelligence,
         outcome_recorder=recorder,
+        news_ingestor=news_ingestor,
     )
     return loop, fake, adapter, recorder, storage
 

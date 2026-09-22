@@ -122,6 +122,50 @@ class PositionRow(Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
 
 
+class NewsEventRow(Base):
+    """Macro/calendar events as reported by a provider (dedup key is unique)."""
+
+    __tablename__ = "news_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dedup_key: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=False
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    currencies: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default="")
+    country: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    impact: Mapped[str] = mapped_column(String(16), index=True, nullable=False, default="")
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    actual: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    forecast: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    previous: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class ResearchNoteRow(Base):
+    """Autonomous research findings (unique per content hash)."""
+
+    __tablename__ = "research_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    note_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    domain: Mapped[str] = mapped_column(String(120), index=True, nullable=False, default="")
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source_kind: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default="")
+    content_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
 class AccountSnapshotRow(Base):
     __tablename__ = "account_snapshots"
 

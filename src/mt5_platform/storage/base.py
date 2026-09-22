@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from mt5_platform.common.events import (
     AccountSnapshot,
     AuditEvent,
     ExecutionRecord,
     MarketDataEvent,
+    NewsEvent,
     OrderRequest,
+    ResearchNote,
     StrategySignal,
 )
 from mt5_platform.historical.models import HistoricalOutcome
@@ -64,4 +67,29 @@ class MarketDataStore(ABC):
         return await self.get_outcomes(limit=1000, status="open")
 
     async def count_outcomes(self, *, status: str | None = None) -> int:
+        raise NotImplementedError
+
+    # --------------------------------------------------- news events / research notes
+
+    async def write_news_event(self, event: NewsEvent) -> None:
+        """Persist one macro event (idempotent by dedup_key)."""
+        raise NotImplementedError
+
+    async def get_news_events(
+        self,
+        *,
+        currencies: list[str] | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 200,
+    ) -> list[NewsEvent]:
+        raise NotImplementedError
+
+    async def write_research_note(self, note: ResearchNote) -> None:
+        """Persist one research finding (idempotent by content hash)."""
+        raise NotImplementedError
+
+    async def get_research_notes(
+        self, *, limit: int = 100, since: datetime | None = None
+    ) -> list[ResearchNote]:
         raise NotImplementedError

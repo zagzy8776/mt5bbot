@@ -20,6 +20,7 @@ from mt5_platform.execution.mt5_adapter import MT5ExecutionAdapter
 from mt5_platform.historical.ledger import InMemoryHistoricalLedger
 from mt5_platform.historical.models import HistoricalOutcome
 from mt5_platform.historical.outcome_loader import evidence_status, load_live_outcomes
+from mt5_platform.ingestion.news import NewsIngestor, build_news_provider
 from mt5_platform.orders import OrderManager
 from mt5_platform.outcomes import OutcomeLearningPipeline, TradeOutcomeRecorder
 from mt5_platform.risk import RiskEngine
@@ -104,6 +105,7 @@ class BotControlService:
         stats["position_management"] = (
             self._loop.position_management if self._loop is not None else {}
         )
+        stats["news"] = self._loop.news_state if self._loop is not None else {}
         if self._loop is not None:
             snap.connected = bool(getattr(self.adapter, "_connected", False))
             snap.kill_switch = self.risk_engine.kill_switch
@@ -169,6 +171,15 @@ class BotControlService:
                     intelligence = IntelligenceLayer(
                         symbol=self.symbol, timeframe=self.timeframe
                     )
+                news_ingestor = None
+                if getattr(self.settings, "news_enabled", False):
+                    news_ingestor = NewsIngestor(
+                        store=self.store,
+                        provider=build_news_provider(self.settings),
+                        look_back_hours=float(self.settings.news_look_back_hours),
+                        look_ahead_hours=float(self.settings.news_look_ahead_hours),
+                        max_events=int(self.settings.news_max_events),
+                    )
                 self._loop = TradingLoop(
                     settings=self.settings,
                     adapter=self.adapter,
@@ -182,6 +193,7 @@ class BotControlService:
                     warmup_bars=200,
                     intelligence=intelligence,
                     outcome_recorder=self.outcome_recorder,
+                    news_ingestor=news_ingestor,
                 )
                 await self._loop.start()
                 await self._load_evidence_ledger()

@@ -9,7 +9,9 @@ from mt5_platform.common.events import (
     AuditEvent,
     ExecutionRecord,
     MarketDataEvent,
+    NewsEvent,
     OrderRequest,
+    ResearchNote,
     StrategySignal,
 )
 from mt5_platform.historical.models import HistoricalOutcome
@@ -30,6 +32,48 @@ class InMemoryMarketDataStore(MarketDataStore):
         self.candles: list[Candle] = []
         self.positions: list[dict] = []
         self.outcomes: list[HistoricalOutcome] = []
+        self.news_events: list[NewsEvent] = []
+        self.research_notes: list[ResearchNote] = []
+
+    async def write_news_event(self, event: NewsEvent) -> None:
+        """Upsert by dedup_key: a re-fetch of the same calendar cannot duplicate a row."""
+        for index, existing in enumerate(self.news_events):
+            if existing.dedup_key and existing.dedup_key == event.dedup_key:
+                self.news_events[index] = event
+                return
+        self.news_events.append(event)
+
+    async def get_news_events(
+        self,
+        *,
+        currencies: list[str] | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 200,
+    ) -> list[NewsEvent]:
+        rows = list(self.news_events)
+        if currencies:
+            rows = [e for e in rows if e.affects(currencies)]
+        if since is not None:
+            rows = [e for e in rows if e.published_at >= since]
+        if until is not None:
+            rows = [e for e in rows if e.published_at <= until]
+        return sorted(rows, key=lambda e: e.published_at)[:limit]
+
+    async def write_research_note(self, note: ResearchNote) -> None:
+        for index, existing in enumerate(self.research_notes):
+            if existing.content_hash and existing.content_hash == note.content_hash:
+                self.research_notes[index] = note
+                return
+        self.research_notes.append(note)
+
+    async def get_research_notes(
+        self, *, limit: int = 100, since: datetime | None = None
+    ) -> list[ResearchNote]:
+        rows = list(self.research_notes)
+        if since is not None:
+            rows = [n for n in rows if n.fetched_at >= since]
+        return sorted(rows, key=lambda n: n.fetched_at, reverse=True)[:limit]
 
     async def write_outcome(self, outcome: HistoricalOutcome) -> None:
         """Upsert by trade_id so reconciliation can never duplicate a record."""

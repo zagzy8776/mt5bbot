@@ -56,6 +56,16 @@ def bar_to_event(bar: Bar, symbol: str, spread_price: float) -> MarketDataEvent:
         price=bar.close + spread_price / 2.0,
         volume=bar.volume,
         spread=spread_price,
+        # The bar's own OHLC travels with the event so range-based strategies (ATR, ADX, Bollinger,
+        # structure) see what actually happened inside the bar instead of only its close. Tick-only
+        # events simply carry no OHLC and those strategies report "not enough history".
+        metadata={
+            "open": bar.open,
+            "high": bar.high,
+            "low": bar.low,
+            "close": bar.close,
+            "tick_count": getattr(bar, "tick_count", None),
+        },
     )
 
 

@@ -93,7 +93,20 @@ def test_pct_risk_mixin_levels() -> None:
 
 
 def test_registry_offers_all_strategies() -> None:
-    expected = ["breakout", "mean_reversion", "momentum", "null", "sma_crossover"]
+    expected = [
+        "atr_breakout",
+        "bollinger_reversion",
+        "breakout",
+        "ema_adx_trend",
+        "mean_reversion",
+        "momentum",
+        "mtf_trend",
+        "null",
+        "rsi_ema_pullback",
+        "session_breakout",
+        "sma_crossover",
+        "structure_breakout",
+    ]
     assert available_strategies() == expected
     names = {entry["name"] for entry in describe_available()}
     assert names == set(available_strategies())

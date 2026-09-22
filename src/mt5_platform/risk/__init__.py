@@ -46,6 +46,9 @@ class RiskContext:
     instrument: InstrumentSpec | None = None
     # Price expected to be executed at the broker; this can differ from signal.entry.
     execution_entry: float | None = None
+    # Scheduled high-impact news for this instrument's currencies (opt-in protection).
+    news_blackout: bool = False
+    news_blackout_reason: str = ""
 
 
 @dataclass
@@ -208,6 +211,11 @@ class RiskEngine:
 
         self._check_account_state(account, reasons)
         self._check_signal_levels(signal, reasons)
+
+        # Opt-in news protection: refuses NEW entries around scheduled high-impact events. Open
+        # positions are never touched by this (the position manager decides about them separately).
+        if self.settings.news_blackout_enabled and ctx.news_blackout:
+            reasons.append("news_blackout")
 
         if ctx.open_positions >= self.settings.max_simultaneous_positions:
             reasons.append("max_simultaneous_positions")

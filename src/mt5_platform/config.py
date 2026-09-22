@@ -107,6 +107,40 @@ class Settings(BaseSettings):
     # strategy registry stays the sole entry source by default; in-trade management is independent.
     intelligence_entries_enabled: bool = False
 
+    # ---------------------------------------------------------------- news / macro calendar
+    # Off by default: no source is bundled, so ingestion only runs once a provider is configured.
+    news_enabled: bool = False
+    news_provider: str = "off"  # off | file | http
+    news_file_path: str = ""
+    news_http_url: str = ""
+    news_http_allow: list[str] = []  # mandatory allow-list prefixes for http providers
+    news_look_back_hours: float = 24.0
+    news_look_ahead_hours: float = 48.0
+    news_max_events: int = 500
+    news_poll_interval_s: float = 900.0
+    # Blackout is a NEW protection, never a relaxation: when enabled, high-impact events for the
+    # instrument's currencies refuse *new* entries only (open positions are unaffected).
+    news_blackout_enabled: bool = False
+    news_blackout_before_min: float = 30.0
+    news_blackout_after_min: float = 15.0
+    news_blackout_min_impact: str = "high"  # high | medium
+
+    # ------------------------------------------------------- research -> runtime promotion
+    # Path to the approved-promotion file. Empty (default) means the runtime ignores it entirely and
+    # keeps using STRATEGIES from configuration; nothing is ever promoted automatically.
+    promotion_config_path: str = ""
+
+    # ------------------------------------------------------------- autonomous web research
+    # Off by default. Research reads only allow-listed sources, writes notes with provenance, and
+    # produces hypotheses to test — it has no path to configuration, risk limits or the loop.
+    web_intel_enabled: bool = False
+    web_intel_sources: list[str] = []
+    web_intel_allow: list[str] = []  # mandatory: an empty list means nothing is ever fetched
+    web_intel_max_sources: int = 10
+    web_intel_max_bytes_per_page: int = 200_000
+    web_intel_max_total_bytes: int = 1_000_000
+    web_intel_timeout_s: float = 8.0
+
     # Order / execution engine (Phase 6). "mt5" backend is Phase 7 (demo only).
     execution_backend: str = "mock"  # mock | mt5
     mock_starting_balance: float = 10_000.0

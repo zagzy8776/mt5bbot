@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -21,7 +22,9 @@ from mt5_platform.common.events import (
     AuditEvent,
     ExecutionRecord,
     MarketDataEvent,
+    NewsEvent,
     OrderRequest,
+    ResearchNote,
     StrategySignal,
 )
 from mt5_platform.historical.models import HistoricalOutcome, TradeLeg
@@ -31,9 +34,11 @@ from mt5_platform.storage.models import (
     AuditRow,
     CandleRow,
     ExecutionRow,
+    NewsEventRow,
     OrderRow,
     OutcomeRow,
     PositionRow,
+    ResearchNoteRow,
     SignalRow,
     TickRow,
     TradeLegRow,
@@ -622,3 +627,139 @@ class SqlAlchemyMarketDataStore(MarketDataStore):
             stmt = stmt.where(OutcomeRow.status == status)
         async with self._session_factory() as session:
             return int(await session.scalar(stmt) or 0)
+
+    # --------------------------------------------------- news events / research notes
+
+    @staticmethod
+    def _news_values(event: NewsEvent) -> dict[str, Any]:
+        return {
+            "published_at": event.published_at,
+            "fetched_at": event.fetched_at,
+            "source": event.source,
+            "provider": event.provider,
+            "currencies": ",".join(event.currencies),
+            "country": event.country,
+            "title": event.title,
+            "impact": event.impact,
+            "event_type": event.event_type,
+            "actual": event.actual,
+            "forecast": event.forecast,
+            "previous": event.previous,
+            "url": event.url,
+            "payload": event.model_dump(mode="json"),
+        }
+
+    @staticmethod
+    def _row_to_news(row: NewsEventRow) -> NewsEvent:
+        if row.payload:
+            try:
+                return NewsEvent.model_validate(row.payload)
+            except Exception:  # pragma: no cover - defensive for hand-edited rows
+                pass
+        return NewsEvent(
+            dedup_key=row.dedup_key,
+            published_at=row.published_at,
+            fetched_at=row.fetched_at,
+            source=row.source,
+            provider=row.provider,
+            currencies=[c for c in (row.currencies or "").split(",") if c],
+            country=row.country,
+            title=row.title,
+            impact=row.impact,
+            event_type=row.event_type,
+            actual=row.actual,
+            forecast=row.forecast,
+            previous=row.previous,
+            url=row.url,
+        )
+
+    async def write_news_event(self, event: NewsEvent) -> None:
+        """Upsert by dedup_key (a re-fetch cannot duplicate a calendar row)."""
+        values = self._news_values(event)
+        async with self._session_factory() as session:
+            existing = await session.scalar(
+                select(NewsEventRow).where(NewsEventRow.dedup_key == event.dedup_key)
+            )
+            if existing is None:
+                session.add(NewsEventRow(dedup_key=event.dedup_key, **values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
+            await session.commit()
+
+    async def get_news_events(
+        self,
+        *,
+        currencies: list[str] | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 200,
+    ) -> list[NewsEvent]:
+        stmt = select(NewsEventRow).order_by(NewsEventRow.published_at.asc()).limit(limit)
+        if since is not None:
+            stmt = stmt.where(NewsEventRow.published_at >= since)
+        if until is not None:
+            stmt = stmt.where(NewsEventRow.published_at <= until)
+        async with self._session_factory() as session:
+            rows = (await session.execute(stmt)).scalars().all()
+        events = [self._row_to_news(row) for row in rows]
+        if currencies:
+            events = [event for event in events if event.affects(currencies)]
+        return events
+
+    async def write_research_note(self, note: ResearchNote) -> None:
+        """Upsert by content hash (fetching the same page twice cannot duplicate a note)."""
+        values = {
+            "note_id": note.note_id,
+            "url": note.url,
+            "domain": note.domain,
+            "title": note.title,
+            "summary": note.summary,
+            "source_kind": note.source_kind,
+            "fetched_at": note.fetched_at,
+            "payload": note.model_dump(mode="json"),
+        }
+        async with self._session_factory() as session:
+            existing = await session.scalar(
+                select(ResearchNoteRow).where(ResearchNoteRow.content_hash == note.content_hash)
+            )
+            if existing is None:
+                session.add(ResearchNoteRow(content_hash=note.content_hash, **values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
+            await session.commit()
+
+    async def get_research_notes(
+        self, *, limit: int = 100, since: datetime | None = None
+    ) -> list[ResearchNote]:
+        stmt = (
+            select(ResearchNoteRow)
+            .order_by(ResearchNoteRow.fetched_at.desc())
+            .limit(limit)
+        )
+        if since is not None:
+            stmt = stmt.where(ResearchNoteRow.fetched_at >= since)
+        async with self._session_factory() as session:
+            rows = (await session.execute(stmt)).scalars().all()
+        out: list[ResearchNote] = []
+        for row in rows:
+            if row.payload:
+                try:
+                    out.append(ResearchNote.model_validate(row.payload))
+                    continue
+                except Exception:  # pragma: no cover - defensive
+                    pass
+            out.append(
+                ResearchNote(
+                    note_id=row.note_id,
+                    url=row.url,
+                    domain=row.domain,
+                    title=row.title,
+                    summary=row.summary,
+                    source_kind=row.source_kind,
+                    content_hash=row.content_hash,
+                    fetched_at=row.fetched_at,
+                )
+            )
+        return out

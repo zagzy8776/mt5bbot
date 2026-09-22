@@ -426,6 +426,32 @@ def build_signal_engine(settings, store) -> SignalEngine:
     if not strategies:
         strategies.append(NullStrategy())
 
+    # Research promotions are explicit: an approved-promotion file replaces the configured list for
+    # the traded symbol, and every strategy carries the promotion version id for outcome tracing.
+    promotion_path = str(getattr(settings, "promotion_config_path", "") or "").strip()
+    if promotion_path:
+        from mt5_platform.research.promotion import build_promoted_strategies
+
+        promoted = build_promoted_strategies(
+            promotion_path,
+            symbol=getattr(settings, "default_symbol", None),
+            timeframe=getattr(settings, "timeframe", None),
+        )
+        if promoted:
+            strategies = list(promoted)
+            audit_log.emit(
+                AuditEvent(
+                    component="signal_engine",
+                    event_type=AuditEventType.STRATEGY_ENABLED.value,
+                    severity=Severity.INFO,
+                    payload={
+                        "source": "promotion_config",
+                        "path": promotion_path,
+                        "promotions": [getattr(s, "promotion", {}) for s in promoted],
+                    },
+                )
+            )
+
     if unknown:
         audit_log.emit(
             AuditEvent(

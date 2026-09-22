@@ -27,6 +27,7 @@ class CandidateReport:
     symbol: str
     timeframe: str
     data_range: tuple[str, str]
+    strategy: str = ""  # factory name, so a promotion can rebuild the exact candidate
     is_trades: int = 0
     is_win_rate: float = 0.0
     is_profit_factor: float = 0.0
@@ -67,6 +68,7 @@ def run_candidate(
 
     report = CandidateReport(
         name=name,
+        strategy=strategy_name,
         params=params,
         symbol=config.symbol,
         timeframe="M15",
@@ -204,6 +206,19 @@ def main():
         ("Momentum lb20 0.5%", "momentum", {"lookback": 20, "threshold_pct": 0.5}),
         ("Momentum lb20 1.0%", "momentum", {"lookback": 20, "threshold_pct": 1.0}),
         ("Momentum lb30 0.3%", "momentum", {"lookback": 30, "threshold_pct": 0.3}),
+        # E. Phase 7 families: volatility, trend strength, bands, pullbacks, sessions, MTF,
+        #    structure. Same runner, same gates — these arrive as candidates, not as decisions.
+        ("ATR 20 x2.0", "atr_breakout", {"lookback": 20, "atr_period": 14, "atr_buffer": 0.25}),
+        ("ATR 50 x1.5", "atr_breakout", {"lookback": 50, "atr_period": 14, "atr_buffer": 0.5}),
+        ("EMA 12/26 ADX20", "ema_adx_trend", {"fast_period": 12, "slow_period": 26}),
+        ("EMA 8/34 ADX25", "ema_adx_trend",
+         {"fast_period": 8, "slow_period": 34, "adx_threshold": 25.0}),
+        ("Bollinger 20 2.0", "bollinger_reversion", {"period": 20, "deviations": 2.0}),
+        ("RSI 14 EMA50", "rsi_ema_pullback", {"trend_period": 50, "rsi_period": 14}),
+        ("Session ORB 4 H7-16", "session_breakout",
+         {"session_start_hour": 7, "opening_range_bars": 4}),
+        ("MTF H1 M15 20", "mtf_trend", {"htf_factor": 4, "htf_period": 20, "ltf_period": 20}),
+        ("Structure 2/2 R2", "structure_breakout", {"swing_left": 2, "swing_right": 2}),
     ]
     results = []
     passed = 0

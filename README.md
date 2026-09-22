@@ -318,6 +318,107 @@ Exits performed by the manager are recorded as outcomes with the decision's own 
 In-trade management card shows contexts built, position evaluations, exits executed, the entry
 gate state, the last decision (outcome, action, ticket, reason) and the decision counters.
 
+## Macro / news calendar (Phase 4)
+
+No calendar source is bundled, and nothing is invented: ingestion runs only once a provider is
+configured (`NEWS_ENABLED=true` and `NEWS_PROVIDER=file|http`). Events keep their provenance
+(provider, source, fetch time) and a stable `dedup_key`, so re-fetching a calendar cannot duplicate
+rows. The MT5 Python build in use exposes no calendar API (verified at runtime), so the terminal
+cannot be the source here.
+
+```bash
+# a local file the operator maintains (data/news_events.json: [{"date": "...Z", "title": "...",
+# "currency": "USD", "impact": "high"}])
+NEWS_ENABLED=true
+NEWS_PROVIDER=file
+NEWS_FILE_PATH=./data/news_events.json
+
+# or an allow-listed JSON endpoint (empty allow-list = no request is ever made)
+NEWS_PROVIDER=http
+NEWS_HTTP_URL=https://example.org/calendar.json
+NEWS_HTTP_ALLOW=https://example.org/
+```
+
+`NEWS_BLACKOUT_ENABLED=true` is an **opt-in restriction**: high-impact events that name the
+instrument's currencies refuse **new** entries inside `[event - before, event + after]`
+(`news_blackout` in the risk reasons). It adds a protection and never relaxes one, open positions
+are untouched, and an unknown instrument (no resolvable currencies) is never "protected" by a
+guess. Ingestion never raises into the loop: failures are reported in `stats.news` and audited.
+
+## Research → runtime promotion (Phase 6)
+
+The research runner already produces `data/research_report.json`; the promotion bridge is how a
+validated candidate can reach the runtime — explicitly, with a human name attached.
+
+```bash
+# what the research produced, and which candidates its OWN gates passed
+python scripts/promote_candidate.py list --eligible-only
+
+# approve one (refused when the research did not validate it; records who approved it)
+python scripts/promote_candidate.py approve --label "Donchian 30" --by "operator"
+
+# the runtime uses it only when pointed at the file
+PROMOTION_CONFIG_PATH=./data/active_strategies.json
+```
+
+Eligibility is the report's own verdict (`validation_passed` with no `rejection_reasons`), plus a
+symbol/timeframe match and the parameters actually constructing a registered strategy. This bridge
+adds no gates and lowers none; the metrics and gate outcomes are copied verbatim for the reviewer.
+The approval file carries only strategy identity, parameters, approvals and provenance — no risk
+limits, no credentials (`tests/test_promotion.py` asserts that). The promotion `version_id` is
+stamped onto the strategy, so every outcome row can be traced back to the decision that approved it.
+
+## Autonomous web research (Phase 5)
+
+`python scripts/run_web_intel.py --from-settings` (or `--url ... --allow ...`) reads allow-listed
+pages through a byte-capped, timeout-bounded, non-redirecting fetcher, stores findings with URL,
+fetch time and content hash (deduplicated by hash), and prints the hypotheses it derived.
+
+Research has **no path to configuration**: findings are notes and questions, `proposed_change_type`
+is always `None`, and evidence quality stays `insufficient` until a candidate passes the normal
+backtest → walk-forward → out-of-sample gates. Budgets are structural (`WEB_INTEL_MAX_SOURCES`,
+`WEB_INTEL_MAX_BYTES_PER_PAGE`, `WEB_INTEL_MAX_TOTAL_BYTES`, `WEB_INTEL_TIMEOUT_S`), an empty
+allow-list means nothing is ever fetched, and the whole layer is off by default.
+
+## Operational resilience (Phase 7)
+
+```powershell
+# register the self-healing watchdog (logon + every 5 minutes)
+.\deploy\windows\register-watchdog.ps1 -BotDir C:\mt5bbot
+schtasks /Query /TN MT5-Watchdog /V /FO LIST
+```
+
+`deploy/windows/watchdog.ps1` probes `/health`; if the API is down it starts it, waits, and re-probes
+(exit 1 if it never came back, 2 when the environment is broken). It is single-owner aware: the
+runtime is only ever (re)started through `POST /api/v1/runtime/start`, never as a second process, so
+two loops can never fight over the account. Decisions are appended to `logs/watchdog.log` and the
+API token is read from `.env` at run time — never written into a task definition or logged.
+
+## Strategy families (Phase 7)
+
+`atr_breakout`, `ema_adx_trend`, `bollinger_reversion`, `rsi_ema_pullback`, `session_breakout`,
+`mtf_trend` and `structure_breakout` join the registry, so `STRATEGIES=` and the research runner can
+select them. Each one declares its parameters, attaches a stop loss, reports "not enough history"
+instead of guessing, and decides only from bars it has already closed (the bar being evaluated is
+recorded *after* the decision). `bar_to_event` now carries the bar's OHLC in the event metadata, so
+range-based families see the same bars in backtest and live.
+
+A real-data sanity check (not validation) on the committed 23,627-bar XAUUSDm M15 file, one pass
+each, 0.26 spread + 0.05 slippage, 1% risk:
+
+| family | trades | profit factor | win rate |
+| --- | --- | --- | --- |
+| `ema_adx_trend` (12/26, ADX 20) | 111 | 1.31 | 42.3% |
+| `structure_breakout` (2/2, R2) | 87 | 1.23 | 40.2% |
+| `rsi_ema_pullback` (EMA50, RSI14) | 175 | 1.04 | 36.0% |
+| `session_breakout` (ORB 4, 07–16 UTC) | 86 | 1.04 | 50.0% |
+| `mtf_trend` (H1/M15) | 87 | 0.97 | 34.5% |
+| `atr_breakout` (20, buffer 0.25) | 17 | 0.53 | 23.5% |
+| `bollinger_reversion` (20, 2σ) | 34 | 0.49 | 26.5% |
+
+These are single-pass numbers on one year of one symbol — a starting point for the research runner,
+not evidence of edge, and nothing here is promoted automatically.
+
 ## Safety
 
 - Default `TRADING_MODE=demo`
