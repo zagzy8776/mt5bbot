@@ -108,6 +108,11 @@ def _metric_fields() -> tuple[str, ...]:
         "oos_expectancy",
         "oos_return_pct",
         "oos_max_drawdown_pct",
+        # significance (see research/multiplicity.py): raw and family-corrected p-values
+        "oos_mean_r",
+        "p_value",
+        "p_value_adjusted",
+        "multiplicity_survivor",
     )
 
 
@@ -148,6 +153,13 @@ def build_proposal(
         reasons.extend(
             f"rejection_reason:{reason}" for reason in candidate.get("rejection_reasons") or []
         )
+    # Multiplicity control: a report generated before the correction (or a candidate the correction
+    # could not test) cannot be promoted. Re-run the research; never bypass the family-wise verdict.
+    survivor = candidate.get("multiplicity_survivor")
+    if survivor is None:
+        reasons.append("multiplicity_not_evaluated:rerun_research")
+    elif survivor is not True:
+        reasons.append("fails_multiplicity_control")
     if not strategy:
         reasons.append("unknown_strategy_for_label")
     else:

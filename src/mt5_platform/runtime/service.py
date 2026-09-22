@@ -117,6 +117,7 @@ class BotControlService:
         )
         stats["learning"] = self.learning.stats()
         stats["evidence"] = self.evidence_status()
+        stats["attribution"] = self.attribution_snapshot()
         # Can this runtime actually transmit an order right now? (AutoTrading off => 10027.)
         availability = getattr(self.adapter, "execution_availability", None)
         stats["execution"] = availability() if callable(availability) else {}
@@ -319,6 +320,27 @@ class BotControlService:
     def evidence_status(self) -> dict[str, Any]:
         """What the EvidenceEngine can actually see right now (never a lowered threshold)."""
         return evidence_status(self.ledger, instrument=self.symbol)
+
+    def attribution_snapshot(self) -> dict[str, Any]:
+        """Per-strategy and per-regime measurement from the loaded live ledger.
+
+        This is how "are we getting better or just busier?" gets answered: every bucket carries its
+        own sample size and evidence grade, and nothing below the weak threshold is given a verdict.
+        """
+        from mt5_platform.historical.attribution import coverage_summary, outcome_attribution
+
+        outcomes = list(self.ledger.all())
+        return {
+            "ledger_outcomes": len(outcomes),
+            "strategy": [
+                bucket.to_dict() for bucket in outcome_attribution(outcomes, group_by="strategy")
+            ],
+            "regime": [
+                bucket.to_dict() for bucket in outcome_attribution(outcomes, group_by="regime")
+            ],
+            "coverage": coverage_summary(outcomes),
+            "thresholds_lowered": False,
+        }
 
     async def load_outcomes(
         self, *, limit: int = 100, status: str | None = None

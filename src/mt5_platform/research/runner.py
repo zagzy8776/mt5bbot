@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -12,6 +13,12 @@ from mt5_platform.backtest.engine import BacktestConfig, run_backtest
 from mt5_platform.backtest.metrics import compute_metrics
 from mt5_platform.backtest.research import split_bars
 from mt5_platform.common.instruments import InstrumentSpec
+from mt5_platform.research.multiplicity import (
+    DEFAULT_ALPHA,
+    MultiplicityReport,
+    apply_multiplicity,
+    sign_flip_permutation,
+)
 from mt5_platform.research.validation import (
     cost_sensitivity,
     monte_carlo,
@@ -51,6 +58,14 @@ class CandidateReport:
     param_stable: bool = False
     spread_net_profits: list[float] = field(default_factory=list)
     param_net_profits: list[float] = field(default_factory=list)
+    # Multiplicity control (see research/multiplicity.py): a candidate is only a survivor after the
+    # whole family is corrected, so selecting the best of N cannot masquerade as an edge.
+    oos_mean_r: float = 0.0
+    p_value: float | None = None  # sign-flip permutation on OOS per-trade R multiples
+    p_value_adjusted: float | None = None
+    multiplicity_survivor: bool | None = None
+    multiplicity_method: str = ""
+    n_permutations: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -63,6 +78,8 @@ def run_candidate(
     bars: list[Bar],
     config: BacktestConfig,
     oos_fraction: float = 0.3,
+    permutations: int = 2000,
+    seed: int = 42,
 ) -> CandidateReport:
     from mt5_platform.strategy.registry import create_strategy
 
@@ -93,13 +110,24 @@ def run_candidate(
     report.is_expectancy = is_m.expectancy_money
     report.is_return_pct = is_m.return_pct
     report.is_max_drawdown_pct = is_m.max_drawdown_pct
-    oos_m = compute_metrics(run_backtest(test, [strat], config))
+    oos_result = run_backtest(test, [strat], config)
+    oos_m = compute_metrics(oos_result)
     report.oos_trades = oos_m.n_trades
     report.oos_win_rate = oos_m.win_rate
     report.oos_profit_factor = oos_m.profit_factor
     report.oos_expectancy = oos_m.expectancy_money
     report.oos_return_pct = oos_m.return_pct
     report.oos_max_drawdown_pct = oos_m.max_drawdown_pct
+    # Significance is measured on the out-of-sample trades only: in-sample results already picked
+    # this candidate, so testing them would be circular.
+    permutation = sign_flip_permutation(
+        [t.r_multiple for t in oos_result.trades],
+        n_permutations=permutations,
+        seed=seed,
+    )
+    report.oos_mean_r = permutation.observed_mean
+    report.p_value = permutation.p_value
+    report.n_permutations = permutation.n_permutations
     reasons: list[str] = []
     if report.is_trades < 30:
         reasons.append(f"IS trades={report.is_trades}<30")
@@ -163,8 +191,67 @@ def run_candidate(
     return report
 
 
-def main():
-    csv_path = Path(r"C:\mt5bbot\data\xauusd_m15.csv")
+def apply_multiplicity_pass(
+    results: list[CandidateReport],
+    *,
+    method: str = "benjamini-hochberg",
+    alpha: float = DEFAULT_ALPHA,
+) -> MultiplicityReport:
+    """Correct the family of candidates and fold the verdict into ``validation_passed``.
+
+    A candidate that passed every other gate but is not a multiplicity survivor is marked as failed
+    with an explicit reason, so no downstream reader can accidentally treat it as validated.
+    """
+    report = apply_multiplicity(
+        {candidate.name: candidate.p_value for candidate in results},
+        method=method,
+        alpha=alpha,
+    )
+    survivors = set(report.survivors)
+    for candidate in results:
+        candidate.multiplicity_method = report.method
+        candidate.p_value_adjusted = report.adjusted.get(candidate.name)
+        candidate.multiplicity_survivor = candidate.name in survivors
+        if candidate.validation_passed and candidate.name not in survivors:
+            adjusted = candidate.p_value_adjusted
+            detail = "no_permitted_p_value" if adjusted is None else f"p_adj={adjusted:.3f}"
+            candidate.rejection_reasons = [
+                *candidate.rejection_reasons,
+                f"fails_multiplicity_control:{detail}:alpha={report.alpha}",
+            ]
+            candidate.validation_passed = False
+    return report
+
+
+def main(argv: list[str] | None = None):
+    parser = argparse.ArgumentParser(
+        description="research candidates on real bars (OOS + walk-forward + MC + costs + "
+        "perturbation + multiplicity control)"
+    )
+    parser.add_argument("--csv", default=r"C:\mt5bbot\data\xauusd_m15.csv")
+    parser.add_argument("--out", default=r"C:\mt5bbot\data\research_report.json")
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=DEFAULT_ALPHA,
+        help="false-discovery rate for the multiplicity correction (default 0.10)",
+    )
+    parser.add_argument(
+        "--method",
+        default="benjamini-hochberg",
+        choices=("benjamini-hochberg", "bonferroni"),
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="run only candidates whose label contains this text (repeatable)",
+    )
+    parser.add_argument("--permutations", type=int, default=2000)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args(argv)
+
+    csv_path = Path(args.csv)
     if not csv_path.exists():
         print(f"ERROR: {csv_path} not found. Run fetch-mt5 first.")
         return 1
@@ -221,12 +308,21 @@ def main():
         ("Structure 2/2 R2", "structure_breakout", {"swing_left": 2, "swing_right": 2}),
     ]
     results = []
-    passed = 0
     print(f"\n{'='*70}")
     print(f"RESEARCH: {len(candidates)} candidates on XAUUSDm M15")
     print(f"{'='*70}\n")
     for name, strat, params in candidates:
-        r = run_candidate(name, strat, params, bars, config)
+        if args.only and not any(token.lower() in name.lower() for token in args.only):
+            continue
+        r = run_candidate(
+            name,
+            strat,
+            params,
+            bars,
+            config,
+            permutations=args.permutations,
+            seed=args.seed,
+        )
         results.append(r)
         s = "PASS" if r.validation_passed else "FAIL"
         print(f"{name}:")
@@ -246,17 +342,31 @@ def main():
         print(
             f"  SENS: spread_stable={r.spread_stable} param_stable={r.param_stable}"
         )
+        print(f"  SIG : oos_mean_r={r.oos_mean_r:+.4f} p={r.p_value}")
         print(
             f"  [{s}] "
             f"{'; '.join(r.rejection_reasons) if r.rejection_reasons else 'ALL OK'}"
         )
-        if r.validation_passed:
-            passed += 1
         print()
-    print(f"\n{'='*70}")
-    print(f"RESULTS: {passed}/{len(results)} passed")
+
+    # Multiplicity control runs over the whole family before anything is called validated: picking
+    # the best of N candidates is exactly how a search produces apparent edges from noise.
+    multiplicity = apply_multiplicity_pass(results, method=args.method, alpha=args.alpha)
+    passed = sum(1 for r in results if r.validation_passed)
     print(f"{'='*70}")
-    out = Path(r"C:\mt5bbot\data\research_report.json")
+    print(
+        f"MULTIPLICITY ({multiplicity.method}, alpha={multiplicity.alpha}): "
+        f"{multiplicity.tested} testable, {len(multiplicity.survivors)} survivor(s)"
+    )
+    for name in multiplicity.survivors:
+        print(f"  SURVIVOR {name}: p={multiplicity.raw_p_values[name]:.4f} "
+              f"p_adj={multiplicity.adjusted[name]:.4f}")
+    if multiplicity.untestable:
+        print(f"  not testable (kept out of the family): {', '.join(multiplicity.untestable)}")
+    print(f"{'='*70}")
+    print(f"RESULTS: {passed}/{len(results)} validated after multiplicity control")
+    print(f"{'='*70}")
+    out = Path(args.out)
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
         "symbol": "XAUUSDm",
@@ -267,6 +377,7 @@ def main():
         ],
         "total_bars": len(bars),
         "passed": passed,
+        "multiplicity": multiplicity.to_dict(),
         "candidates": [r.to_dict() for r in results],
     }
     out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")

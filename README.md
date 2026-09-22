@@ -419,6 +419,55 @@ each, 0.26 spread + 0.05 slippage, 1% risk:
 These are single-pass numbers on one year of one symbol — a starting point for the research runner,
 not evidence of edge, and nothing here is promoted automatically.
 
+**What the research actually found (2026-09-22, multiplicity-controlled):** running all 26 candidates
+through the full stack (OOS split → walk-forward → Monte Carlo → spread 1x/2x → parameter
+perturbation → Benjamini-Hochberg at α=0.10) produced **zero survivors**. Eleven candidates cleared
+the raw gate stack, which is exactly the blind spot the correction exists for; the best raw p-value
+was 0.176 (Donchian 50) against the ~0.0038 needed to survive a 26-candidate family. Conclusion: none
+of these families — nor the currently-configured Donchian 20 — has a demonstrated edge on this data.
+The system's value right now is the forward record it is building, not a P/L claim.
+
+## Research quality: multiplicity control (Phase 8)
+
+Running 25 candidates and keeping whoever looks best is how backtests lie. `research/multiplicity.py`
+gives every candidate a sign-flip permutation p-value on its **out-of-sample** per-trade R multiples
+and then corrects the whole family (Benjamini-Hochberg by default, Bonferroni available):
+
+```bash
+python -m mt5_platform.research.runner                    # BH at alpha=0.10 (default)
+python -m mt5_platform.research.runner --alpha 0.05 --method bonferroni
+python -m mt5_platform.research.runner --only Donchian     # subset while iterating
+```
+
+A candidate that clears every other gate but is not a family-corrected survivor is marked failed with
+`fails_multiplicity_control`, and `scripts/promote_candidate.py` refuses reports that predate the
+correction (`multiplicity_not_evaluated:rerun_research`). This adds a gate; it never lowers one.
+
+The test is two-sided, deterministic for a given seed, and a candidate with too few closed trades gets
+`p_value=None` and can never be a survivor — absence of evidence is not evidence. `tests/test_multiplicity.py`
+also pins the *rate*: on pure noise at most ~15% of candidates look significant, and when fed 25 noise
+series the corrected family yields **zero** survivors even though the raw rule flags some.
+
+## Measuring coverage: which bucket earns (Phase 8)
+
+`historical/attribution.py` groups recorded outcomes by strategy, regime, session, side and exit cause
+and grades each bucket with the same thresholds the evidence engine uses — below 10 closed trades a
+bucket is explicitly `insufficient_evidence` and gets no verdict. The snapshot exposes it as
+`stats.attribution`:
+
+```json
+{"ledger_outcomes": 42,
+ "coverage": {"strategies_recorded": 2, "measured": 1, "unmeasured": 1, "closed_trades": 42,
+              "unattributed_trades": 0, "unmeasured_keys": ["mtf_trend"], "min_sample_weak": 10},
+ "strategy": [{"key": "ema_adx_trend", "sample_size": 30, "expectancy_r": 0.14}],
+ "regime":   [{"key": "trending", "sample_size": 40}]}
+```
+
+This is the number to watch when adding coverage: `unmeasured` counts strategies that trade but cannot
+yet be judged, and `unattributed_trades` counts trades whose strategy/regime was never recorded (a
+data problem, not a market one). A bucket containing any backtest outcome is flagged
+`contaminated: true` — replay results are not forward evidence.
+
 ## Safety
 
 - Default `TRADING_MODE=demo`

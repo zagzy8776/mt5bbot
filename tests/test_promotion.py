@@ -35,6 +35,12 @@ def _candidate(**overrides: Any) -> dict[str, Any]:
         "data_range": ["2025-09-21", "2026-09-21"],
         "validation_passed": True,
         "rejection_reasons": [],
+        # multiplicity control (research/multiplicity.py): a candidate is only promotable when the
+        # family-corrected verdict says it is a survivor.
+        "multiplicity_survivor": True,
+        "p_value": 0.0008,
+        "p_value_adjusted": 0.009,
+        "oos_mean_r": 0.21,
         "is_trades": 668,
         "oos_trades": 249,
         "oos_profit_factor": 1.12,
@@ -75,19 +81,42 @@ def test_label_resolution_covers_the_research_labels() -> None:
     assert strategy_for_label("something else") is None
 
 
-def test_report_candidates_are_offered_with_the_research_verdict() -> None:
-    proposals = find_candidates(REPORT, symbol="XAUUSDm", timeframe="M15")
-    assert len(proposals) == 17
-    eligible = [p for p in proposals if p.eligible]
-    assert len(eligible) == 7
-    for proposal in eligible:
-        assert proposal.reasons == []
-        assert proposal.gates["validation_passed"] is True
-        assert proposal.metrics["oos_trades"] > 0
-        assert proposal.provenance["report_sha256"]
+def test_report_candidates_are_offered_with_the_research_verdict(tmp_path: Path) -> None:
+    report = _report(
+        tmp_path,
+        [
+            _candidate(name="Survivor 1"),
+            _candidate(name="Marginal 1", multiplicity_survivor=False, p_value=0.04),
+            _candidate(name="Broken 1", validation_passed=False, rejection_reasons=["OOS PF<0.9"]),
+        ],
+    )
+    proposals = find_candidates(report, symbol="XAUUSDm", timeframe="M15")
+
+    assert len(proposals) == 3, "every candidate is offered; nothing is silently filtered away"
+    by_label = {p.label: p for p in proposals}
+    assert by_label["Survivor 1"].eligible is True and by_label["Survivor 1"].reasons == []
+    assert by_label["Marginal 1"].eligible is False
+    assert "fails_multiplicity_control" in by_label["Marginal 1"].reasons
+    assert by_label["Broken 1"].eligible is False
+    assert "research_validation_failed" in by_label["Broken 1"].reasons
     for proposal in proposals:
-        if not proposal.eligible:
-            assert proposal.reasons, "an ineligible candidate must say why"
+        assert proposal.provenance["report_sha256"]
+        assert proposal.gates["validation_passed"] is not None
+
+
+def test_legacy_report_without_multiplicity_cannot_be_promoted(tmp_path: Path) -> None:
+    """A report from before multiplicity control is not promotable: the research must be re-run."""
+    legacy = _candidate()
+    legacy.pop("multiplicity_survivor")
+    legacy.pop("p_value")
+    legacy.pop("p_value_adjusted")
+    proposals = find_candidates(_report(tmp_path, [legacy]))
+    assert proposals[0].eligible is False
+    assert proposals[0].reasons == ["multiplicity_not_evaluated:rerun_research"]
+    with pytest.raises(ValueError, match="not eligible"):
+        approve_proposal(
+            proposals[0], config_path=tmp_path / "active.json", approved_by="operator", now=NOW
+        )
 
 
 def test_eligibility_reuses_the_research_gates_and_lowers_none(tmp_path: Path) -> None:
@@ -160,6 +189,8 @@ def test_approval_records_the_evidence_and_the_version(tmp_path: Path) -> None:
     assert entry["approved_by"] == "operator"
     assert entry["gates"]["validation_passed"] is True
     assert entry["metrics"]["oos_trades"] == 249
+    assert entry["metrics"]["multiplicity_survivor"] is True
+    assert entry["metrics"]["p_value_adjusted"] == 0.009
     assert entry["provenance"]["report_sha256"] == proposal.provenance["report_sha256"]
 
     stored = read_active_config(config)["promotions"]
