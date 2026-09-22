@@ -33,9 +33,25 @@ regression guard in `tests/test_symbol_case.py::test_loop_and_feed_use_the_exact
 | symbol / timeframe | `XAUUSDm` / `M15` |
 | kill switch | `false` (clean state, limits untouched) |
 | warm-up replay | 200 bars, 61 signals discarded (never traded) |
-| first live candle | 11:15 closed bar, `evaluations: 201` |
+| first live candle | 11:15 closed bar, `evaluations: 201` (previous instance) |
 | second live candle | 11:30 closed bar, stage `candle_evaluated_no_setup` |
+| third live candle | 11:45 closed bar, stage `candle_evaluated_no_setup` |
 | orders | 0 (no entry condition met on those candles; nothing was forced) |
+
+Live trace for the 11:45 candle (strategy decisions are recorded, not hidden):
+
+```json
+{"cycle": 289, "stage": "candle_evaluated_no_setup", "symbol": "XAUUSDm",
+ "bar_time": "2026-09-22T11:45:00+00:00", "bar_open": 4317.747, "bar_close": 4322.359,
+ "bar_high": 4323.373, "bar_low": 4316.683, "last_processed_bar": "2026-09-22T11:45:00+00:00",
+ "poll_s": 5.0, "waiting": true}
+```
+
+`evaluations: 202` = 200 warm-up bars + 2 live candles; `signals: 47` are all warm-up replay
+signals (never traded); `signals_rejected: 0`; `orders_sent: 0`; `errors: 0`.
+Breakout fires on roughly a quarter of M15 candles, so two candles without a setup is normal —
+nothing was manufactured and no threshold was touched.
+
 
 Raw observation rows: `logs/observe-runtime.log` (git-ignored runtime log).
 
