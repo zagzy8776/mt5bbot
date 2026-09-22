@@ -39,7 +39,7 @@ class LoopStats:
     skipped: Counter = field(default_factory=Counter)
 
     def to_dict(self) -> dict:
-        return {**self.__dict__, "skipped": dict(self.skipped)}
+        return {**self.__dict__, "skipped": dict(self.skipped), "skip_reasons": dict(self.skipped)}
 
 
 class TradingLoop:

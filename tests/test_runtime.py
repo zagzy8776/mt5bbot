@@ -178,7 +178,7 @@ async def test_stale_market_data_blocks_orders() -> None:
 
 async def test_wide_spread_blocks_orders() -> None:
     loop, fake, feed, _ = await _rig()
-    feed._quote = Quote(2500.0, 2503.0, 300.0, 0.0)
+    feed._quote = Quote(2500.0, 2503.0, 600.0, 0.0)
     await loop.start()
     feed.add_bar()
     await loop.run_once()

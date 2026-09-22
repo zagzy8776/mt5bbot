@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     max_daily_loss_pct: float = 3.0
     max_drawdown_pct: float = 10.0
     max_simultaneous_positions: int = 3
-    max_spread_points: float = 50.0
+    max_spread_points: float = 500.0
     max_slippage_points: float = 25.0
     max_exposure_pct: float = 1000.0
     min_margin_level_pct: float = 20.0
