@@ -62,7 +62,10 @@ class IntelligenceLayer:
     """Wraps Context + Agents + Synthesis + Historical + PositionManager + Learning."""
 
     def __init__(self, *, symbol: str = "XAUUSD", timeframe: str = "M15") -> None:
-        self.symbol = symbol.upper()
+        # NEVER upper-case the broker symbol: ids are case-sensitive (XAUUSDm != XAUUSDM) and
+        # evidence lookups compare instruments exactly. A mangled symbol makes the evidence
+        # engine permanently empty.
+        self.symbol = symbol.strip()
         self.timeframe = timeframe.upper()
         primary_s = timeframe_minutes(self.timeframe) * 60
         self.context_engine = MarketContextEngine(

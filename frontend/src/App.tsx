@@ -6,6 +6,7 @@ import {
   type Account,
   type AuditEvent,
   type Order,
+  type OutcomesPayload,
   type Position,
   type Risk,
   type Runtime,
@@ -48,6 +49,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [risk, setRisk] = useState<Risk | null>(null);
+  const [outcomes, setOutcomes] = useState<OutcomesPayload | null>(null);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
@@ -57,7 +59,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -65,7 +67,8 @@ export default function App() {
         api.signals().catch(() => []),
         api.risk(),
         api.status(),
-        api.audit(50).catch(() => ({ events: [] as AuditEvent[] }))
+        api.audit(50).catch(() => ({ events: [] as AuditEvent[] })),
+        api.outcomes().catch(() => null)
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -76,6 +79,7 @@ export default function App() {
       setRisk(rk);
       setStatus(st);
       setEvents(ev.events);
+      setOutcomes(out);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -207,6 +211,8 @@ export default function App() {
               </section>
 
               <SignalPipeline runtime={runtime} />
+
+              <OutcomeLedger payload={outcomes} />
 
               <section className="card">
                 <div className="section-head">
@@ -354,6 +360,86 @@ function SignalPipeline({ runtime }: { runtime: Runtime | null }) {
         <div className="table-wrap"><table><thead><tr><th>Strategy</th><th>Live evaluations</th><th>Live signals</th><th>Live rejections</th><th>Replay signals</th></tr></thead><tbody>
           {Object.entries(engine.strategy_stats).map(([name, s]) => <tr key={name}><td>{name}</td><td>{s.evaluations}</td><td>{s.signals}</td><td>{s.rejections}</td><td className="muted">{s.replay_signals ?? 0}</td></tr>)}
         </tbody></table></div>
+      )}
+    </section>
+  );
+}
+
+function OutcomeLedger({ payload }: { payload: OutcomesPayload | null }) {
+  const summary = payload?.summary;
+  const evidence = payload?.evidence;
+  const learning = payload?.learning;
+  const quality = evidence?.evidence_quality || "insufficient";
+  const tone = quality === "strong" ? "good" : quality === "moderate" ? "neutral" : "warn";
+  const last = summary?.last_completed;
+  const causes = Object.entries(summary?.by_exit_cause || {});
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">OUTCOMES &amp; LEARNING</div>
+          <h2>Recorded trades</h2>
+        </div>
+        <Badge tone={tone}>evidence: {quality}</Badge>
+      </div>
+      <div className="runtime-panel">
+        <div><span>Completed trades (this run)</span><strong>{Number(summary?.completed ?? 0)}</strong></div>
+        <div><span>Tracking an open trade</span><strong>{Number(summary?.open ?? 0)}</strong></div>
+        <div><span>Autonomous</span><strong>{Number(summary?.autonomous ?? 0)}</strong></div>
+        <div><span>Manual / external</span><strong>{Number(summary?.external ?? 0)}</strong></div>
+        <div><span>Backtest / replay</span><strong>{Number(summary?.backtest ?? 0)}</strong></div>
+        <div><span>MAE/MFE available</span><strong>{Number(summary?.mae_mfe_available ?? 0)}</strong></div>
+      </div>
+      <div className="kv">
+        <span>Evidence samples (minimum required)</span>
+        <strong>{`${Number(evidence?.sample_size ?? 0)} / ${Number(evidence?.minimum_sample_required ?? 10)} for weak`}</strong>
+      </div>
+      <div className="kv">
+        <span>Evidence thresholds</span>
+        <strong>{`weak ${Number(evidence?.min_sample_weak ?? 10)} · moderate ${Number(evidence?.min_sample_moderate ?? 30)} · strong ${Number(evidence?.min_sample_strong ?? 100)}${evidence?.thresholds_lowered ? " · LOWERED" : ""}`}</strong>
+      </div>
+      <div className="kv"><span>Stored outcomes</span><strong>{Number(payload?.count ?? 0)}</strong></div>
+      <div className="kv">
+        <span>Reviews / lessons / hypotheses</span>
+        <strong>{`${Number(learning?.reviews ?? 0)} / ${Number(learning?.lessons_proposed ?? 0)} / ${Number(learning?.hypotheses ?? 0)}`}</strong>
+      </div>
+      <div className="kv">
+        <span>Last completed trade</span>
+        <strong>
+          {last
+            ? `${last.symbol || ""} ${last.strategy || "strategy?"} · ${last.source || ""} · ${last.exit_cause || "unknown"} (${last.exit_cause_source || "?"}) · ${money(last.realized_pnl)} · R ${fmt(last.r_multiple)}`
+            : "none yet"}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Exit causes</span>
+        <strong>{causes.length ? causes.map(([cause, count]) => `${cause} ×${count}`).join(", ") : "none"}</strong>
+      </div>
+      <p className="muted">
+        Autonomous, manual/external and backtest outcomes are counted separately. Learning records
+        reviews and proposes lessons only — it never changes configuration on its own.
+      </p>
+      {payload && payload.outcomes.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Trade</th><th>Population</th><th>Side</th><th>Entry</th><th>Exit</th><th>MAE / MFE</th><th>P/L</th><th>R</th><th>Exit cause</th></tr></thead>
+            <tbody>
+              {payload.outcomes.slice(0, 8).map((row) => (
+                <tr key={row.trade_id}>
+                  <td>{row.broker_ticket || row.trade_id}</td>
+                  <td>{row.status === "open" ? "open" : row.source}</td>
+                  <td>{row.side}</td>
+                  <td>{fmt(row.entry)}</td>
+                  <td>{row.exit_price == null ? "—" : fmt(row.exit_price)}</td>
+                  <td>{`${fmt(row.mae)} / ${fmt(row.mfe)}`}</td>
+                  <td className={row.realized_pnl >= 0 ? "positive" : "negative"}>{money(row.realized_pnl)}</td>
+                  <td>{fmt(row.r_multiple)}</td>
+                  <td>{row.exit_cause}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

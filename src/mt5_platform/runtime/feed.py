@@ -51,6 +51,11 @@ class MT5CandleFeed:
         self._clock = clock
         self._last_tick: dict[str, tuple[Any, float]] = {}
 
+    @property
+    def timeframe(self) -> str:
+        """Configured timeframe (upper-case), e.g. M15."""
+        return self._tf_name
+
     def _tf(self) -> int:
         return getattr(self._adapter.mt5, f"TIMEFRAME_{self._tf_name}")
 

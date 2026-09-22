@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from mt5_platform.common.events import (
     AccountSnapshot,
@@ -56,6 +57,15 @@ class ExecutionAdapter(ABC):
         take_profit: float | None,
     ) -> ExecutionRecord:
         raise NotImplementedError
+
+    async def position_close_details(self, ticket: str) -> dict[str, Any] | None:
+        """Broker truth for a position that is already closed (read-only, best effort).
+
+        Used by the outcome recorder so a close the runtime did not perform (broker stop/target,
+        manual close, close while offline) still records real money instead of "unavailable".
+        Returns None when the broker cannot supply it — never a guessed value.
+        """
+        return None
 
     @abstractmethod
     async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:

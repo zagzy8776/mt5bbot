@@ -244,6 +244,48 @@ When `manage` is on, a position action still has to pass the risk gate:
 Visible in the dashboard: the Positions page shows the real MT5 ticket, a `bot`/`manual` badge,
 the configured manual policy, and the position lifecycle event log.
 
+## Trade outcomes and the historical ledger (Phase 1)
+
+Nothing used to write `HistoricalOutcome`, so the bot recorded no completed trades and the
+evidence engine was permanently empty. The live trade recorder now closes that loop:
+
+    position opened -> record created with a frozen entry/setup snapshot -> MAE/MFE tracked
+    -> partial exits recorded as legs -> final close -> HistoricalOutcome persisted
+    -> post-trade review + decision memory -> evidence ledger
+
+- **Passive by construction.** The recorder never blocks, delays or alters an order. Store
+  failures are logged, queued and retried; the in-memory record survives and trading continues.
+  A failed recorder can never change a strategy decision.
+- **One record per broker position**, keyed by ticket with a deterministic trade id, so
+  reconciliation seeing the same position twice cannot create a duplicate. Partial closes are
+  legs of the same trade and only the final flat close freezes the outcome.
+- **Nothing is invented.** Missing prices, commissions, swaps, profit and exit causes stay
+  explicitly `None`/`unknown` with a `*_source` marker (`runtime`, `level_match`, `recovery`,
+  `external`, `backtest`, `unavailable`). Exit causes are never guessed from P/L: the component
+  that exits states the cause, or the exit price is matched against the recorded levels.
+- **Survives restarts.** On startup the recorder reloads incomplete records (MAE/MFE preserved),
+  reconciles against MT5, and finalizes trades that closed while the process was down, using the
+  broker's closing deals for the real exit price and money when they exist.
+- **Populations stay separate.** `autonomous` (this bot), `external`/manual and `backtest` are
+  never mixed in the same statistics; the evidence ledger loads live populations only.
+- **Learning proposes, it never applies.** Completed outcomes produce a review, a decision-memory
+  record and *lesson hypotheses with no proposed change*. Promotion is still a deliberate step
+  (research validation -> explicit configuration version), so no trade outcome can rewrite live
+  configuration.
+- **Same schema for research.** `backtest/outcomes.py` normalizes engine trades into the identical
+  `HistoricalOutcome` model, so backtest and forward-demo outcomes can be compared on the same
+  fields (MAE/MFE stay marked unavailable when the bar engine cannot provide them).
+
+Storage: `outcomes` and `trade_legs` tables (indexed by symbol, strategy, timeframe, entry/exit
+time, thesis id, ticket and status) are created with the existing schema initialization; the
+complete model is also stored as JSON so a round trip is lossless. Aiven PostgreSQL remains the
+production database.
+
+Visible in the dashboard: the Outcomes & Learning card shows completed/recorded/pending outcomes,
+MAE/MFE availability, the last completed trade and its exit cause, the autonomous vs manual vs
+backtest split, and the evidence sample count against the unchanged thresholds
+(weak 10 / moderate 30 / strong 100).
+
 ## Safety
 
 - Default `TRADING_MODE=demo`

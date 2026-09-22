@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from mt5_platform.common.enums import OrderSide, OrderStatus
 from mt5_platform.common.events import (
@@ -45,6 +46,7 @@ class MockExecutionAdapter(ExecutionAdapter):
         self._point_value = point_value
         self.executions: list[ExecutionRecord] = []
         self.positions: dict[str, PositionInfo] = {}
+        self.closed_details: dict[str, list[dict[str, float]]] = {}
         self._broker_orders: dict[str, OrderStatus] = {}
         self._market_prices: dict[str, float] = {}
         self._ticket_seq = 0
@@ -202,6 +204,9 @@ class MockExecutionAdapter(ExecutionAdapter):
             raise ValueError(f"invalid close volume {close_volume} for position {ticket}")
         pnl = (price - pos.entry_price) * direction * close_volume * self._point_value
         self._balance += pnl
+        self.closed_details.setdefault(ticket, []).append(
+            {"price": price, "volume": close_volume, "realized_pnl": pnl}
+        )
         if close_volume == pos.volume:
             del self.positions[ticket]
         else:
@@ -227,6 +232,24 @@ class MockExecutionAdapter(ExecutionAdapter):
         )
         self.executions.append(record)
         return record
+
+    async def position_close_details(self, ticket: str) -> dict[str, Any] | None:
+        """Closing records this adapter produced, so outcomes can carry real money."""
+        legs = self.closed_details.get(ticket)
+        if not legs:
+            return None
+        volume = sum(float(leg["volume"]) for leg in legs)
+        if volume <= 0:
+            return None
+        return {
+            "exit_price": sum(float(leg["price"]) * float(leg["volume"]) for leg in legs) / volume,
+            "volume": volume,
+            "realized_pnl": sum(float(leg["realized_pnl"]) for leg in legs),
+            "commission": None,
+            "swap": None,
+            "deals": [],
+            "source": "mock_close_records",
+        }
 
     async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
         wanted = set(order_ids)

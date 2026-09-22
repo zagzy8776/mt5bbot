@@ -144,8 +144,10 @@ class FakeMT5:
             )
         if "position" in request:  # close: full close removes, partial close reduces volume
             remaining: list[SimpleNamespace] = []
+            closed_pos = None
             for pos in self.positions:
                 if pos.ticket == request["position"]:
+                    closed_pos = pos
                     left = float(pos.volume) - float(request["volume"])
                     if left > 0:
                         pos.volume = left
@@ -153,6 +155,32 @@ class FakeMT5:
                     continue
                 remaining.append(pos)
             self.positions = remaining
+            if closed_pos is not None and float(request["volume"]) > 0:
+                # Real MT5 records a DEAL_ENTRY_OUT deal per close: the fake does the same so
+                # closing-deal based P/L (adapter.position_close_details) is testable.
+                contract = float(getattr(self.symbol, "trade_contract_size", 100.0))
+                price = float(request["price"])
+                volume = float(request["volume"])
+                direction = 1.0 if closed_pos.type == self.DEAL_TYPE_BUY else -1.0
+                self.deals.append(
+                    SimpleNamespace(
+                        ticket=self._next(),
+                        position_id=int(request["position"]),
+                        type=request["type"],
+                        entry=self.DEAL_ENTRY_OUT,
+                        magic=int(getattr(closed_pos, "magic", 0) or 0),
+                        comment=str(getattr(closed_pos, "comment", "")),
+                        price=price,
+                        volume=volume,
+                        profit=(
+                            (price - float(closed_pos.price_open)) * direction * volume * contract
+                        ),
+                        commission=0.0,
+                        swap=0.0,
+                        fee=0.0,
+                        time=int(time.time()),
+                    )
+                )
             return SimpleNamespace(
                 retcode=code,
                 order=self._next(),

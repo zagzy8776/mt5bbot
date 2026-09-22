@@ -151,3 +151,83 @@ class AuditRow(Base):
     correlation_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class OutcomeRow(Base):
+    """Recorded trade outcome (the live/backtest ledger).
+
+    Typed columns exist for the indexes the evidence engine and dashboard query on; the complete
+    ``HistoricalOutcome`` is also stored as JSON so nothing is lost in the round trip.
+    """
+
+    __tablename__ = "outcomes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trade_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), index=True, nullable=False, default="closed")
+    source: Mapped[str] = mapped_column(
+        String(16), index=True, nullable=False, default="autonomous"
+    )
+    symbol: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    timeframe: Mapped[str] = mapped_column(String(8), index=True, nullable=False, default="")
+    strategy: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default="")
+    strategy_version: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    direction: Mapped[str] = mapped_column(String(8), nullable=False)
+    broker_ticket: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    position_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    order_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    entry_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=False
+    )
+    exit_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=True
+    )
+    entry_price: Mapped[float] = mapped_column(Float, nullable=False)
+    exit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+    remaining_volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+    initial_stop_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
+    initial_take_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_stop_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_take_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realized_pnl_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    commission: Mapped[float | None] = mapped_column(Float, nullable=True)
+    swap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    slippage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mae: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mfe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mae_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mfe_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    r_multiple: Mapped[float | None] = mapped_column(Float, nullable=True)
+    holding_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exit_cause: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
+    exit_cause_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cause_class: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    thesis_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    context_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TradeLegRow(Base):
+    """One execution leg of a trade (entry, partial exit, final exit)."""
+
+    __tablename__ = "trade_legs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    leg_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    trade_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    volume: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
+    commission: Mapped[float | None] = mapped_column(Float, nullable=True)
+    swap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    slippage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exit_cause: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    broker_deal: Mapped[str | None] = mapped_column(String(64), nullable=True)

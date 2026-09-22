@@ -17,7 +17,11 @@ from mt5_platform.backtest.validation import live_block_reason, read_validation
 from mt5_platform.config import Settings
 from mt5_platform.execution.base import ExecutionAdapter
 from mt5_platform.execution.mt5_adapter import MT5ExecutionAdapter
+from mt5_platform.historical.ledger import InMemoryHistoricalLedger
+from mt5_platform.historical.models import HistoricalOutcome
+from mt5_platform.historical.outcome_loader import evidence_status, load_live_outcomes
 from mt5_platform.orders import OrderManager
+from mt5_platform.outcomes import OutcomeLearningPipeline, TradeOutcomeRecorder
 from mt5_platform.risk import RiskEngine
 from mt5_platform.runtime.feed import MT5CandleFeed
 from mt5_platform.runtime.loop import TradingLoop
@@ -61,6 +65,7 @@ class BotControlService:
         order_manager: OrderManager,
         symbol: str | None = None,
         timeframe: str = "M15",
+        store: Any | None = None,
     ) -> None:
         self.settings = settings
         self.adapter = adapter
@@ -69,6 +74,16 @@ class BotControlService:
         self.order_manager = order_manager
         self.symbol = (symbol or settings.default_symbol).strip()
         self.timeframe = timeframe.strip().upper()
+        self.store = store
+        # Outcome ledger: recording is passive and can never block or alter an order.
+        self.learning = OutcomeLearningPipeline()
+        self.ledger = InMemoryHistoricalLedger()
+        self.outcome_recorder = (
+            TradeOutcomeRecorder(store, on_completed=self._on_outcome_completed)
+            if store is not None
+            else None
+        )
+        self._ledger_loaded = False
         self._lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
         self._stop_event: asyncio.Event | None = None
@@ -91,6 +106,12 @@ class BotControlService:
             snap.kill_switch = self.risk_engine.kill_switch
             if self._loop.intelligence is not None:
                 stats["intelligence"] = self._loop.intelligence.stats.to_dict()
+        # Outcome ledger + learning status: always visible, whether or not the loop is running.
+        stats["outcomes"] = (
+            self.outcome_recorder.summary() if self.outcome_recorder is not None else {}
+        )
+        stats["learning"] = self.learning.stats()
+        stats["evidence"] = self.evidence_status()
         snap.stats = stats
         return snap.to_dict()
 
@@ -154,8 +175,10 @@ class BotControlService:
                     poll_s=5.0,
                     warmup_bars=200,
                     intelligence=intelligence,
+                    outcome_recorder=self.outcome_recorder,
                 )
                 await self._loop.start()
+                await self._load_evidence_ledger()
                 self._snapshot.started_at = datetime.now(UTC).isoformat()
                 self._snapshot.state = "running"
                 self._snapshot.connected = True
@@ -240,6 +263,77 @@ class BotControlService:
     async def restart(self) -> dict[str, Any]:
         await self.stop()
         return await self.start()
+
+    # ---------------------------------------------------------------- outcome ledger
+
+    def _on_outcome_completed(self, outcome: HistoricalOutcome) -> None:
+        """A trade finished: review it and add it to the evidence ledger.
+
+        This is the only place a completed trade enters the learning layer. It cannot change any
+        trading configuration: reviews are recorded and lessons are proposed; nothing is applied.
+        """
+        try:
+            intelligence = self._loop.intelligence if self._loop is not None else None
+            self.learning.record(outcome, intelligence=intelligence)
+            self.ledger.record(outcome)
+        except Exception as exc:  # learning must never affect the trading path
+            self._snapshot.last_error = f"outcome learning failed: {exc}"
+
+    async def _load_evidence_ledger(self) -> int:
+        """database -> historical outcomes -> ledger -> EvidenceEngine.
+
+        Called once per start: without this the evidence engine is permanently empty and every
+        decision sees "insufficient evidence" no matter how much the bot has traded.
+        """
+        if self.store is None or self._ledger_loaded:
+            return 0
+        try:
+            outcomes = await load_live_outcomes(self.store)
+        except Exception as exc:
+            self._snapshot.last_error = f"evidence ledger load failed: {exc}"
+            return 0
+        self.ledger.record_many(outcomes)
+        self._ledger_loaded = True
+        if self._loop is not None and self._loop.intelligence is not None:
+            self._loop.intelligence.historical_ledger.record_many(outcomes)
+        return len(outcomes)
+
+    def evidence_status(self) -> dict[str, Any]:
+        """What the EvidenceEngine can actually see right now (never a lowered threshold)."""
+        return evidence_status(self.ledger, instrument=self.symbol)
+
+    async def load_outcomes(
+        self, *, limit: int = 100, status: str | None = None
+    ) -> list[HistoricalOutcome]:
+        """Persisted outcomes for the dashboard (store first, in-memory recorder as fallback)."""
+        if self.store is not None:
+            try:
+                return await self.store.get_outcomes(limit=limit, status=status)
+            except Exception as exc:
+                self._snapshot.last_error = f"outcome query failed: {exc}"
+        if self.outcome_recorder is None:
+            return []
+        rows = self.outcome_recorder.all_outcomes()
+        if status:
+            rows = [row for row in rows if row.status.value == status]
+        return sorted(rows, key=lambda row: row.timestamp, reverse=True)[:limit]
+
+    async def outcomes_payload(
+        self, *, limit: int = 100, status: str | None = None
+    ) -> dict[str, Any]:
+        """Dashboard payload: separate populations, data availability and evidence quality."""
+        await self._load_evidence_ledger()  # the dashboard must see persisted evidence too
+        records = await self.load_outcomes(limit=limit, status=status)
+        summary = (
+            self.outcome_recorder.summary() if self.outcome_recorder is not None else {}
+        )
+        return {
+            "count": len(records),
+            "summary": summary,
+            "learning": self.learning.stats(),
+            "evidence": self.evidence_status(),
+            "outcomes": [row.model_dump(mode="json") for row in records],
+        }
 
     async def refresh_account(self) -> Any:
         if not getattr(self.adapter, "_connected", False):

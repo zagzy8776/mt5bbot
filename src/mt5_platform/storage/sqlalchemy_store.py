@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from mt5_platform.common.enums import OrderSide, OrderStatus, Severity
+from mt5_platform.common.enums import (
+    ExitCause,
+    OrderSide,
+    OrderStatus,
+    OutcomeSource,
+    OutcomeStatus,
+    Severity,
+    TradeCause,
+)
 from mt5_platform.common.events import (
     AccountSnapshot,
     AuditEvent,
@@ -16,6 +24,7 @@ from mt5_platform.common.events import (
     OrderRequest,
     StrategySignal,
 )
+from mt5_platform.historical.models import HistoricalOutcome, TradeLeg
 from mt5_platform.storage.base import MarketDataStore
 from mt5_platform.storage.models import (
     AccountSnapshotRow,
@@ -23,9 +32,11 @@ from mt5_platform.storage.models import (
     CandleRow,
     ExecutionRow,
     OrderRow,
+    OutcomeRow,
     PositionRow,
     SignalRow,
     TickRow,
+    TradeLegRow,
 )
 from mt5_platform.storage.ohlc import Candle, aggregate_ohlc
 
@@ -420,3 +431,178 @@ class SqlAlchemyMarketDataStore(MarketDataStore):
         async with self._session_factory() as session:
             await session.execute(select(1))
         return True
+
+    # ------------------------------------------------------------- outcome ledger
+
+    @staticmethod
+    def _outcome_values(outcome: HistoricalOutcome) -> dict:
+        """Typed columns for querying + the full model as JSON so nothing is lost."""
+        return {
+            "schema_version": outcome.schema_version,
+            "trade_id": outcome.trade_id,
+            "status": outcome.status.value,
+            "source": outcome.source.value,
+            "symbol": outcome.instrument,
+            "timeframe": outcome.timeframe,
+            "strategy": outcome.strategy,
+            "strategy_version": outcome.strategy_version,
+            "direction": outcome.direction.value,
+            "broker_ticket": outcome.broker_ticket,
+            "position_id": outcome.position_id,
+            "order_id": outcome.order_id,
+            "entry_time": outcome.timestamp,
+            "exit_time": outcome.exit_time,
+            "entry_price": outcome.entry,
+            "exit_price": outcome.exit_price,
+            "volume": outcome.entry_volume,
+            "remaining_volume": outcome.remaining_volume,
+            "initial_stop_loss": outcome.initial_stop_loss,
+            "initial_take_profit": outcome.initial_take_profit,
+            "final_stop_loss": outcome.final_stop_loss,
+            "final_take_profit": outcome.final_take_profit,
+            "realized_pnl": outcome.realized_pnl,
+            "realized_pnl_pct": outcome.realized_pnl_pct,
+            "commission": outcome.commission,
+            "swap": outcome.swap,
+            "slippage": outcome.slippage,
+            "mae": outcome.mae,
+            "mfe": outcome.mfe,
+            "mae_pct": outcome.mae_pct,
+            "mfe_pct": outcome.mfe_pct,
+            "r_multiple": outcome.r_multiple,
+            "holding_time_s": outcome.holding_time_s,
+            "exit_cause": outcome.exit_cause.value,
+            "exit_cause_source": outcome.exit_cause_source,
+            "cause_class": outcome.cause_class.value,
+            "thesis_id": outcome.thesis_id or None,
+            "context_id": outcome.entry_context_id or None,
+            "payload": outcome.model_dump(mode="json"),
+            "created_at": outcome.created_at,
+            "updated_at": outcome.updated_at,
+        }
+
+    @staticmethod
+    def _leg_values(leg: TradeLeg) -> dict:
+        return {
+            "leg_id": leg.leg_id,
+            "trade_id": leg.trade_id,
+            "kind": leg.kind,
+            "timestamp": leg.timestamp,
+            "price": leg.price,
+            "volume": leg.volume,
+            "realized_pnl": leg.realized_pnl,
+            "commission": leg.commission,
+            "swap": leg.swap,
+            "slippage": leg.slippage,
+            "exit_cause": leg.exit_cause.value if leg.exit_cause else None,
+            "reason": leg.reason,
+            "broker_deal": leg.broker_deal,
+        }
+
+    async def write_outcome(self, outcome: HistoricalOutcome) -> None:
+        """Upsert one outcome by trade_id (idempotent) and upsert its legs by leg_id."""
+        values = self._outcome_values(outcome)
+        async with self._session_factory() as session:
+            existing = await session.scalar(
+                select(OutcomeRow).where(OutcomeRow.trade_id == outcome.trade_id)
+            )
+            if existing is None:
+                session.add(OutcomeRow(**values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
+            for leg in outcome.legs:
+                leg_values = self._leg_values(leg)
+                leg_row = await session.scalar(
+                    select(TradeLegRow).where(TradeLegRow.leg_id == leg.leg_id)
+                )
+                if leg_row is None:
+                    session.add(TradeLegRow(**leg_values))
+                else:
+                    for key, value in leg_values.items():
+                        setattr(leg_row, key, value)
+            await session.commit()
+
+    @staticmethod
+    def _row_to_outcome(row: OutcomeRow) -> HistoricalOutcome:
+        """Prefer the stored JSON (lossless); fall back to typed columns if it is unusable."""
+        if row.payload:
+            try:
+                return HistoricalOutcome.model_validate(row.payload)
+            except Exception:  # pragma: no cover - defensive for hand-edited rows
+                pass
+        return HistoricalOutcome(
+            status=OutcomeStatus(row.status),
+            source=OutcomeSource(row.source),
+            trade_id=row.trade_id,
+            instrument=row.symbol,
+            timeframe=row.timeframe or "",
+            strategy=row.strategy or "",
+            strategy_version=row.strategy_version or "",
+            direction=OrderSide(row.direction),
+            broker_ticket=row.broker_ticket,
+            position_id=row.position_id,
+            order_id=row.order_id or "",
+            timestamp=row.entry_time,
+            entry=row.entry_price,
+            stop_loss=row.initial_stop_loss,
+            take_profit=row.initial_take_profit,
+            final_stop_loss=row.final_stop_loss,
+            final_take_profit=row.final_take_profit,
+            entry_volume=row.volume,
+            remaining_volume=row.remaining_volume,
+            exit_price=row.exit_price,
+            exit_time=row.exit_time,
+            exit_cause=ExitCause(row.exit_cause) if row.exit_cause else ExitCause.UNKNOWN,
+            exit_cause_source=row.exit_cause_source or "",
+            realized_pnl=row.realized_pnl or 0.0,
+            realized_pnl_pct=row.realized_pnl_pct,
+            mae=row.mae or 0.0,
+            mfe=row.mfe or 0.0,
+            mae_pct=row.mae_pct or 0.0,
+            mfe_pct=row.mfe_pct or 0.0,
+            r_multiple=row.r_multiple,
+            duration_s=row.holding_time_s or 0.0,
+            thesis_id=row.thesis_id or "",
+            entry_context_id=row.context_id or "",
+            cause_class=TradeCause(row.cause_class) if row.cause_class else TradeCause.UNKNOWN,
+        )
+
+    async def get_outcomes(
+        self,
+        *,
+        limit: int = 100,
+        status: str | None = None,
+        source: str | None = None,
+        symbol: str | None = None,
+        strategy: str | None = None,
+    ) -> list[HistoricalOutcome]:
+        stmt = select(OutcomeRow).order_by(OutcomeRow.entry_time.desc()).limit(limit)
+        if status:
+            stmt = stmt.where(OutcomeRow.status == status)
+        if source:
+            stmt = stmt.where(OutcomeRow.source == source)
+        if symbol:
+            stmt = stmt.where(OutcomeRow.symbol == symbol)
+        if strategy:
+            stmt = stmt.where(OutcomeRow.strategy == strategy)
+        async with self._session_factory() as session:
+            rows = (await session.execute(stmt)).scalars().all()
+        return [self._row_to_outcome(row) for row in rows]
+
+    async def get_open_outcomes(self) -> list[HistoricalOutcome]:
+        stmt = (
+            select(OutcomeRow)
+            .where(OutcomeRow.status == OutcomeStatus.OPEN.value)
+            .order_by(OutcomeRow.entry_time.asc())
+        )
+        async with self._session_factory() as session:
+            rows = (await session.execute(stmt)).scalars().all()
+        return [self._row_to_outcome(row) for row in rows]
+
+    async def count_outcomes(self, *, status: str | None = None) -> int:
+        stmt = select(func.count()).select_from(OutcomeRow)
+        if status:
+            stmt = stmt.where(OutcomeRow.status == status)
+        async with self._session_factory() as session:
+            return int(await session.scalar(stmt) or 0)

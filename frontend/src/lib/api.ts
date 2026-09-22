@@ -218,6 +218,87 @@ export type Risk = {
   stats: Record<string, unknown>;
 };
 
+export type OutcomeSummary = {
+  open?: number;
+  completed?: number;
+  autonomous?: number;
+  external?: number;
+  backtest?: number;
+  by_exit_cause?: Record<string, number>;
+  mae_mfe_available?: number;
+  r_multiple_available?: number;
+  realized_pnl_available?: number;
+  with_partial_exits?: number;
+  last_completed?: {
+    trade_id?: string;
+    ticket?: string | null;
+    symbol?: string;
+    strategy?: string;
+    source?: string;
+    exit_cause?: string;
+    exit_cause_source?: string;
+    realized_pnl?: number;
+    r_multiple?: number | null;
+    exit_time?: string | null;
+  } | null;
+  recorder?: Record<string, unknown>;
+};
+
+export type LearningStats = {
+  reviews?: number;
+  lessons_proposed?: number;
+  memory_records?: number;
+  hypotheses?: number;
+  errors?: number;
+  last_error?: string | null;
+};
+
+export type EvidenceStatus = {
+  instrument?: string;
+  available_outcomes?: number;
+  usable_outcomes?: number;
+  open_outcomes?: number;
+  sample_size?: number;
+  evidence_quality?: string;
+  minimum_sample_required?: number;
+  min_sample_weak?: number;
+  min_sample_moderate?: number;
+  min_sample_strong?: number;
+  sources?: Record<string, number>;
+  backtest_excluded?: boolean;
+  thresholds_lowered?: boolean;
+};
+
+export type RecordedOutcome = {
+  trade_id: string;
+  status: string;
+  source: string;
+  instrument: string;
+  timeframe?: string;
+  strategy?: string;
+  side: string;
+  entry: number;
+  exit_price: number | null;
+  exit_time: string | null;
+  exit_cause: string;
+  exit_cause_source?: string;
+  realized_pnl: number;
+  r_multiple: number | null;
+  mae: number;
+  mfe: number;
+  duration_s: number;
+  broker_ticket: string | null;
+  evidence?: Record<string, unknown>;
+};
+
+export type OutcomesPayload = {
+  count: number;
+  summary: OutcomeSummary;
+  learning: LearningStats;
+  evidence: EvidenceStatus;
+  outcomes: RecordedOutcome[];
+};
+
 export const api = {
   runtime: () => request<Runtime>("/api/v1/runtime"),
   start: (symbol: string, timeframe: string) =>
@@ -233,6 +314,7 @@ export const api = {
   orders: async () => (await request<{ orders: Order[] }>("/api/v1/orders?limit=25")).orders,
   signals: async () => (await request<{ signals: Signal[] }>("/api/v1/signals?limit=25")).signals,
   risk: () => request<Risk>("/api/v1/risk/status"),
+  outcomes: (limit = 25) => request<OutcomesPayload>(`/api/v1/outcomes?limit=${limit}`),
   status: () => request<Record<string, unknown>>("/api/v1/status"),
   quote: (symbol: string) => request<{ symbol: string; bid: number; ask: number; spread_points: number }>(
     `/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`

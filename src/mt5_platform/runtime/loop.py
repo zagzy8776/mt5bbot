@@ -41,6 +41,7 @@ from mt5_platform.common.instruments import position_size_for_risk
 from mt5_platform.config import ManualPositionPolicy, Settings
 from mt5_platform.execution.base import ExecutionAdapter
 from mt5_platform.orders import OrderManager
+from mt5_platform.outcomes.exit_cause import cause_from_position_decision
 from mt5_platform.risk import RiskContext, RiskEngine
 from mt5_platform.runtime.feed import MarketFeed
 from mt5_platform.signals import SignalEngine
@@ -79,6 +80,7 @@ class TradingLoop:
         reconcile_every_s: float = 60.0,
         clock: Callable[[], float] = time.monotonic,
         intelligence: Any | None = None,
+        outcome_recorder: Any | None = None,
     ) -> None:
         self.settings, self.adapter, self.feed = settings, adapter, feed
         self.signal_engine, self.risk_engine = signal_engine, risk_engine
@@ -103,6 +105,15 @@ class TradingLoop:
         self._warmup_replay: dict[str, Any] = {}
         self.stats = LoopStats()
         self.intelligence = intelligence
+        # Passive outcome recorder: observes broker truth and freezes HistoricalOutcome records.
+        # It can never block, delay or alter an order (see outcomes/recorder.py).
+        self.outcome_recorder = outcome_recorder
+        self._symbol_tick: dict[str, float] = {}
+        # Timeframe of the configured feed (outcome attribution only; the loop is tf-agnostic).
+        self.timeframe = str(getattr(feed, "timeframe", "") or "")
+        # Entry context per (symbol, side): lets the recorder attribute a new position to the
+        # signal that opened it (strategy, thesis, evidence, risk decision).
+        self._entry_context: dict[tuple[str, str], dict[str, Any]] = {}
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -115,6 +126,8 @@ class TradingLoop:
         for symbol in self.symbols:
             bars = await self.feed.history(symbol, self.warmup_bars)
             spec = await self.adapter.get_instrument(symbol)
+            if spec is not None:
+                self._symbol_tick[symbol] = float(spec.tick_size)
             discarded = 0
             for bar in bars:  # replay history to prime the strategies: never traded, never stored
                 emitted = await self.signal_engine.on_market_data(
@@ -139,6 +152,33 @@ class TradingLoop:
                 last_seed.isoformat() if hasattr(last_seed, "isoformat") else None
             ),
         )
+        await self._start_outcome_recorder()
+
+    async def _start_outcome_recorder(self) -> None:
+        """Attach the outcome ledger to broker truth: reload incomplete records, then reconcile.
+
+        Never fatal: a recording problem must not stop the trading runtime.
+        """
+        recorder = self.outcome_recorder
+        if recorder is None:
+            return
+        try:
+            resumed = await recorder.resume()
+            positions = await self.adapter.get_positions()
+            await self._reconcile_outcomes(positions)
+            await recorder.flush()
+            self._stage(
+                "outcomes_resumed",
+                resumed=resumed,
+                open_positions=len(positions),
+                open_outcomes=len(recorder.open_outcomes()),
+            )
+        except Exception as exc:
+            self.stats.errors += 1
+            self._audit(
+                Severity.WARNING,
+                {"stage": "outcome_startup_failed", "error": str(exc)},
+            )
 
     async def run(self, stop: asyncio.Event) -> None:
         await self.start()
@@ -205,6 +245,8 @@ class TradingLoop:
             await self.order_manager.reconcile(self.adapter)
             await self._reconcile_positions()
             self._last_reconcile = self._clock()
+        if self.outcome_recorder is not None:
+            await self._track_outcomes()
 
         quote: Any | None = None
         new_bar_seen = False
@@ -348,7 +390,98 @@ class TradingLoop:
         self._discovered_tickets &= live
         for ticket in [t for t in self._position_fingerprints if t not in live]:
             del self._position_fingerprints[ticket]
+        await self._reconcile_outcomes(positions)
         return positions
+
+    async def _reconcile_outcomes(self, positions: list[PositionInfo]) -> None:
+        """Feed broker truth to the recorder and finalize records whose position is gone.
+
+        Closing-deal details (real money and the true exit price) are fetched only for tickets
+        that need finalizing, so the normal path costs nothing.
+        """
+        recorder = self.outcome_recorder
+        if recorder is None:
+            return
+        try:
+            live = {recorder.key_for(position) for position in positions}
+            known = {
+                (record.broker_ticket or record.trade_id) for record in recorder.all_outcomes()
+            }
+            for position in positions:
+                key = recorder.key_for(position)
+                if key in known:
+                    continue  # already tracked (reconcile() below refreshes excursions)
+                context = self._entry_context.get((position.symbol, position.side.value), {})
+                recorder.observe_position(
+                    position,
+                    tick_size=self._symbol_tick.get(position.symbol),
+                    strategy=str(context.get("strategy", "")),
+                    strategy_version=str(context.get("strategy_version", "")),
+                    timeframe=str(context.get("timeframe", self.timeframe)),
+                    signal=context.get("signal"),
+                    thesis=context.get("thesis"),
+                    risk_decision=context.get("risk_decision"),
+                    evidence=context.get("evidence"),
+                    entry_context_id=str(context.get("entry_context_id", "")),
+                    thesis_id=str(context.get("thesis_id", "")),
+                    order_id=str(context.get("order_id", "")),
+                )
+            orphans = [
+                record.broker_ticket or record.trade_id
+                for record in recorder.open_outcomes()
+                if (record.broker_ticket or record.trade_id) not in live
+            ]
+            details = await self._close_details_for(orphans)
+            recorder.reconcile(positions, tick_sizes=dict(self._symbol_tick), close_details=details)
+        except Exception as exc:
+            self.stats.errors += 1
+            self._audit(
+                Severity.WARNING,
+                {"stage": "outcome_reconcile_failed", "error": str(exc)},
+            )
+
+    async def _close_details_for(self, tickets: list[str]) -> dict[str, dict[str, Any]]:
+        """Ask the adapter for closing-deal details (best effort, bounded by open records)."""
+        getter = getattr(self.adapter, "position_close_details", None)
+        if not callable(getter) or not tickets:
+            return {}
+        details: dict[str, dict[str, Any]] = {}
+        for ticket in tickets:
+            try:
+                detail = await getter(ticket)
+            except Exception:
+                detail = None
+            if detail:
+                details[ticket] = dict(detail)
+        return details
+
+    async def _track_outcomes(self) -> None:
+        """Track excursions from live quotes, then persist whatever the recorder queued."""
+        recorder = self.outcome_recorder
+        if recorder is None:
+            return
+        try:
+            tracked = recorder.open_outcomes()
+            if tracked:
+                for symbol in {record.instrument for record in tracked}:
+                    quote = await self.feed.quote(symbol)
+                    bid = getattr(quote, "bid", None)
+                    ask = getattr(quote, "ask", None)
+                    price = (bid + ask) / 2.0 if bid and ask else bid
+                    if price is None:
+                        continue
+                    for record in tracked:
+                        if record.instrument == symbol:
+                            recorder.observe_price(
+                                record.broker_ticket or record.trade_id, price
+                            )
+            await recorder.flush()
+        except Exception as exc:
+            self.stats.errors += 1  # recording never breaks trading
+            self._audit(
+                Severity.WARNING,
+                {"stage": "outcome_track_failed", "error": str(exc)},
+            )
 
     async def _run_intelligence(self, quote: Any) -> None:
         """Feed the tick, emit thesis signals, then manage the open positions.
@@ -455,8 +588,99 @@ class TradingLoop:
             position,
             {**context, "risk_approved": True, "execution": record.model_dump(mode="json")},
         )
+        self._record_position_decision(position, action, decision, record)
         if action in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
             self.intelligence.stats.position_exits += 1
+
+    def _record_position_decision(
+        self,
+        position: PositionInfo,
+        action: PositionDecision,
+        decision: Any,
+        execution: Any,
+    ) -> None:
+        """Tell the recorder what this runtime just did, with an explicit exit cause.
+
+        The cause is never inferred from profit/loss: it comes from the decision that performed the
+        exit. Realized money is taken from the execution response, or from the broker's closing
+        deals when the response does not carry it.
+        """
+        recorder = self.outcome_recorder
+        if recorder is None:
+            return
+        try:
+            key = recorder.key_for(position)
+            response = dict(getattr(execution, "mt5_response", None) or {})
+            realized = response.get("realized_pnl")
+            deal = str(response.get("deal") or "") or None
+            cause, cause_source = cause_from_position_decision(decision)
+            reason = decision.reason or "position_manager"
+            if action is PositionDecision.MODIFY:
+                recorder.record_modification(
+                    key,
+                    stop_loss=getattr(execution, "stop_loss", None) or position.stop_loss,
+                    take_profit=getattr(execution, "take_profit", None) or position.take_profit,
+                    reason=reason,
+                )
+            elif action is PositionDecision.REDUCE:
+                recorder.record_partial_close(
+                    key,
+                    volume=float(getattr(execution, "requested_volume", 0.0) or 0.0),
+                    price=getattr(execution, "execution_price", None) or position.current_price,
+                    realized_pnl=float(realized) if realized is not None else None,
+                    cause=cause,
+                    reason=reason,
+                    broker_deal=deal,
+                )
+            elif action in (PositionDecision.EXIT, PositionDecision.EMERGENCY_EXIT):
+                recorder.finalize(
+                    key,
+                    exit_price=(
+                        getattr(execution, "execution_price", None) or position.current_price
+                    ),
+                    cause=cause,
+                    cause_source=cause_source,
+                    realized_pnl=float(realized) if realized is not None else None,
+                    reason=reason,
+                    broker_deal=deal,
+                )
+        except Exception as exc:
+            self.stats.errors += 1
+            self._audit(
+                Severity.WARNING,
+                {"stage": "outcome_record_decision_failed", "error": str(exc)},
+            )
+
+    def _remember_entry_context(
+        self, signal: StrategySignal, record: ExecutionRecord, decision: Any
+    ) -> None:
+        """Keep the entry context so the recorder can attribute a new position to its signal.
+
+        Keyed by (symbol, side): broker truth only tells us symbol/side, and the newest filled
+        entry for that pair is the position we just opened.
+        """
+        if record.final_status not in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED):
+            return
+        metadata = dict(signal.metadata or {})
+        thesis = metadata.get("thesis") if isinstance(metadata.get("thesis"), dict) else {}
+        self._entry_context[(signal.symbol, signal.direction.value)] = {
+            "strategy": signal.strategy_name,
+            "strategy_version": str(metadata.get("strategy_version", "")),
+            "timeframe": str(metadata.get("timeframe", self.timeframe)),
+            "signal": signal,
+            "thesis": thesis or {},
+            "thesis_id": str(metadata.get("thesis_id", "")),
+            "entry_context_id": str(metadata.get("context_id", "")),
+            "order_id": record.order_id or "",
+            "risk_decision": {
+                "approved": bool(decision.approved),
+                "reasons": list(decision.reasons),
+            },
+            "evidence": {
+                "evidence_quality": str(metadata.get("evidence_quality", "")),
+                "signal_confidence": signal.confidence,
+            },
+        }
 
     @staticmethod
     def _signal_ref(signal: StrategySignal) -> dict[str, Any]:
@@ -580,6 +804,7 @@ class TradingLoop:
             self.stats.orders_sent += 1
             # Stages E/F/G: risk approved, broker was asked, outcome recorded.
             self._stage_order(signal, record, decision)
+            self._remember_entry_context(signal, record, decision)
         elif not decision.approved:
             for reason in decision.reasons:
                 self.stats.skipped[f"risk:{reason}"] += 1

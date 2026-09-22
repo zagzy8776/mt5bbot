@@ -150,6 +150,66 @@ class TradeCause(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ExitCause(StrEnum):
+    """Deterministic taxonomy for why a position was closed.
+
+    Never derived from profit/loss. The component that performs the exit states the cause, or an
+    explicit level match (exit price vs the recorded stop/target) is recorded together with an
+    ``exit_cause_source`` marker. Nothing is invented: an unknowable external close stays UNKNOWN.
+    """
+
+    STOP_LOSS = "stop_loss"
+    TAKE_PROFIT = "take_profit"
+    TRAILING_STOP = "trailing_stop"
+    BREAK_EVEN = "break_even"
+    TIME_STOP = "time_stop"
+    THESIS_INVALIDATION = "thesis_invalidation"
+    OPPOSITE_SIGNAL = "opposite_signal"
+    VOLATILITY_EXIT = "volatility_exit"
+    PARTIAL_EXIT = "partial_exit"
+    EMERGENCY_EXIT = "emergency_exit"
+    KILL_SWITCH = "kill_switch"
+    MANUAL = "manual"
+    BROKER_CLOSE = "broker_close"
+    UNKNOWN = "unknown"
+
+
+def exit_cause_to_trade_cause(cause: ExitCause) -> TradeCause:
+    """Map the detailed exit taxonomy onto the coarser ``TradeCause`` used by reviews."""
+    mapping = {
+        ExitCause.STOP_LOSS: TradeCause.STOP_HIT,
+        ExitCause.TRAILING_STOP: TradeCause.STOP_HIT,
+        ExitCause.BREAK_EVEN: TradeCause.STOP_HIT,
+        ExitCause.TAKE_PROFIT: TradeCause.TARGET_HIT,
+        ExitCause.TIME_STOP: TradeCause.TIME_EXIT,
+        ExitCause.THESIS_INVALIDATION: TradeCause.REGIME_CHANGE,
+        ExitCause.OPPOSITE_SIGNAL: TradeCause.REGIME_CHANGE,
+        ExitCause.VOLATILITY_EXIT: TradeCause.REGIME_CHANGE,
+        ExitCause.EMERGENCY_EXIT: TradeCause.MANUAL,
+        ExitCause.KILL_SWITCH: TradeCause.KILL_SWITCH,
+        ExitCause.MANUAL: TradeCause.MANUAL,
+        ExitCause.BROKER_CLOSE: TradeCause.MANUAL,
+        ExitCause.PARTIAL_EXIT: TradeCause.UNKNOWN,
+        ExitCause.UNKNOWN: TradeCause.UNKNOWN,
+    }
+    return mapping.get(cause, TradeCause.UNKNOWN)
+
+
+class OutcomeSource(StrEnum):
+    """Which population an outcome belongs to. These must never be mixed in statistics."""
+
+    AUTONOMOUS = "autonomous"  # this bot opened it (its own magic) and closed it
+    EXTERNAL = "external"  # a manual/external position the bot only observed
+    BACKTEST = "backtest"  # produced by the research/replay engine
+
+
+class OutcomeStatus(StrEnum):
+    """Lifecycle of a recorded outcome."""
+
+    OPEN = "open"
+    CLOSED = "closed"
+
+
 class PositionDecision(StrEnum):
     """Position management decision.
 

@@ -634,6 +634,48 @@ class MT5ExecutionAdapter(ExecutionAdapter):
                 )
             return record
 
+    async def position_close_details(self, ticket: str) -> dict[str, Any] | None:
+        """Broker truth for a closed position: closing deals give real money and the exit price.
+
+        Read-only and best effort: returns None when the broker has no closing deal for the ticket,
+        so the recorder records "unavailable" instead of an invented number.
+        """
+        self._require_connected()
+        client = self._mt5()
+        now = datetime.now(UTC)
+        deals = (
+            await self._call("history_deals_get", now - timedelta(days=30), now + timedelta(days=1))
+            or []
+        )
+        outs = [
+            d
+            for d in deals
+            if getattr(d, "entry", None) == client.DEAL_ENTRY_OUT
+            and int(getattr(d, "position_id", 0) or 0) == int(ticket)
+        ]
+        volume = sum(float(d.volume) for d in outs)
+        if not outs or volume <= 0:
+            return None
+        profit = sum(float(d.profit) for d in outs)
+        commission = sum(float(d.commission) for d in outs)
+        swap = sum(float(d.swap) for d in outs)
+        fee = sum(float(getattr(d, "fee", 0.0)) for d in outs)
+        close_times = [int(d.time) for d in outs if getattr(d, "time", None)]
+        return {
+            "exit_price": sum(float(d.price) * float(d.volume) for d in outs) / volume,
+            "volume": volume,
+            "profit": profit,
+            # Net realized money, consistent with this adapter's daily-P/L calculation.
+            "realized_pnl": profit + commission + swap + fee,
+            "commission": commission,
+            "swap": swap,
+            "closed_at": (
+                datetime.fromtimestamp(max(close_times), tz=UTC) if close_times else None
+            ),
+            "deals": [str(getattr(d, "ticket", "")) for d in outs],
+            "source": "broker_history",
+        }
+
     async def broker_order_states(self, order_ids: list[str]) -> dict[str, str]:
         """Broker truth for our orders, found via the order tag in the MT5 comment."""
         self._require_connected()

@@ -12,6 +12,7 @@ from mt5_platform.common.events import (
     OrderRequest,
     StrategySignal,
 )
+from mt5_platform.historical.models import HistoricalOutcome
 from mt5_platform.storage.base import MarketDataStore
 from mt5_platform.storage.ohlc import Candle, aggregate_ohlc
 
@@ -28,6 +29,40 @@ class InMemoryMarketDataStore(MarketDataStore):
         self.audits: list[AuditEvent] = []
         self.candles: list[Candle] = []
         self.positions: list[dict] = []
+        self.outcomes: list[HistoricalOutcome] = []
+
+    async def write_outcome(self, outcome: HistoricalOutcome) -> None:
+        """Upsert by trade_id so reconciliation can never duplicate a record."""
+        for index, existing in enumerate(self.outcomes):
+            if existing.trade_id == outcome.trade_id:
+                self.outcomes[index] = outcome
+                return
+        self.outcomes.append(outcome)
+
+    async def get_outcomes(
+        self,
+        *,
+        limit: int = 100,
+        status: str | None = None,
+        source: str | None = None,
+        symbol: str | None = None,
+        strategy: str | None = None,
+    ) -> list[HistoricalOutcome]:
+        rows = list(self.outcomes)
+        if status:
+            rows = [o for o in rows if o.status.value == status]
+        if source:
+            rows = [o for o in rows if o.source.value == source]
+        if symbol:
+            rows = [o for o in rows if o.instrument.lower() == symbol.lower()]
+        if strategy:
+            rows = [o for o in rows if o.strategy == strategy]
+        return sorted(rows, key=lambda o: o.timestamp, reverse=True)[:limit]
+
+    async def count_outcomes(self, *, status: str | None = None) -> int:
+        if status is None:
+            return len(self.outcomes)
+        return sum(1 for o in self.outcomes if o.status.value == status)
 
     async def write_tick(self, event: MarketDataEvent) -> None:
         self.ticks.append(event)

@@ -80,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         signal_engine=signal_engine,
         risk_engine=risk_engine,
         order_manager=order_manager,
+        store=store,
     )
 
     @asynccontextmanager
@@ -219,6 +220,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/v1/runtime/stats")
     async def runtime_stats() -> dict:
         return runtime_service.snapshot.get("stats", {})
+
+    @app.get("/api/v1/outcomes")
+    async def outcomes(limit: int = 100, status: str | None = None) -> dict:
+        """Recorded trade outcomes plus learning and evidence status.
+
+        Populations stay separate: autonomous (this bot), external/manual and backtest are never
+        mixed into the same statistics.
+        """
+        return await runtime_service.outcomes_payload(limit=limit, status=status)
 
     @app.post("/api/v1/runtime/start")
     async def runtime_start(req: RuntimeControlRequest | None = None) -> dict:

@@ -28,8 +28,8 @@ class TradeOutcome(BaseModel):
     direction: str  # "buy" | "sell"
     entry: float
     exit: float | None = None
-    stop_loss: float
-    take_profit: float
+    stop_loss: float | None = None
+    take_profit: float | None = None
     realized_pnl: float = 0.0
     return_pct: float = 0.0
     mae: float = 0.0
