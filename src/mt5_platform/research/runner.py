@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -13,10 +14,37 @@ from mt5_platform.backtest.engine import BacktestConfig, run_backtest
 from mt5_platform.backtest.metrics import compute_metrics
 from mt5_platform.backtest.research import split_bars
 from mt5_platform.common.instruments import InstrumentSpec
+from mt5_platform.research.manifest import (
+    HOLDOUT_FRACTION,
+    HypothesisRecord,
+    code_commit,
+    dataset_digest,
+    family_id_for,
+    holdout_state,
+    record_holdout_confirmation,
+    slug,
+    split_dataset,
+    verify_manifest_dataset,
+    write_manifest,
+)
+from mt5_platform.research.manifest import (
+    build_manifest as build_research_manifest,
+)
+from mt5_platform.research.manifest import (
+    read_manifest as read_research_manifest,
+)
+from mt5_platform.research.methodology import (
+    dependence_diagnostics,
+    power_analysis,
+    test_description,
+    trades_needed_for_edge,
+)
 from mt5_platform.research.multiplicity import (
     DEFAULT_ALPHA,
+    DEFAULT_MIN_TRADES,
     MultiplicityReport,
     apply_multiplicity,
+    sensitivity,
     sign_flip_permutation,
 )
 from mt5_platform.research.validation import (
@@ -66,6 +94,14 @@ class CandidateReport:
     multiplicity_survivor: bool | None = None
     multiplicity_method: str = ""
     n_permutations: int = 0
+    # Hypothesis identity (see research/manifest.py) so the searched family is auditable.
+    candidate_id: str = ""
+    family_id: str = ""
+    hypothesis_version: str = "1"
+    regime_definition: str = ""
+    # Dependence / power diagnostics (see research/methodology.py).
+    dependence: dict = field(default_factory=dict)
+    power: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -80,6 +116,10 @@ def run_candidate(
     oos_fraction: float = 0.3,
     permutations: int = 2000,
     seed: int = 42,
+    family_id: str = "",
+    hypothesis_version: str = "1",
+    regime_definition: str = "",
+    min_trades: int = DEFAULT_MIN_TRADES,
 ) -> CandidateReport:
     from mt5_platform.strategy.registry import create_strategy
 
@@ -93,6 +133,10 @@ def run_candidate(
             bars[0].time.strftime("%Y-%m-%d"),
             bars[-1].time.strftime("%Y-%m-%d"),
         ),
+        candidate_id=slug(name),
+        family_id=family_id,
+        hypothesis_version=hypothesis_version,
+        regime_definition=regime_definition,
     )
     if len(bars) < 500:
         report.rejection_reasons.append(f"insufficient data: {len(bars)} bars")
@@ -128,6 +172,12 @@ def run_candidate(
     report.oos_mean_r = permutation.observed_mean
     report.p_value = permutation.p_value
     report.n_permutations = permutation.n_permutations
+    # Raw trade count is not the sample size: overlap, clustering and serial dependence decide how
+    # much independent information this window actually carries.
+    report.dependence = dependence_diagnostics(
+        [(trade.opened_at, trade.closed_at, trade.r_multiple) for trade in oos_result.trades],
+        min_trades=min_trades,
+    ).to_dict()
     reasons: list[str] = []
     if report.is_trades < 30:
         reasons.append(f"IS trades={report.is_trades}<30")
@@ -191,6 +241,28 @@ def run_candidate(
     return report
 
 
+def apply_dependence_gate(
+    results: list[CandidateReport], *, min_trades: int = DEFAULT_MIN_TRADES
+) -> list[str]:
+    """Refuse to treat a p-value as evidence when the *effective* sample cannot support the test.
+
+    Overlapping trades and serial dependence mean the raw count overstates the information in the
+    window. A candidate whose effective sample is below the test minimum keeps its diagnostics but
+    cannot be validated: its p-value would be optimistic, not conservative.
+    """
+    flagged: list[str] = []
+    for candidate in results:
+        n_eff = float(candidate.dependence.get("n_effective") or 0.0)
+        if candidate.validation_passed and n_eff < min_trades:
+            candidate.validation_passed = False
+            candidate.rejection_reasons = [
+                *candidate.rejection_reasons,
+                f"insufficient_effective_sample:n_eff={n_eff:.1f}<{min_trades}",
+            ]
+            flagged.append(candidate.name)
+    return flagged
+
+
 def apply_multiplicity_pass(
     results: list[CandidateReport],
     *,
@@ -200,7 +272,9 @@ def apply_multiplicity_pass(
     """Correct the family of candidates and fold the verdict into ``validation_passed``.
 
     A candidate that passed every other gate but is not a multiplicity survivor is marked as failed
-    with an explicit reason, so no downstream reader can accidentally treat it as validated.
+    with an explicit reason, so no downstream reader can accidentally treat it as validated. Each
+    candidate also gets a power block: the smallest edge this sample could have detected at the
+    family's smallest-rank threshold. Failing to reject the null is not evidence of absence.
     """
     report = apply_multiplicity(
         {candidate.name: candidate.p_value for candidate in results},
@@ -208,10 +282,13 @@ def apply_multiplicity_pass(
         alpha=alpha,
     )
     survivors = set(report.survivors)
+    alpha_rank1 = report.alpha / max(report.tested, 1)
     for candidate in results:
         candidate.multiplicity_method = report.method
         candidate.p_value_adjusted = report.adjusted.get(candidate.name)
         candidate.multiplicity_survivor = candidate.name in survivors
+        n_eff = float(candidate.dependence.get("n_effective") or candidate.oos_trades or 0.0)
+        candidate.power = power_analysis(n_effective=n_eff, alpha_rank1=alpha_rank1).to_dict()
         if candidate.validation_passed and candidate.name not in survivors:
             adjusted = candidate.p_value_adjusted
             detail = "no_permitted_p_value" if adjusted is None else f"p_adj={adjusted:.3f}"
@@ -239,7 +316,34 @@ def main(argv: list[str] | None = None):
     parser.add_argument(
         "--method",
         default="benjamini-hochberg",
-        choices=("benjamini-hochberg", "bonferroni"),
+        choices=("benjamini-hochberg", "benjamini-yekutieli", "bonferroni"),
+        help="primary correction; the others are always reported as labelled sensitivities",
+    )
+    parser.add_argument("--symbol", default="XAUUSDm")
+    parser.add_argument("--timeframe", default="M15")
+    parser.add_argument("--family-id", default="", help="identifier of the search family")
+    parser.add_argument("--hypothesis-version", default="1")
+    parser.add_argument(
+        "--holdout-fraction",
+        type=float,
+        default=HOLDOUT_FRACTION,
+        help="most recent fraction of bars sealed as the final holdout (0 disables sealing)",
+    )
+    parser.add_argument(
+        "--manifest",
+        default="",
+        help="re-run the experiment described by a manifest (verifies the dataset hash first)",
+    )
+    parser.add_argument("--manifest-out", default=r"C:\mt5bbot\data\research_manifest.json")
+    parser.add_argument(
+        "--confirm-holdout",
+        action="store_true",
+        help="run the same candidates ONCE on the sealed holdout and record the confirmation",
+    )
+    parser.add_argument(
+        "--force-holdout",
+        action="store_true",
+        help="overwrite an existing holdout confirmation (only when the previous record is void)",
     )
     parser.add_argument(
         "--only",
@@ -251,25 +355,73 @@ def main(argv: list[str] | None = None):
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
 
+    # Reproducibility: a manifest defines the experiment, and the data must still match its hash.
+    loaded_manifest = None
+    if args.manifest:
+        loaded_manifest = read_research_manifest(args.manifest)
+        args.csv = loaded_manifest.dataset_path or args.csv
+        args.symbol = loaded_manifest.symbol or args.symbol
+        args.timeframe = loaded_manifest.timeframe or args.timeframe
+        args.family_id = loaded_manifest.family_id or args.family_id
+        args.hypothesis_version = loaded_manifest.hypothesis_version or args.hypothesis_version
+        args.alpha = loaded_manifest.correction.get("alpha") or args.alpha
+        args.method = loaded_manifest.correction.get("primary") or args.method
+        args.permutations = loaded_manifest.statistics.get("permutations") or args.permutations
+        args.seed = loaded_manifest.statistics.get("seed") or args.seed
+        args.holdout_fraction = loaded_manifest.holdout.get(
+            "holdout_fraction", args.holdout_fraction
+        )
+        print(f"loaded manifest: {args.manifest}")
+
     csv_path = Path(args.csv)
     if not csv_path.exists():
         print(f"ERROR: {csv_path} not found. Run fetch-mt5 first.")
         return 1
-    report = load_csv(csv_path)
-    bars = report.bars
-    print(f"Loaded {len(bars)} bars: {bars[0].time} to {bars[-1].time}")
+    loaded = load_csv(csv_path)
+    all_bars = loaded.bars
+    print(f"Loaded {len(all_bars)} bars: {all_bars[0].time} to {all_bars[-1].time}")
+
+    if loaded_manifest is not None:
+        matches, detail = verify_manifest_dataset(loaded_manifest, all_bars)
+        print(f"manifest dataset check: {detail}")
+        if not matches:
+            return 1
+
+    # DISCOVERY + VALIDATION are for selection; the most recent slice is sealed, never selected on.
+    bars, split, holdout_bars = split_dataset(all_bars, holdout_fraction=args.holdout_fraction)
+    print(
+        f"Research window: {len(bars)} bars "
+        f"(discovery {split.discovery_bars} / validation {split.validation_bars}); "
+        f"sealed holdout: {split.holdout_bars} bars "
+        f"{split.holdout_start[:10]}..{split.holdout_end[:10]}"
+    )
+
+    commit = code_commit()
+    family_id = args.family_id or family_id_for(
+        symbol=args.symbol,
+        timeframe=args.timeframe,
+        hypothesis_version=args.hypothesis_version,
+        code_commit=commit,
+    )
+    costs = {"spread_price": 0.26, "slippage_price": 0.05, "commission_per_lot": 0.0}
+    backtest_settings = {
+        "starting_balance": 100_000.0,
+        "risk_pct": 1.0,
+        "max_volume": 0.10,
+        "max_exposure_pct": 300.0,
+    }
     spec = InstrumentSpec(
         "XAUUSDm", 100.0, 0.001, 0.1, volume_min=0.01, volume_step=0.01, digits=3
     )
     config = BacktestConfig(
-        symbol="XAUUSDm",
+        symbol=args.symbol,
         spec=spec,
-        starting_balance=100_000.0,
-        risk_pct=1.0,
-        max_volume=0.10,
-        default_spread_price=0.26,
-        slippage_price=0.05,
-        max_exposure_pct=300.0,
+        starting_balance=backtest_settings["starting_balance"],
+        risk_pct=backtest_settings["risk_pct"],
+        max_volume=backtest_settings["max_volume"],
+        default_spread_price=costs["spread_price"],
+        slippage_price=costs["slippage_price"],
+        max_exposure_pct=backtest_settings["max_exposure_pct"],
     )
     candidates = [
         # A. Trend following / breakout (Donchian-style)
@@ -322,6 +474,8 @@ def main(argv: list[str] | None = None):
             config,
             permutations=args.permutations,
             seed=args.seed,
+            family_id=family_id,
+            hypothesis_version=args.hypothesis_version,
         )
         results.append(r)
         s = "PASS" if r.validation_passed else "FAIL"
@@ -342,46 +496,203 @@ def main(argv: list[str] | None = None):
         print(
             f"  SENS: spread_stable={r.spread_stable} param_stable={r.param_stable}"
         )
-        print(f"  SIG : oos_mean_r={r.oos_mean_r:+.4f} p={r.p_value}")
+        print(
+            f"  SIG : oos_mean_r={r.oos_mean_r:+.4f} p={r.p_value} "
+            f"n_eff={r.dependence.get('n_effective', 0):.1f}/{r.dependence.get('n_raw', 0)}"
+        )
+        if r.dependence.get("flags"):
+            print(f"  DEP : {'; '.join(r.dependence['flags'])}")
         print(
             f"  [{s}] "
             f"{'; '.join(r.rejection_reasons) if r.rejection_reasons else 'ALL OK'}"
         )
         print()
 
-    # Multiplicity control runs over the whole family before anything is called validated: picking
-    # the best of N candidates is exactly how a search produces apparent edges from noise.
+    # A p-value the effective sample cannot support is not evidence: gate on dependence first, then
+    # correct the family. Both steps only ever remove candidates.
+    effective_flagged = apply_dependence_gate(results)
+    if effective_flagged:
+        print(f"EFFECTIVE SAMPLE: {', '.join(effective_flagged)} below the test minimum")
     multiplicity = apply_multiplicity_pass(results, method=args.method, alpha=args.alpha)
+    sens = sensitivity({r.name: r.p_value for r in results}, alpha=args.alpha)
     passed = sum(1 for r in results if r.validation_passed)
     print(f"{'='*70}")
     print(
-        f"MULTIPLICITY ({multiplicity.method}, alpha={multiplicity.alpha}): "
+        f"MULTIPLICITY primary={multiplicity.method}, alpha={multiplicity.alpha}: "
         f"{multiplicity.tested} testable, {len(multiplicity.survivors)} survivor(s)"
     )
     for name in multiplicity.survivors:
-        print(f"  SURVIVOR {name}: p={multiplicity.raw_p_values[name]:.4f} "
-              f"p_adj={multiplicity.adjusted[name]:.4f}")
+        print(
+            f"  SURVIVOR {name}: p={multiplicity.raw_p_values[name]:.4f} "
+            f"p_adj={multiplicity.adjusted[name]:.4f}"
+        )
     if multiplicity.untestable:
         print(f"  not testable (kept out of the family): {', '.join(multiplicity.untestable)}")
+    print("  sensitivity (reported, never used to pick a friendlier answer):")
+    for method, method_report in sens.items():
+        print(
+            f"    {method:22s} alpha={method_report.alpha:.3f} "
+            f"survivors={len(method_report.survivors)}"
+        )
     print(f"{'='*70}")
     print(f"RESULTS: {passed}/{len(results)} validated after multiplicity control")
     print(f"{'='*70}")
+
+    alpha_rank1 = multiplicity.alpha / max(multiplicity.tested, 1)
+    n_eff_values = sorted(float(r.dependence.get("n_effective") or 0.0) for r in results)
+    median_n_eff = n_eff_values[len(n_eff_values) // 2] if n_eff_values else 0.0
+    conclusion = {
+        "verdict": "survivors_found" if passed else "no_candidate_survived",
+        "validated": [r.name for r in results if r.validation_passed],
+        "raw_gate_survivors": [
+            r.name
+            for r in results
+            if any(reason.startswith("fails_multiplicity") for reason in r.rejection_reasons)
+        ],
+        "effective_sample_rejections": effective_flagged,
+        "primary_correction": {"method": multiplicity.method, "alpha": multiplicity.alpha},
+        "survivors_by_method": {name: rep.survivors for name, rep in sens.items()},
+        "alpha_rank1": alpha_rank1,
+        "median_n_effective": median_n_eff,
+        "smallest_detectable_edge_r": power_analysis(
+            n_effective=median_n_eff or 1.0, alpha_rank1=alpha_rank1
+        ).smallest_detectable_edge_r,
+        "trades_needed_for_0.05r_edge": trades_needed_for_edge(0.05, alpha_rank1=alpha_rank1),
+        "interpretation": (
+            "no candidate survived the family-corrected threshold. This is a failure to reject the "
+            "null at the multiplicity-adjusted threshold, NOT evidence that no edge exists: the "
+            "power block reports the smallest edge this sample could have detected."
+            if not passed
+            else "at least one candidate survived; it still has to earn forward evidence before it "
+            "can be considered for configuration"
+        ),
+    }
+    family = {
+        "family_id": family_id,
+        "hypothesis_version": args.hypothesis_version,
+        "symbol": args.symbol,
+        "timeframe": args.timeframe,
+        "candidate_count": len(results),
+        "regime_definition": "",
+        "candidates": [
+            HypothesisRecord(
+                candidate_id=r.candidate_id,
+                family_id=family_id,
+                label=r.name,
+                symbol=args.symbol,
+                timeframe=args.timeframe,
+                regime_definition=r.regime_definition,
+                parameter_set=r.params,
+                hypothesis_version=args.hypothesis_version,
+            ).to_dict()
+            for r in results
+        ],
+    }
+    holdout_block = {
+        **split.to_dict(),
+        "confirmations_on_record": len(
+            [
+                row
+                for row in holdout_state()["confirmations"]
+                if row.get("family_id") == family_id
+            ]
+        ),
+    }
+    if args.confirm_holdout:
+        if not holdout_bars:
+            print("holdout confirmation skipped: this dataset has no sealed holdout")
+        else:
+            print("running the sealed holdout ONCE (this is evidence about the process)...")
+            selected = [
+                (name, strat, params)
+                for name, strat, params in candidates
+                if not args.only or any(token.lower() in name.lower() for token in args.only)
+            ]
+            holdout_results = [
+                run_candidate(
+                    name,
+                    strat,
+                    params,
+                    holdout_bars,
+                    config,
+                    permutations=args.permutations,
+                    seed=args.seed,
+                    family_id=family_id,
+                    hypothesis_version=args.hypothesis_version,
+                )
+                for name, strat, params in selected
+            ]
+            survivors = [r.name for r in holdout_results if r.validation_passed]
+            record = record_holdout_confirmation(
+                family_id=family_id,
+                dataset_sha256=dataset_digest(all_bars),
+                holdout_sha256=split.holdout_sha256,
+                survivors=survivors,
+                results={
+                    r.name: {
+                        "oos_mean_r": r.oos_mean_r,
+                        "oos_trades": r.oos_trades,
+                        "validation_passed": r.validation_passed,
+                    }
+                    for r in holdout_results
+                },
+                force=args.force_holdout,
+            )
+            holdout_block["confirmation"] = record
+            print(f"holdout confirmation recorded: {len(survivors)} survivor(s)")
+
+    statistics = test_description(
+        permutations=args.permutations, seed=args.seed, min_trades=DEFAULT_MIN_TRADES
+    )
+    statistics["effective_sample_gate"] = DEFAULT_MIN_TRADES
+    manifest = build_research_manifest(
+        dataset_path=csv_path,
+        all_bars=all_bars,
+        research_bars=bars,
+        symbol=args.symbol,
+        timeframe=args.timeframe,
+        costs=costs,
+        backtest=backtest_settings,
+        family=family,
+        statistics=statistics,
+        correction={
+            "primary": multiplicity.method,
+            "alpha": args.alpha,
+            "sensitivity": {
+                name: {"alpha": rep.alpha, "survivors": rep.survivors}
+                for name, rep in sens.items()
+            },
+        },
+        holdout=holdout_block,
+    )
     out = Path(args.out)
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
-        "symbol": "XAUUSDm",
-        "timeframe": "M15",
-        "data_range": [
-            bars[0].time.isoformat(),
-            bars[-1].time.isoformat(),
-        ],
+        "symbol": args.symbol,
+        "timeframe": args.timeframe,
+        "data_range": [bars[0].time.isoformat(), bars[-1].time.isoformat()],
         "total_bars": len(bars),
         "passed": passed,
+        "methodology": statistics,
         "multiplicity": multiplicity.to_dict(),
+        "sensitivity": {name: rep.to_dict() for name, rep in sens.items()},
+        "family": family,
+        "holdout": holdout_block,
+        "manifest": manifest.to_dict(),
+        "conclusion": conclusion,
         "candidates": [r.to_dict() for r in results],
     }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+    payload["report_sha256"] = digest
+    manifest.report_sha256 = digest
+    payload["manifest"] = manifest.to_dict()
     out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    manifest_path = write_manifest(manifest, args.manifest_out)
     print(f"Report: {out}")
+    print(f"Manifest: {manifest_path}")
+    print(f"Conclusion: {conclusion['interpretation']}")
     return 0 if passed > 0 else 1
 
 

@@ -16,6 +16,7 @@ from mt5_platform.config import Settings, get_settings
 from mt5_platform.execution import build_execution_adapter
 from mt5_platform.observability import build_health_payload, configure_logging
 from mt5_platform.orders import OrderManager
+from mt5_platform.research.report import build_research_status
 from mt5_platform.risk import RiskContext, RiskEngine
 from mt5_platform.runtime import BotControlService
 from mt5_platform.signals import build_signal_engine
@@ -362,6 +363,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/v1/strategies")
     async def list_strategies() -> dict:
         return {"strategies": signal_engine.list_strategies()}
+
+    @app.get("/api/v1/research/status")
+    async def research_status() -> dict:
+        """Research verdict, sealed-holdout state and forward evidence, in one place."""
+        snapshot = runtime_service.snapshot
+        attribution = (snapshot.get("stats") or {}).get("attribution") or {}
+        return build_research_status(
+            report_path=settings.research_report_path,
+            manifest_path=settings.research_manifest_path,
+            holdout_path=settings.research_holdout_path,
+            runtime_state=str(snapshot.get("state", "") or ""),
+            live_trading_enabled=settings.live_trading_enabled,
+            trading_mode=settings.trading_mode.value,
+            attribution=attribution,
+        )
 
     @app.get("/api/v1/strategies/available")
     async def list_available_strategies() -> dict:

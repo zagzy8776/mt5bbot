@@ -10,7 +10,9 @@ from mt5_platform.research.multiplicity import (
     DEFAULT_ALPHA,
     apply_multiplicity,
     benjamini_hochberg,
+    benjamini_yekutieli,
     bonferroni,
+    sensitivity,
     sign_flip_permutation,
 )
 
@@ -117,6 +119,29 @@ def test_a_candidate_without_a_p_value_can_never_survive() -> None:
 def test_empty_family_is_handled() -> None:
     report = apply_multiplicity({}, alpha=0.05)
     assert report.tested == 0 and report.survivors == [] and report.adjusted == {}
+
+
+def test_benjamini_yekutieli_is_a_labelled_sensitivity_not_a_replacement() -> None:
+    p_values = {"a": 0.001, "b": 0.01, "c": 0.03, "d": 0.2, "e": 0.6}
+    bh = benjamini_hochberg(p_values, alpha=0.05)
+    by = benjamini_yekutieli(p_values, alpha=0.05)
+
+    assert by.method == "benjamini-yekutieli" and bh.method == "benjamini-hochberg"
+    harmonic = 1.0 + 0.5 + 1 / 3 + 0.25 + 0.2  # H_5
+    assert by.adjusted["a"] == pytest.approx(0.001 * 5 * harmonic, rel=1e-9)
+    for name in p_values:
+        assert by.adjusted[name] >= bh.adjusted[name] - 1e-12
+    assert set(by.survivors) <= set(bh.survivors)
+    # leaving the primary method alone is the point: BH still answers here
+    assert "a" in bh.survivors
+
+
+def test_sensitivity_reports_all_three_corrections_over_the_same_family() -> None:
+    reports = sensitivity({"a": 0.0001, "b": None, "c": 0.5}, alpha=0.10)
+    assert set(reports) == {"benjamini-hochberg", "benjamini-yekutieli", "bonferroni"}
+    for method, report in reports.items():
+        assert report.raw_p_values == {"a": 0.0001, "c": 0.5}, method
+        assert "b" not in report.adjusted, "an untestable candidate never enters a correction"
 
 
 # ------------------------------------------------------- the reason the control exists

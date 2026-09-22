@@ -375,6 +375,56 @@ export type OutcomesPayload = {
   outcomes: RecordedOutcome[];
 };
 
+export type ResearchSensitivity = { alpha?: number; survivors?: number };
+
+export type ResearchForwardRow = {
+  strategy?: string;
+  trades?: number;
+  grade?: string;
+  expectancy_r?: number;
+  win_rate?: number;
+  verdict?: string;
+};
+
+export type ResearchStatus = {
+  report: { available: boolean; generated_at?: string | null; path?: string };
+  candidates_searched: number;
+  raw_gate_survivors: number;
+  multiplicity_survivors: number;
+  promotable: number;
+  primary_correction: { method?: string | null; alpha?: number | null };
+  sensitivity: Record<string, ResearchSensitivity>;
+  conclusion: {
+    verdict?: string | null;
+    interpretation?: string | null;
+    alpha_rank1?: number | null;
+  };
+  power: {
+    median_n_effective?: number | null;
+    smallest_detectable_edge_r?: number | null;
+    trades_needed_for_0_05r_edge?: number | null;
+    "trades_needed_for_0.05r_edge"?: number | null;
+  };
+  holdout: {
+    sealed: boolean | null;
+    bars: number;
+    window?: string;
+    confirmation_records: number;
+    last_confirmed_at?: string | null;
+  };
+  family: { family_id?: string; hypothesis_version?: string; candidates?: number };
+  manifest: {
+    available: boolean;
+    code_commit?: string;
+    dataset_sha256?: string;
+    built_at?: string | null;
+  };
+  forward: { strategy: ResearchForwardRow[]; coverage: Record<string, unknown> };
+  live_trading_enabled: boolean;
+  trading_mode?: string;
+  runtime_state?: string;
+};
+
 export const api = {
   runtime: () => request<Runtime>("/api/v1/runtime"),
   start: (symbol: string, timeframe: string) =>
@@ -394,6 +444,7 @@ export const api = {
   risk: () => request<Risk>("/api/v1/risk/status"),
   outcomes: (limit = 25) => request<OutcomesPayload>(`/api/v1/outcomes?limit=${limit}`),
   status: () => request<Record<string, unknown>>("/api/v1/status"),
+  researchStatus: () => request<ResearchStatus>("/api/v1/research/status"),
   quote: (symbol: string) => request<{ symbol: string; bid: number; ask: number; spread_points: number }>(
     `/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`
   ),

@@ -187,6 +187,24 @@ broken", never "profitable" — forward-test on demo before real money.
 
 ## Control-room dashboard
 
+The overview shows balance, equity, daily P/L and open positions, plus the runtime, in-trade
+management and (since Phase 8.1) the research status card. The last two answer two different
+questions in one screen:
+
+**RESEARCH STATUS — what the experiment concluded.** Candidates searched, raw gate survivors,
+multiplicity survivors, promotable count, the primary correction and its α, the sensitivity numbers,
+the sealed holdout (bars, window, whether it was ever confirmed), the power figures (median
+`n_effective`, smallest detectable edge in R, trades needed for a 0.05R edge), live-trading state and
+run provenance (family id, commit, dataset hash). When no report exists the card says **NOT RUN**
+instead of inventing a verdict.
+
+**FORWARD EVIDENCE — what the live record actually says.** One row per strategy from the attribution
+layer: trades, evidence grade, expectancy in R, win rate and the verdict (`measured` only from 10
+closed trades upward). A strategy with 7 trades shows `insufficient` next to its numbers, so seven
+trades can never be read as proof.
+
+Both are served by `GET /api/v1/research/status`; the card polls it with the rest of the dashboard.
+
 A React + Vite dashboard lives in `frontend/` and consumes the authenticated FastAPI control plane.
 
 ```bash
@@ -423,9 +441,55 @@ not evidence of edge, and nothing here is promoted automatically.
 through the full stack (OOS split → walk-forward → Monte Carlo → spread 1x/2x → parameter
 perturbation → Benjamini-Hochberg at α=0.10) produced **zero survivors**. Eleven candidates cleared
 the raw gate stack, which is exactly the blind spot the correction exists for; the best raw p-value
-was 0.176 (Donchian 50) against the ~0.0038 needed to survive a 26-candidate family. Conclusion: none
-of these families — nor the currently-configured Donchian 20 — has a demonstrated edge on this data.
-The system's value right now is the forward record it is building, not a P/L claim.
+was 0.176 (Donchian 50) against the ~0.0038 needed to survive a 26-candidate family.
+
+The correct reading is a **failure to reject the null at the multiplicity-adjusted threshold** — not
+proof that these strategies have no edge. The power block puts the smallest edge that sample could
+have detected at ≈0.18R (median effective sample ≈166 trades), and a 0.05R edge would need ≈3,400
+independent trades. So: this data cannot see small edges, and the honest next move is a more
+informative experiment (more data, fewer and better-motivated hypotheses, a sealed holdout), not more
+strategies switched on.
+
+### Methodology, dependence and power (Phase 8.1)
+
+The statistical contract is written down in `docs/research-methodology.md` and embedded in every
+report under `methodology` (H₀, statistic, null draws, sidedness, permutations, seed, minimum trades
+and the assumption table). Raw trade counts are no longer read as independent observations:
+
+* `dependence` per candidate: `n_effective` (conservative minimum of an AR(1) approximation and an
+  overlap correction), overlap pairs, mean/max concurrency, trades-per-day Fano factor, lag-1
+  autocorrelation, Wald–Wolfowitz runs z, plus explicit flags.
+* `power` per candidate: the smallest detectable edge at the family's smallest-rank threshold.
+* The effective-sample gate refuses to validate a candidate whose `n_effective` is below the test
+  minimum (`insufficient_effective_sample`) — its p-value would be optimistic, not conservative.
+* `family`: every candidate recorded with `family_id`, `candidate_id`, `symbol`, `timeframe`,
+  `regime_definition`, `parameter_set`, `hypothesis_version`, so the corrected search is auditable.
+* `sensitivity`: Benjamini–Hochberg stays primary; Benjamini–Yekutieli and Bonferroni are reported
+  side by side and never used to pick a friendlier answer.
+
+### The sealed final holdout
+
+The runner seals the most recent 15% of bars (`--holdout-fraction`, default 3,544 bars
+2026-07-29 → 2026-09-21, hash recorded) and selects only on the rest. `--confirm-holdout` runs the
+same candidates on the sealed slice **once** and records it in `data/research_holdout.json` with the
+dataset and holdout hashes; a second confirmation for the same family and dataset is refused. Once you
+look at the holdout it stops being a holdout, so looking is logged.
+
+### Manifest and reproducibility
+
+Every run writes `data/research_manifest.json` (also embedded in the report): dataset and research
+hashes, bar counts, date range, symbol, timeframe, spread/slippage/commission, backtest settings, the
+whole candidate family, the statistical contract, correction method and α, holdout state, git commit,
+Python/platform and the report's own hash.
+
+```bash
+python -m mt5_platform.research.runner --manifest data/research_manifest.json  # reproduced run
+python -m mt5_platform.research.runner --confirm-holdout                        # one confirmation
+python -m mt5_platform.research.runner --only Donchian                          # subset
+```
+
+The dataset hash is verified first; if the data changed, the run refuses rather than silently
+redefining the experiment.
 
 ## Research quality: multiplicity control (Phase 8)
 

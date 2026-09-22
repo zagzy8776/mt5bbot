@@ -130,6 +130,12 @@ class Settings(BaseSettings):
     # keeps using STRATEGIES from configuration; nothing is ever promoted automatically.
     promotion_config_path: str = ""
 
+    # Research artefacts the control plane reports (see research/report.py). These are generated
+    # files; the dashboard states "not run" rather than inventing a verdict when they are missing.
+    research_report_path: str = "data/research_report.json"
+    research_manifest_path: str = "data/research_manifest.json"
+    research_holdout_path: str = "data/research_holdout.json"
+
     # ------------------------------------------------------------- autonomous web research
     # Off by default. Research reads only allow-listed sources, writes notes with provenance, and
     # produces hypotheses to test — it has no path to configuration, risk limits or the loop.

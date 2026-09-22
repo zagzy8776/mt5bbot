@@ -166,6 +166,46 @@ def bonferroni(p_values: dict[str, float], *, alpha: float = 0.05) -> Multiplici
     return report
 
 
+def benjamini_yekutieli(
+    p_values: dict[str, float], *, alpha: float = DEFAULT_ALPHA
+) -> MultiplicityReport:
+    """Benjamini-Yekutieli: FDR under *arbitrary* dependence, at the cost of being conservative.
+
+    This exists as a sensitivity analysis, not as a replacement for BH whose only purpose would be
+    to produce a different (more favourable) answer. Correlated tests do not automatically
+    invalidate BH — under positive dependence it can still control FDR, often conservatively — so
+    the primary verdict stays BH and this is reported next to it, clearly labelled.
+    """
+    report = MultiplicityReport(method="benjamini-yekutieli", alpha=alpha, tested=len(p_values))
+    report.raw_p_values = {name: float(p) for name, p in p_values.items()}
+    if not p_values:
+        return report
+    ordered = sorted(report.raw_p_values.items(), key=lambda item: item[1])
+    total = len(ordered)
+    harmonic = sum(1.0 / k for k in range(1, total + 1))
+    adjusted: dict[str, float] = {}
+    running = 1.0
+    for rank in range(total, 0, -1):
+        name, p = ordered[rank - 1]
+        running = min(running, p * total * harmonic / rank)
+        adjusted[name] = min(1.0, running)
+    report.adjusted = adjusted
+    report.survivors = [name for name, _ in ordered if adjusted[name] <= alpha]
+    return report
+
+
+def sensitivity(
+    p_values: dict[str, float | None], *, alpha: float = DEFAULT_ALPHA
+) -> dict[str, MultiplicityReport]:
+    """All three corrections over the same family, for the report's sensitivity section."""
+    testable = {name: float(p) for name, p in p_values.items() if p is not None}
+    return {
+        "benjamini-hochberg": benjamini_hochberg(testable, alpha=alpha),
+        "benjamini-yekutieli": benjamini_yekutieli(testable, alpha=alpha),
+        "bonferroni": bonferroni(testable, alpha=min(alpha, 0.05)),
+    }
+
+
 def apply_multiplicity(
     p_values: dict[str, float | None],
     *,
@@ -175,7 +215,12 @@ def apply_multiplicity(
     """Correct a family of candidates. A candidate without a p-value can never survive."""
     testable = {name: float(p) for name, p in p_values.items() if p is not None}
     untestable = sorted(name for name, p in p_values.items() if p is None)
-    chosen = bonferroni if method == "bonferroni" else benjamini_hochberg
+    if method == "bonferroni":
+        chosen = bonferroni
+    elif method == "benjamini-yekutieli":
+        chosen = benjamini_yekutieli
+    else:
+        chosen = benjamini_hochberg
     report = chosen(testable, alpha=alpha)
     report.untestable = untestable
     return report
@@ -189,6 +234,8 @@ __all__ = [
     "PermutationTest",
     "apply_multiplicity",
     "benjamini_hochberg",
+    "benjamini_yekutieli",
     "bonferroni",
+    "sensitivity",
     "sign_flip_permutation",
 ]

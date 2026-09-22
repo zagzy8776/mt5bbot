@@ -9,6 +9,8 @@ import {
   type Order,
   type OutcomesPayload,
   type Position,
+  type ResearchForwardRow,
+  type ResearchStatus,
   type Risk,
   type Runtime,
   type Signal
@@ -53,6 +55,7 @@ export default function App() {
   const [outcomes, setOutcomes] = useState<OutcomesPayload | null>(null);
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
+  const [research, setResearch] = useState<ResearchStatus | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
   const [busy, setBusy] = useState(false);
@@ -61,7 +64,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -71,7 +74,8 @@ export default function App() {
         api.status(),
         api.audit(50).catch(() => ({ events: [] as AuditEvent[] })),
         api.outcomes().catch(() => null),
-        api.executions().catch(() => [] as Execution[])
+        api.executions().catch(() => [] as Execution[]),
+        api.researchStatus().catch(() => null)
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -84,6 +88,7 @@ export default function App() {
       setEvents(ev.events);
       setOutcomes(out);
       setExecutions(ex);
+      setResearch(rs);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -219,6 +224,7 @@ export default function App() {
               <ExecutionContract runtime={runtime} executions={executions} />
 
               <ManagementCard runtime={runtime} />
+      <ResearchCard research={research} />
 
               <OutcomeLedger payload={outcomes} />
 
@@ -503,6 +509,145 @@ function ManagementCard({ runtime }: { runtime: Runtime | null }) {
         The agent/synthesis path may only propose <em>new</em> entries when explicitly enabled, so
         the strategy registry stays the entry source of record.
       </p>
+    </section>
+  );
+}
+
+function ResearchCard({ research }: { research: ResearchStatus | null }) {
+  if (!research) {
+    return (
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <div className="eyebrow">RESEARCH STATUS</div>
+            <h2>Experiment verdict</h2>
+          </div>
+          <Badge tone="neutral">NOT RUN</Badge>
+        </div>
+        <p className="muted">
+          No research report yet. Run <code>python -m mt5_platform.research.runner</code> — the
+          dashboard will not invent a verdict.
+        </p>
+      </section>
+    );
+  }
+
+  const holdout = research.holdout || {};
+  const power = research.power || {};
+  const conclusion = research.conclusion || {};
+  const coverage = research.forward?.coverage || {};
+  const strategies = research.forward?.strategy || [];
+  const tradesNeeded =
+    power["trades_needed_for_0.05r_edge"] ?? power.trades_needed_for_0_05r_edge ?? null;
+  const nothingPromotable = research.promotable === 0;
+
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">RESEARCH STATUS</div>
+          <h2>Experiment verdict</h2>
+        </div>
+        <Badge tone={nothingPromotable ? "neutral" : "warn"}>
+          {nothingPromotable ? "NOTHING PROMOTABLE" : `${research.promotable} PROMOTABLE`}
+        </Badge>
+      </div>
+
+      <div className="runtime-panel">
+        <div><span>Candidates searched</span><strong>{research.candidates_searched}</strong></div>
+        <div><span>Raw gate survivors</span><strong>{research.raw_gate_survivors}</strong></div>
+        <div><span>Multiplicity survivors</span><strong>{research.multiplicity_survivors}</strong></div>
+        <div><span>Promotable</span><strong>{research.promotable}</strong></div>
+      </div>
+
+      <div className="kv">
+        <span>Primary correction</span>
+        <strong>
+          {research.primary_correction?.method || "—"}
+          {research.primary_correction?.alpha != null ? ` (α=${research.primary_correction.alpha})` : ""}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Sensitivity</span>
+        <strong>
+          {Object.entries(research.sensitivity || {})
+            .map(([name, row]) => `${name}: ${(row as { survivors?: number }).survivors ?? 0}`)
+            .join(" · ") || "—"}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Final holdout</span>
+        <strong>
+          {holdout.sealed ? `SEALED · ${holdout.bars} bars ${holdout.window || ""}` : "not sealed"}
+          {holdout.confirmation_records
+            ? ` · ${holdout.confirmation_records} confirmation run(s)`
+            : " · never run"}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Power</span>
+        <strong>
+          median n_eff {fmt(power.median_n_effective)} · smallest detectable edge{" "}
+          {fmt(power.smallest_detectable_edge_r)}R
+          {tradesNeeded != null ? ` · ~${Math.round(Number(tradesNeeded)).toLocaleString()} trades for a 0.05R edge` : ""}
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Live trading</span>
+        <strong>
+          {research.live_trading_enabled ? "ENABLED" : "DISABLED"} ({research.trading_mode || "demo"})
+        </strong>
+      </div>
+      <div className="kv">
+        <span>Run provenance</span>
+        <strong>
+          family {research.family?.family_id || "—"} · commit {research.manifest?.code_commit || "—"} ·
+          dataset {research.manifest?.dataset_sha256 || "—"}
+        </strong>
+      </div>
+
+      {conclusion.interpretation && <p className="muted">{conclusion.interpretation}</p>}
+
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">FORWARD EVIDENCE</div>
+          <h2>What the live record actually says</h2>
+        </div>
+        <Badge tone="neutral">
+          {Number(coverage.measured ?? 0)} measured / {Number(coverage.unmeasured ?? 0)} insufficient
+        </Badge>
+      </div>
+      {strategies.length === 0 ? (
+        <p className="muted">
+          No closed trades yet. Seven trades will never be proof: every bucket is graded against the
+          evidence thresholds ({String(coverage.min_sample_weak ?? 10)} closed trades minimum).
+        </p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Trades</th>
+              <th>Grade</th>
+              <th>Expectancy R</th>
+              <th>Win rate</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {strategies.map((row: ResearchForwardRow, index: number) => (
+              <tr key={`${row.strategy}-${index}`}>
+                <td>{row.strategy || "unattributed"}</td>
+                <td>{row.trades ?? 0}</td>
+                <td>{row.grade || "—"}</td>
+                <td>{fmt(row.expectancy_r)}</td>
+                <td>{row.win_rate != null ? `${(Number(row.win_rate) * 100).toFixed(1)}%` : "—"}</td>
+                <td>{row.verdict === "measured" ? "measured" : "insufficient evidence"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }
