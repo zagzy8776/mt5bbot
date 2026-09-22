@@ -338,20 +338,21 @@ function SignalPipeline({ runtime }: { runtime: Runtime | null }) {
       <p className="muted">{info.hint}</p>
       <div className="runtime-panel">
         <div><span>Closed candles</span><strong>{Number(stats?.bars_processed ?? 0)}</strong></div>
-        <div><span>Evaluations</span><strong>{Number(engine?.evaluations ?? 0)}</strong></div>
-        <div><span>Signals</span><strong>{Number(engine?.signals_generated ?? 0)}</strong></div>
-        <div><span>Rejected</span><strong>{Number(engine?.signals_rejected ?? 0)}</strong></div>
+        <div><span>Live evaluations</span><strong>{Number(engine?.evaluations ?? 0)}</strong></div>
+        <div><span>Live signals</span><strong>{Number(engine?.signals_generated ?? 0)}</strong></div>
+        <div><span>Live rejections</span><strong>{Number(engine?.signals_rejected ?? 0)}</strong></div>
         <div><span>Orders sent</span><strong>{Number(stats?.orders_sent ?? 0)}</strong></div>
         <div><span>Last evaluation</span><strong>{engine?.last_evaluation_time ? new Date(engine.last_evaluation_time).toLocaleTimeString() : "—"}</strong></div>
       </div>
-      <div className="kv"><span>Warm-up replay</span><strong>{stats?.warmup_replay?.bars ? `${stats.warmup_replay.bars} bars · ${stats.warmup_replay.signals} signals discarded (never traded)` : "—"}</strong></div>
+      <div className="kv"><span>Warm-up replay (never traded or stored)</span><strong>{stats?.warmup_replay?.bars ? `${stats.warmup_replay.bars} bars · ${stats.warmup_replay.signals} signals replayed` : "—"}</strong></div>
+      <div className="kv"><span>Replay counters (not live)</span><strong>{`${Number(engine?.replay_evaluations ?? 0)} evaluations · ${Number(engine?.replay_signals_generated ?? 0)} signals · persisted: ${engine?.replay_persisted ? "yes" : "no"}`}</strong></div>
       <div className="kv"><span>Last signal</span><strong>{engine?.last_signal_strategy ? `${engine.last_signal_strategy} ${engine.last_signal_side?.toUpperCase()} @ ${fmt(engine.last_signal_entry)} (SL ${fmt(engine.last_signal_stop_loss)})` : "none yet"}</strong></div>
       <div className="kv"><span>Last rejection</span><strong>{engine?.last_rejection ? `${engine.last_rejection.strategy}: ${engine.last_rejection.reasons.join(", ")}` : "none"}</strong></div>
       <div className="kv"><span>Reject counts</span><strong>{rejects}</strong></div>
       <div className="kv"><span>Last cycle</span><strong>{trace?.stage ? `${trace.stage}${trace.reasons?.length ? ` (${trace.reasons.join(", ")})` : ""}${trace.order_id ? ` · ${trace.order_id}` : ""}${trace.waiting ? " · waiting for the next closed candle" : ""}` : "—"}</strong></div>
       {engine && Object.keys(engine.strategy_stats || {}).length > 0 && (
-        <div className="table-wrap"><table><thead><tr><th>Strategy</th><th>Evaluations</th><th>Signals</th><th>Rejections</th></tr></thead><tbody>
-          {Object.entries(engine.strategy_stats).map(([name, s]) => <tr key={name}><td>{name}</td><td>{s.evaluations}</td><td>{s.signals}</td><td>{s.rejections}</td></tr>)}
+        <div className="table-wrap"><table><thead><tr><th>Strategy</th><th>Live evaluations</th><th>Live signals</th><th>Live rejections</th><th>Replay signals</th></tr></thead><tbody>
+          {Object.entries(engine.strategy_stats).map(([name, s]) => <tr key={name}><td>{name}</td><td>{s.evaluations}</td><td>{s.signals}</td><td>{s.rejections}</td><td className="muted">{s.replay_signals ?? 0}</td></tr>)}
         </tbody></table></div>
       )}
     </section>

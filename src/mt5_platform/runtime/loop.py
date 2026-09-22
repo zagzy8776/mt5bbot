@@ -116,9 +116,10 @@ class TradingLoop:
             bars = await self.feed.history(symbol, self.warmup_bars)
             spec = await self.adapter.get_instrument(symbol)
             discarded = 0
-            for bar in bars:  # signals from history are discarded: never trade the past
+            for bar in bars:  # replay history to prime the strategies: never traded, never stored
                 emitted = await self.signal_engine.on_market_data(
-                    bar_to_event(bar, symbol, bar.spread * (spec.tick_size if spec else 0.0))
+                    bar_to_event(bar, symbol, bar.spread * (spec.tick_size if spec else 0.0)),
+                    replay=True,
                 )
                 discarded += len(emitted)
             replay["bars"] += len(bars)

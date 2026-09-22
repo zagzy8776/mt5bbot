@@ -23,6 +23,10 @@ class SignalEngineStats:
     strategy_errors: int = 0
     sink_errors: int = 0
     reject_reasons: dict[str, int] = field(default_factory=dict)
+    # Warm-up/replay activity is counted separately: it is never traded and never persisted.
+    replay_evaluations: int = 0
+    replay_signals: int = 0
+    replay_rejections: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -32,6 +36,9 @@ class SignalEngineStats:
             "strategy_errors": self.strategy_errors,
             "sink_errors": self.sink_errors,
             "reject_reasons": dict(sorted(self.reject_reasons.items())),
+            "replay_evaluations": self.replay_evaluations,
+            "replay_signals": self.replay_signals,
+            "replay_rejections": self.replay_rejections,
         }
 
 
@@ -67,6 +74,12 @@ class SignalEngine:
         self.last_evaluation_symbol: str | None = None
         self.last_signal: StrategySignal | None = None
         self.last_rejection: dict[str, object] | None = None
+        # Historical warm-up/replay activity, kept strictly apart from live trading state.
+        self.replay_evaluations: int = 0
+        self.replay_signals_generated: int = 0
+        self.replay_signals_rejected: int = 0
+        self._replay_signals: list[StrategySignal] = []
+        self._max_replay = 200
 
     @staticmethod
     def _bump(stats: SignalEngineStats | None, **fields: int) -> None:
@@ -129,14 +142,29 @@ class SignalEngine:
             return []
         return self._recent[-limit:]
 
+    def replay_signals(self, limit: int = 50) -> list[StrategySignal]:
+        """Signals produced while replaying history: tagged, never traded, never persisted."""
+        if limit <= 0:
+            return []
+        return list(self._replay_signals[-limit:])
+
     def reset_state(self) -> None:
         """Reset strategy/cooldown state before a fresh runtime warm-up.
 
         Counters and persisted recent signals are intentionally retained for observability.
+        Replay diagnostics are per warm-up session, so they restart with the session.
         """
         for strategy in self.strategies:
             strategy.reset()
         self._last_emitted.clear()
+        self.replay_evaluations = 0
+        self.replay_signals_generated = 0
+        self.replay_signals_rejected = 0
+        self._replay_signals.clear()
+        for stats in self.strategy_stats.values():
+            stats.replay_evaluations = 0
+            stats.replay_signals = 0
+            stats.replay_rejections = 0
 
     def stats_snapshot(self) -> dict:
         """Everything needed to explain why a signal did or did not happen."""
@@ -151,6 +179,11 @@ class SignalEngine:
         return {
             **self.stats.to_dict(),
             "evaluations": self.evaluations,
+            # Warm-up/replay activity: reported, but never mixed into live numbers or the store.
+            "replay_evaluations": self.replay_evaluations,
+            "replay_signals_generated": self.replay_signals_generated,
+            "replay_signals_rejected": self.replay_signals_rejected,
+            "replay_persisted": False,
             "last_evaluation_time": (
                 self.last_evaluation_time.isoformat() if self.last_evaluation_time else None
             ),
@@ -172,36 +205,49 @@ class SignalEngine:
             "strategy_stats": strategies,
         }
 
-    async def on_market_data(self, event: MarketDataEvent) -> list[StrategySignal]:
-        self._bump(self.stats, events_processed=1)
-        self.evaluations += 1
-        self.last_evaluation_time = event.timestamp
-        self.last_evaluation_symbol = event.symbol
+    async def on_market_data(
+        self, event: MarketDataEvent, *, replay: bool = False
+    ) -> list[StrategySignal]:
+        """Evaluate one candle.
+
+        ``replay=True`` marks a historical warm-up candle: it is counted separately, tagged,
+        kept out of the operational signal feed and **never** handed to the store sinks or the
+        live cooldown/state, so a replay can never look like live trading.
+        """
+        if replay:
+            self.replay_evaluations += 1
+        else:
+            self._bump(self.stats, events_processed=1)
+            self.evaluations += 1
+            self.last_evaluation_time = event.timestamp
+            self.last_evaluation_symbol = event.symbol
         emitted: list[StrategySignal] = []
 
         for strategy in self.strategies:
             if not strategy.enabled:
                 continue
-            self._bump(
-                self.strategy_stats.setdefault(strategy.name, SignalEngineStats()),
-                events_processed=1,
-            )
+            per = self.strategy_stats.setdefault(strategy.name, SignalEngineStats())
+            if replay:
+                self._bump(per, replay_evaluations=1)
+            else:
+                self._bump(per, events_processed=1)
             try:
                 signal = strategy.generate_signal(event)
             except Exception as exc:
                 self._bump(self.stats, strategy_errors=1)
-                self._bump(self.strategy_stats.get(strategy.name), strategy_errors=1)
-                await self._emit_audit(
-                    AuditEvent(
-                        component="strategy",
-                        event_type=AuditEventType.STRATEGY_ERROR.value,
-                        severity=Severity.ERROR,
-                        symbol=event.symbol,
-                        correlation_id=event.correlation_id,
-                        error=str(exc),
-                        payload={"strategy": strategy.name},
+                self._bump(per, strategy_errors=1)
+                if not replay:
+                    await self._emit_audit(
+                        AuditEvent(
+                            component="strategy",
+                            event_type=AuditEventType.STRATEGY_ERROR.value,
+                            severity=Severity.ERROR,
+                            symbol=event.symbol,
+                            correlation_id=event.correlation_id,
+                            error=str(exc),
+                            payload={"strategy": strategy.name},
+                        )
                     )
-                )
                 continue
 
             if signal is None:
@@ -214,6 +260,10 @@ class SignalEngine:
                 rejected.append("cooldown")
 
             if rejected:
+                if replay:
+                    self.replay_signals_rejected += 1
+                    self._bump(per, replay_rejections=1)
+                    continue
                 self._bump(self.stats, signals_rejected=1)
                 self.last_rejection = {
                     "at": signal.timestamp.isoformat(),
@@ -223,9 +273,6 @@ class SignalEngine:
                     "reasons": list(rejected),
                     "signal_id": signal.signal_id,
                 }
-                per = self.strategy_stats.get(
-                    signal.strategy_name
-                ) or self.strategy_stats.setdefault(signal.strategy_name, SignalEngineStats())
                 self._bump(per, signals_rejected=1)
                 for reason in rejected:
                     self.stats.reject_reasons[reason] = self.stats.reject_reasons.get(reason, 0) + 1
@@ -246,11 +293,24 @@ class SignalEngine:
                 )
                 continue
 
+            if replay:
+                # Tagged, kept in a replay-only buffer, and never sent to risk/store/cooldown.
+                self.replay_signals_generated += 1
+                self._bump(per, replay_signals=1)
+                self._replay_signals.append(
+                    signal.model_copy(
+                        update={
+                            "metadata": {**signal.metadata, "session": "warmup", "replay": True}
+                        }
+                    )
+                )
+                if len(self._replay_signals) > self._max_replay:
+                    self._replay_signals = self._replay_signals[-self._max_replay :]
+                emitted.append(signal)
+                continue
+
             self._bump(self.stats, signals_generated=1)
             self.last_signal = signal
-            per = self.strategy_stats.get(signal.strategy_name) or self.strategy_stats.setdefault(
-                signal.strategy_name, SignalEngineStats()
-            )
             self._bump(per, signals_generated=1)
             self._last_emitted[cooldown_key] = signal.timestamp
             self._recent.append(signal)

@@ -157,7 +157,7 @@ async def test_stage_b_survives_cycles_that_wait_for_the_next_candle() -> None:
     assert trace["stage"] == "order_filled"  # the real outcome is preserved
     assert trace["waiting"] is True
     assert trace["last_processed_bar"] == feed.bars[-1].time.isoformat()
-    assert engine.stats_snapshot()["evaluations"] == 4  # unchanged: no new evaluation
+    assert engine.stats_snapshot()["evaluations"] == 1  # live only; no new evaluation
 
 
 class _NoBarsFeed:
@@ -219,8 +219,9 @@ async def test_stage_b_candle_evaluated_without_a_setup() -> None:
     assert trace["stage"] == "candle_evaluated_no_setup"
     assert trace["bar_time"] == feed.bars[-1].time.isoformat()
     assert loop.stats.bars_processed == 1
-    # 3 warm-up bars from history + the live bar: every evaluated candle is counted.
-    assert engine.stats_snapshot()["evaluations"] == 4
+    # Live counters count live candles; the 3 warm-up bars live in the replay counters.
+    assert engine.stats_snapshot()["evaluations"] == 1
+    assert engine.stats_snapshot()["replay_evaluations"] == 3
     assert engine.stats_snapshot()["signals_generated"] == 0
 
 
@@ -280,7 +281,8 @@ async def test_warmup_replay_is_recorded_and_never_traded() -> None:
     assert replay["bars"] == 3  # the whole warm-up history
     assert replay["signals"] == 3  # AlwaysBuy fires on every bar
     assert fake.sent == []  # the past is never traded
-    assert engine.stats_snapshot()["signals_generated"] == 3
+    assert engine.stats_snapshot()["replay_signals_generated"] == 3
+    assert engine.stats_snapshot()["signals_generated"] == 0  # nothing live yet
 
     trace = loop.last_cycle
     assert trace["stage"] == "warmup_complete"

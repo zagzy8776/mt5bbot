@@ -51,6 +51,9 @@ export type StrategyDiagnostics = {
   evaluations: number;
   signals: number;
   rejections: number;
+  replay_evaluations: number;
+  replay_signals: number;
+  replay_rejections: number;
   strategy_errors: number;
   reject_reasons: Record<string, number>;
 };
@@ -60,6 +63,10 @@ export type SignalEngineDiagnostics = {
   events_processed: number;
   signals_generated: number;
   signals_rejected: number;
+  replay_evaluations: number;
+  replay_signals_generated: number;
+  replay_signals_rejected: number;
+  replay_persisted: boolean;
   reject_reasons: Record<string, number>;
   last_evaluation_time: string | null;
   last_evaluation_symbol: string | null;

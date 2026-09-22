@@ -99,10 +99,42 @@ breakout, structure breakout/retest. These remain the research backlog.
 
 ## 5. Observation / caveats
 
-* The warm-up replay signals are correctly never traded, but they are still persisted by the
-  signal store sinks (they carry their historical timestamps). Worth tagging or suppressing so
-  operational signal records only contain live signals.
 * The manual position `3264036722` counts towards duplicate/parallel-position limits, so an
   autonomous BUY on XAUUSDm is rejected as `duplicate_position` while it is open.
 * No autonomous order had been submitted at the time of writing: on the candles evaluated so far
   the breakout condition was simply not met. Nothing was manufactured, and no gate was lowered.
+  (The earlier warm-up-persistence caveat is resolved — see section 6.)
+
+## 6. Warm-up/replay isolation (data-integrity fix)
+
+Warm-up replays were correctly never traded, but they *were* persisted by the signal-store sinks,
+so the operational database and dashboard filled with historical-timestamped signals that had
+never been live. Fixed in `signals/__init__.py` + `runtime/loop.py`:
+
+* `SignalEngine.on_market_data(event, replay=True)` marks a warm-up candle: replay evaluations and
+  signals count into dedicated `replay_*` counters instead of the live ones.
+* A replay signal is **tagged** (`metadata = {"session": "warmup", "replay": True}`), kept in a
+  replay-only buffer (`SignalEngine.replay_signals()`), and is **never** handed to the store sinks,
+  the audit-store sink, the live feed (`recent_signals()`), the "last live signal" field, or the
+  live cooldown state — so a replay cannot influence or appear as live trading.
+* Live signals take exactly the previous path: counted as live, persisted, exposed by
+  `/api/v1/signals`.
+* `reset_state()` clears the replay buffer/counters per warm-up session.
+
+Live proof (same 200-bar warm-up producing 47 signals, old code vs new code):
+
+| | old code | new code |
+| --- | --- | --- |
+| `signals` rows added by one warm-up | ~47 (170 accumulated) | **0** |
+| `SIGNAL_GENERATED` audit rows added | ~47 (169 accumulated) | **0** |
+| live counters | not separated | `evaluations: 0`, `signals_generated: 0` |
+| replay counters | — | `replay_evaluations: 200`, `replay_signals_generated: 47`, `replay_persisted: false` |
+
+Pollution written by the old code before the fix was removed after a read-only audit:
+`DELETE 170` from `signals`, `DELETE 169` `SIGNAL_*` rows from `audit_events` (the audit proved all
+170 signal rows were replay/test artifacts with historical timestamps — no live signal had ever
+been stored). The `orders`, `executions` and `account_snapshots` test fixtures were left untouched.
+
+Dashboard: the Signal Pipeline card now shows **Live evaluations / Live signals / Live rejections**,
+plus **Warm-up replay (never traded or stored)** and **Replay counters (not live)** rows, and the
+per-strategy table has separate live and replay columns.
