@@ -10,6 +10,7 @@ from mt5_platform.common.audit import audit_log
 from mt5_platform.common.enums import AuditEventType, OrderSide, OrderStatus
 from mt5_platform.common.events import (
     AccountSnapshot,
+    ExecutionRecord,
     OrderRequest,
     RiskDecision,
     StrategySignal,
@@ -131,11 +132,56 @@ def test_risk_rejection_marks_order_rejected() -> None:
     stored = mgr.get(order.order_id)
     assert stored is not None
     assert stored.status is OrderStatus.REJECTED
+    # The refusal must be readable from the order itself, not only from the audit log: this is the
+    # blank the dashboard showed as REASON - for three refused orders.
+    assert stored.rejection_reason == "max_risk_per_trade"
+    assert stored.metadata["rejected_by"] == "risk_gate"
+    assert stored.metadata["transmitted"] is False
     events = recent_events()
     rejected = [e for e in events if e.event_type == AuditEventType.ORDER_REJECTED]
     assert rejected
     with_reasons = next(e for e in rejected if "reasons" in e.payload)
     assert with_reasons.payload["reasons"] == ["max_risk_per_trade"]
+
+
+def test_risk_rejection_without_reasons_still_explains_itself() -> None:
+    """A refusal with no reasons must still record why the row reads rejected."""
+    mgr = OrderManager()
+    order = mgr.create_from_signal(make_signal(), volume=0.01)
+    mgr.apply_risk_decision(order.order_id, RiskDecision(approved=False))
+    stored = mgr.get(order.order_id)
+    assert stored is not None
+    assert stored.status is OrderStatus.REJECTED
+    assert stored.rejection_reason == "risk_rejected"
+    assert stored.metadata["transmitted"] is False
+
+
+async def test_broker_rejection_always_records_a_reason() -> None:
+    """An MT5 rejection keeps its retcode/comment even if the record omitted a reason."""
+    mgr = OrderManager()
+    order = mgr.create_from_signal(make_signal(), volume=0.01)
+    mgr.apply_risk_decision(order.order_id, RiskDecision(approved=True))
+    mgr.transition(order.order_id, OrderStatus.SUBMITTED)
+    record = ExecutionRecord(
+        execution_id="exec-1",
+        order_id=order.order_id,
+        symbol=order.symbol,
+        side=order.side,
+        requested_volume=order.volume,
+        final_status=OrderStatus.BROKER_REJECTED,
+        mt5_response={
+            "adapter": "mt5",
+            "retcode": "TRADE_RETCODE_INVALID_STOPS",
+            "retcode_code": 10016,
+            "comment": "Invalid stops",
+            "transmitted": True,
+        },
+    )
+    updated = await mgr.apply_execution(order.order_id, record)
+    assert updated.rejection_reason == "TRADE_RETCODE_INVALID_STOPS"
+    assert updated.metadata["mt5_retcode"] == "TRADE_RETCODE_INVALID_STOPS"
+    assert updated.metadata["mt5_comment"] == "Invalid stops"
+    assert updated.metadata["transmitted"] is True
 
 
 def test_recent_orders_and_status_filters() -> None:

@@ -241,6 +241,17 @@ class OrderManager:
         if decision.approved:
             return self.transition(order_id, OrderStatus.APPROVED)
         order = self.transition(order_id, OrderStatus.REJECTED)
+        # A refused order must explain itself. Without this the stored row carries status rejected
+        # with no reason; the why was only recoverable by correlating the audit log.
+        # Nothing is sent to the broker on this path, so the record says so explicitly instead of
+        # leaving a gap that reads like a missing broker response.
+        order.rejection_reason = "; ".join(str(r) for r in decision.reasons) or "risk_rejected"
+        order.metadata = {
+            **order.metadata,
+            "transmitted": False,
+            "rejected_by": "risk_gate",
+            "reasons": list(decision.reasons),
+        }
         self._audit(
             AuditEventType.ORDER_REJECTED,
             Severity.WARNING,
@@ -445,8 +456,20 @@ class OrderManager:
                 order.filled_volume = record.filled_volume or record.requested_volume
             elif final is OrderStatus.PARTIALLY_FILLED:
                 order.filled_volume = record.filled_volume
-            if record.rejection_reason:
-                order.rejection_reason = record.rejection_reason
+            if final is OrderStatus.BROKER_REJECTED or record.rejection_reason:
+                # A rejection can never persist without a reason: fall back to the broker retcode,
+                # then to the status itself, so the stored row always explains the refusal.
+                response = record.mt5_response or {}
+                order.rejection_reason = str(
+                    record.rejection_reason or response.get("retcode") or final.value
+                )
+                order.metadata = {
+                    **order.metadata,
+                    "mt5_retcode": response.get("retcode"),
+                    "mt5_comment": response.get("comment"),
+                }
+                if response.get("transmitted") is not None:
+                    order.metadata["transmitted"] = bool(response["transmitted"])
         await self._persist_order(order_id)
         updated = self.get(order_id)
         if updated is None:  # pragma: no cover - defensive
