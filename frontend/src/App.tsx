@@ -14,7 +14,9 @@ import {
   type Risk,
   type Runtime,
   type RuntimeHeartbeat,
-  type Signal
+  type Signal,
+  type StrategyPanel,
+  type StrategyRow
 } from "./lib/api";
 
 type View = "overview" | "positions" | "orders" | "signals" | "risk" | "settings";
@@ -58,6 +60,7 @@ export default function App() {
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [research, setResearch] = useState<ResearchStatus | null>(null);
   const [heartbeat, setHeartbeat] = useState<RuntimeHeartbeat | null>(null);
+  const [strategyPanel, setStrategyPanel] = useState<StrategyPanel | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
   const [busy, setBusy] = useState(false);
@@ -66,7 +69,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs, hb] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs, hb, sp] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -78,7 +81,8 @@ export default function App() {
         api.outcomes().catch(() => null),
         api.executions().catch(() => [] as Execution[]),
         api.researchStatus().catch(() => null),
-        api.heartbeat().catch(() => null)
+        api.heartbeat().catch(() => null),
+        api.strategyPanel().catch(() => null)
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -93,6 +97,7 @@ export default function App() {
       setExecutions(ex);
       setResearch(rs);
       setHeartbeat(hb);
+      setStrategyPanel(sp);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
@@ -229,6 +234,15 @@ export default function App() {
 
               <ManagementCard runtime={runtime} />
               <HeartbeatCard heartbeat={heartbeat} />
+              <StrategyPanelCard
+                panel={strategyPanel}
+                busy={busy}
+                onToggle={(name: string, enable: boolean) =>
+                  void doAction(() =>
+                    enable ? api.enableStrategy(name) : api.disableStrategy(name)
+                  )
+                }
+              />
               <ResearchCard research={research} />
 
               <OutcomeLedger payload={outcomes} />
@@ -644,6 +658,115 @@ function HeartbeatCard({ heartbeat }: { heartbeat: RuntimeHeartbeat | null }) {
       <p className="muted">
         A healthy bot with no setup looks exactly like this: fresh data, stage{" "}
         <code>candle_evaluated_no_setup</code>, zero signals. That is waiting, not broken.
+      </p>
+    </section>
+  );
+}
+
+function StrategyPanelCard({
+  panel,
+  busy,
+  onToggle
+}: {
+  panel: StrategyPanel | null;
+  busy: boolean;
+  onToggle: (name: string, enable: boolean) => void;
+}) {
+  if (!panel) {
+    return (
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <div className="eyebrow">STRATEGY CONTROL</div>
+            <h2>Strategy registry</h2>
+          </div>
+          <Badge tone="neutral">UNAVAILABLE</Badge>
+        </div>
+        <p className="muted">
+          Strategy panel unreachable — the API may be down or the token is missing. No switches are
+          shown, so nothing can be toggled blind.
+        </p>
+      </section>
+    );
+  }
+
+  const statusTone = (row: StrategyRow): "good" | "bad" | "warn" | "neutral" =>
+    row.validated ? "good" : row.validation_status === "rejected" ? "bad" : "warn";
+  const statusLabel = (row: StrategyRow): string =>
+    row.validated
+      ? "PROMOTABLE"
+      : row.validation_status === "rejected"
+        ? "REJECTED"
+        : row.validation_status === "tested_not_surviving"
+          ? "TESTED · NOT SURVIVING"
+          : "UNVALIDATED";
+
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">STRATEGY CONTROL</div>
+          <h2>Strategy registry</h2>
+        </div>
+        <Badge tone={panel.validated_count > 0 ? "good" : "warn"}>
+          {panel.enabled_count} ON · {panel.validated_count} VALIDATED
+        </Badge>
+      </div>
+
+      <div className="kv">
+        <span>Configured list (STRATEGIES)</span>
+        <strong>{panel.configured.length ? panel.configured.join(", ") : "none"}</strong>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Research verdict</th>
+              <th>p-value</th>
+              <th>Switch</th>
+            </tr>
+          </thead>
+          <tbody>
+            {panel.strategies.map((row) => (
+              <tr key={row.name}>
+                <td>
+                  <div>{row.name}</div>
+                  <div className="muted">{row.description || ""}</div>
+                </td>
+                <td>
+                  <Badge tone={statusTone(row)}>{statusLabel(row)}</Badge>
+                  {row.raw_gate_passed && !row.validated ? (
+                    <div className="muted">cleared raw gates only</div>
+                  ) : null}
+                </td>
+                <td>{row.last_p_value == null ? "—" : fmt(row.last_p_value, 4)}</td>
+                <td>
+                  {row.locked ? (
+                    <span className="muted" title={row.lock_reason}>
+                      locked{row.enabled ? " (running)" : ""}
+                    </span>
+                  ) : (
+                    <button
+                      className={row.enabled ? "ghost" : "primary"}
+                      disabled={busy}
+                      onClick={() => onToggle(row.name, !row.enabled)}
+                    >
+                      {row.enabled ? "Disable" : "Enable"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="muted">
+        Only families that survived the multiplicity-adjusted research threshold can be switched
+        here; the rest are locked with the reason shown on hover. Enabling an unvalidated family is
+        refused by the API (HTTP 409), not just hidden in this table. {panel.note}
       </p>
     </section>
   );

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hmac
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -394,11 +397,146 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/strategies/available")
     async def list_available_strategies() -> dict:
+        """Registry catalog with parameters. Read-only: enabling is a separate, guarded action."""
         return {"available": describe_available()}
+
+    def _strategy_validation() -> dict[str, dict[str, Any]]:
+        """Research verdict per registered strategy, so the UI never has to guess.
+
+        Read-only: reads the report the research engine wrote and maps each candidate's name to the
+        strategy factory it exercised. A strategy with no recorded candidate is *unvalidated*, never
+        "validated by default" — absence of evidence is not evidence.
+        """
+        verdicts: dict[str, dict[str, Any]] = {}
+        try:
+            report_path = Path(settings.research_report_path)
+            if not report_path.exists():
+                return verdicts
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return verdicts
+        for candidate in report.get("candidates", []):
+            strategy_name = str(candidate.get("strategy", "") or "")
+            if not strategy_name:
+                continue
+            survivor = bool(candidate.get("multiplicity_survivor"))
+            current = verdicts.get(strategy_name)
+            if current is not None and current["multiplicity_survivor"]:
+                continue  # one survivor is enough to make the family eligible
+            try:
+                p_value = None
+                if candidate.get("p_value") is not None:
+                    p_value = float(candidate["p_value"])
+            except (TypeError, ValueError):
+                p_value = None
+            verdicts[strategy_name] = {
+                "validated": survivor,
+                "multiplicity_survivor": survivor,
+                "raw_gate_passed": bool(candidate.get("validation_passed")),
+                "p_value": p_value,
+                "family_id": str(candidate.get("family_id", "") or ""),
+                "candidate": str(candidate.get("name", "") or ""),
+                "all_rejected": True,
+            }
+        # A family whose every recorded candidate failed is explicitly rejected, not merely unknown.
+        for strategy_name, verdict in verdicts.items():
+            candidates = [
+                c for c in report.get("candidates", [])
+                if str(c.get("strategy", "") or "") == strategy_name
+            ]
+            verdict["all_rejected"] = bool(candidates) and all(
+                not c.get("multiplicity_survivor") for c in candidates
+            )
+        return verdicts
+
+    @app.get("/api/v1/strategies/effective")
+    async def effective_strategies() -> dict:
+        """Registry + research verdict + effective switch state for the dashboard panel.
+
+        ``locked`` is advisory and surfaces *why*: the promotion contract requires multiplicity
+        survival before a family may trade, so an unvalidated or rejected family is flagged rather
+        than silently toggled. The enable/disable routes stay the operational surface.
+        """
+        engine_strategies = {entry["name"]: entry for entry in signal_engine.list_strategies()}
+        verdicts = _strategy_validation()
+        rows: list[dict[str, Any]] = []
+        for entry in describe_available():
+            name = str(entry.get("name", ""))
+            verdict = verdicts.get(name)
+            live = engine_strategies.get(name)
+            enabled = bool(live.get("enabled")) if live else False
+            loaded = live is not None
+            validated = bool(verdict and verdict.get("validated"))
+            if not verdict:
+                status = "unvalidated"
+            elif validated:
+                status = "promotable"
+            elif verdict.get("all_rejected"):
+                status = "rejected"
+            else:
+                status = "tested_not_surviving"
+            rows.append(
+                {
+                    **entry,
+                    "loaded": loaded,
+                    "enabled": enabled,
+                    "validation_status": status,
+                    "validated": validated,
+                    "raw_gate_passed": bool(verdict and verdict.get("raw_gate_passed")),
+                    "last_p_value": verdict.get("p_value") if verdict else None,
+                    "research_family": verdict.get("family_id") if verdict else "",
+                    "locked": not validated,
+                    "lock_reason": (
+                        ""
+                        if validated
+                        else (
+                            "no research candidate recorded: unvalidated, so not enableable here"
+                            if not verdict
+                            else "failed to reject the null at the multiplicity-adjusted "
+                            "threshold: promotion requires a survivor"
+                        )
+                    ),
+                }
+            )
+        return {
+            "strategies": rows,
+            "configured": list(settings.active_strategies),
+            "validated_count": sum(1 for row in rows if row["validated"]),
+            "enabled_count": sum(1 for row in rows if row["enabled"]),
+            "note": (
+                "enable/disable changes take effect in the API process; the configured STRATEGIES "
+                "list wins again after a restart"
+            ),
+        }
 
     @app.post("/api/v1/strategies/{name}/enable")
     async def enable_strategy(name: str) -> dict:
-        strategy = await signal_engine.enable(name.strip().lower())
+        key = name.strip().lower()
+        verdict = _strategy_validation().get(key)
+        if not (verdict and verdict.get("validated")):
+            # Enforced server-side, not merely hidden in the UI: the promotion contract requires
+            # multiplicity survival before a family may trade. Fail loudly, not silently.
+            audit_log.emit(
+                AuditEvent(
+                    component="signal_engine",
+                    event_type=AuditEventType.STRATEGY_CONFIG_INVALID.value,
+                    severity=Severity.WARNING,
+                    payload={
+                        "strategy": key,
+                        "action": "enable_refused",
+                        "reason": "no_multiplicity_survivor",
+                    },
+                )
+            )
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{key} has no multiplicity survivor in the research report: promotion "
+                    "requires a survivor. Disabling is always allowed; enabling an unvalidated "
+                    "family is not."
+                ),
+            )
+        strategy = await signal_engine.enable(key)
         if strategy is None:
             raise HTTPException(status_code=404, detail=f"unknown strategy: {name}")
         return {"name": strategy.name, "enabled": strategy.enabled}

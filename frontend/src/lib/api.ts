@@ -58,6 +58,37 @@ export type StrategyDiagnostics = {
   reject_reasons: Record<string, number>;
 };
 
+export type StrategyValidationStatus =
+  | "promotable"
+  | "rejected"
+  | "tested_not_surviving"
+  | "unvalidated";
+
+export type StrategyRow = {
+  name: string;
+  description?: string;
+  version?: string;
+  enabled: boolean;
+  symbols?: string[] | null;
+  parameters?: Record<string, unknown>;
+  loaded: boolean;
+  validation_status: StrategyValidationStatus;
+  validated: boolean;
+  raw_gate_passed: boolean;
+  last_p_value: number | null;
+  research_family: string;
+  locked: boolean;
+  lock_reason: string;
+};
+
+export type StrategyPanel = {
+  strategies: StrategyRow[];
+  configured: string[];
+  validated_count: number;
+  enabled_count: number;
+  note: string;
+};
+
 export type SignalEngineDiagnostics = {
   evaluations: number;
   events_processed: number;
@@ -493,6 +524,17 @@ export const api = {
   outcomes: (limit = 25) => request<OutcomesPayload>(`/api/v1/outcomes?limit=${limit}`),
   status: () => request<Record<string, unknown>>("/api/v1/status"),
   heartbeat: () => request<RuntimeHeartbeat>("/api/v1/runtime/heartbeat"),
+  strategyPanel: () => request<StrategyPanel>("/api/v1/strategies/effective"),
+  enableStrategy: (name: string) =>
+    request<{ name: string; enabled: boolean }>(
+      `/api/v1/strategies/${encodeURIComponent(name)}/enable`,
+      { method: "POST" }
+    ),
+  disableStrategy: (name: string) =>
+    request<{ name: string; enabled: boolean }>(
+      `/api/v1/strategies/${encodeURIComponent(name)}/disable`,
+      { method: "POST" }
+    ),
   researchStatus: () => request<ResearchStatus>("/api/v1/research/status"),
   quote: (symbol: string) => request<{ symbol: string; bid: number; ask: number; spread_points: number }>(
     `/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`

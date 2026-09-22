@@ -287,13 +287,27 @@ def test_api_strategy_and_signal_surface() -> None:
             available = (await client.get("/api/v1/strategies/available")).json()["available"]
             assert {s["name"] for s in available} == set(available_strategies())
 
+            # Enabling is now guarded by the research contract: a family with no multiplicity
+            # survivor cannot be switched on (409), and an unknown name is refused as unvalidated.
+            # Disabling stays allowed so the safe direction is never blocked.
             assert (await client.post("/api/v1/strategies/breakout/disable")).json()[
                 "enabled"
             ] is False
-            assert (await client.post("/api/v1/strategies/breakout/enable")).json()[
-                "enabled"
-            ] is True
-            assert (await client.post("/api/v1/strategies/nope/enable")).status_code == 404
+            guarded = await client.post("/api/v1/strategies/breakout/enable")
+            assert guarded.status_code == 409
+            assert "multiplicity" in guarded.json()["detail"]
+            assert (await client.post("/api/v1/strategies/nope/enable")).status_code == 409
+
+            panel = (await client.get("/api/v1/strategies/effective")).json()
+            assert panel["configured"] == ["sma_crossover", "breakout"]
+            assert panel["validated_count"] == 0, "no survivor in the report => nothing validated"
+            breakout_row = next(r for r in panel["strategies"] if r["name"] == "breakout")
+            assert breakout_row["locked"] is True
+            # breakout was searched and failed to survive, so it reads 'rejected' (tested, no
+            # survivor) rather than 'unvalidated' (never searched). Both lock; the distinction is
+            # the point.
+            assert breakout_row["validation_status"] == "rejected"
+            assert breakout_row["last_p_value"] is not None
 
             start = datetime(2026, 9, 7, 9, 0, tzinfo=UTC)
             # Default breakout needs 20 warmup ticks, then a break above the window high.
