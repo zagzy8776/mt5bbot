@@ -71,6 +71,22 @@ tbody tr:hover { background:#11151b; }
 .reason-list span { padding:8px 10px; border:1px solid #262d36; border-radius:8px; background:#10141a; }
 .kv { display:flex; justify-content:space-between; padding:13px 0; border-bottom:1px solid #1a2028; }
 .kv:last-child { border-bottom:0; }
+
+/* Live-feel additions: refresh indicator, chart, level lines */
+.refresh-tick { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
+.chart-wrap { border:1px solid #1d222b; border-radius:10px; padding:10px; background:#0b0e13; margin-bottom:14px; }
+.sparkline { width:100%; height:220px; display:block; }
+.sparkline .price-line { stroke:#7ea8ff; stroke-width:1.6; fill:none; }
+.sparkline .level-entry { stroke:#7ea8ff; stroke-width:1; stroke-dasharray:5 4; opacity:.75; }
+.sparkline .level-sl { stroke:#ef7a7a; stroke-width:1; stroke-dasharray:5 4; opacity:.75; }
+.sparkline .level-tp { stroke:#76e39b; stroke-width:1; stroke-dasharray:5 4; opacity:.75; }
+.sparkline .level-price { stroke:#e4c56d; stroke-width:1; stroke-dasharray:2 3; opacity:.9; }
+.sparkline .chart-label { fill:#8b95a5; font-size:9px; }
+.sparkline .signal-band-buy { fill:rgba(118,227,155,.16); }
+.sparkline .signal-band-sell { fill:rgba(239,122,122,.16); }
+.sparkline .dot-buy { fill:#76e39b; }
+.sparkline .dot-sell { fill:#ef7a7a; }
+.signal-note { color:#6f7a89; font-size:12px; margin-top:7px; }
 .settings-card { max-width:880px; }
 .settings-card label { display:grid; gap:7px; color:#8993a1; font-size:11px; margin:16px 0; }
 input, select { width:100%; padding:10px 11px; border-radius:9px; border:1px solid #2a313c; background:#0b0e13; color:#e6ebf1; outline:none; }

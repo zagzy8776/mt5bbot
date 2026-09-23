@@ -89,6 +89,36 @@ export type StrategyPanel = {
   note: string;
 };
 
+export type OrderStats = {
+  total: number;
+  orders_by_status: Record<string, number>;
+  stats: {
+    created?: number;
+    submitted?: number;
+    filled?: number;
+    partially_filled?: number;
+    broker_rejected?: number;
+    risk_rejected?: number;
+    cancelled?: number;
+    failed?: number;
+    invalid_transitions?: number;
+    reconciliation_mismatches?: number;
+  };
+};
+
+export type Candle = {
+  timestamp: string;
+  symbol: string;
+  timeframe: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+  tick_count?: number;
+  spread_avg?: number;
+};
+
 export type SignalEngineDiagnostics = {
   evaluations: number;
   events_processed: number;
@@ -525,6 +555,7 @@ export const api = {
   status: () => request<Record<string, unknown>>("/api/v1/status"),
   heartbeat: () => request<RuntimeHeartbeat>("/api/v1/runtime/heartbeat"),
   strategyPanel: () => request<StrategyPanel>("/api/v1/strategies/effective"),
+  orderStats: () => request<OrderStats>("/api/v1/orders/stats"),
   enableStrategy: (name: string) =>
     request<{ name: string; enabled: boolean }>(
       `/api/v1/strategies/${encodeURIComponent(name)}/enable`,

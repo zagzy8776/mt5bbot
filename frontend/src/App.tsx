@@ -8,6 +8,7 @@ import {
   type Execution,
   type Order,
   type OutcomesPayload,
+  type OrderStats,
   type Position,
   type ResearchForwardRow,
   type ResearchStatus,
@@ -61,6 +62,9 @@ export default function App() {
   const [research, setResearch] = useState<ResearchStatus | null>(null);
   const [heartbeat, setHeartbeat] = useState<RuntimeHeartbeat | null>(null);
   const [strategyPanel, setStrategyPanel] = useState<StrategyPanel | null>(null);
+  const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
+  const [freshAt, setFreshAt] = useState<Date | null>(null);
+  const [lastErrorAt, setLastErrorAt] = useState<Date | null>(null);
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("M15");
   const [busy, setBusy] = useState(false);
@@ -69,7 +73,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs, hb, sp] = await Promise.all([
+      const [rt, ac, pos, ord, sig, rk, st, ev, out, ex, rs, hb, sp, os] = await Promise.all([
         api.runtime(),
         api.account().catch(() => null),
         api.positions().catch(() => ({ positions: [] as Position[], manual_position_policy: "" })),
@@ -82,7 +86,8 @@ export default function App() {
         api.executions().catch(() => [] as Execution[]),
         api.researchStatus().catch(() => null),
         api.heartbeat().catch(() => null),
-        api.strategyPanel().catch(() => null)
+        api.strategyPanel().catch(() => null),
+        api.orderStats().catch(() => null)
       ]);
       setRuntime(rt);
       setAccount(ac);
@@ -98,10 +103,14 @@ export default function App() {
       setResearch(rs);
       setHeartbeat(hb);
       setStrategyPanel(sp);
+      setOrderStats(os);
+      setFreshAt(new Date());
+      setLastErrorAt(null);
       if (rt.symbol) setSymbol(rt.symbol);
       if (rt.timeframe) setTimeframe(rt.timeframe);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to reach the API");
+      setLastErrorAt(new Date());
     }
   }, []);
 
@@ -186,6 +195,14 @@ export default function App() {
             <h1>{navLabel}</h1>
           </div>
           <div className="top-actions">
+            <span className="muted refresh-tick" title="last successful poll">
+              <span className={`status-dot ${lastErrorAt ? "offline" : "online"}`} />{" "}
+              {lastErrorAt
+                ? `STALE since ${lastErrorAt.toLocaleTimeString()}`
+                : freshAt
+                  ? `updated ${freshAt.toLocaleTimeString()}`
+                  : "connecting…"}
+            </span>
             {runtime && <Badge tone={running ? "good" : runtime.state === "error" ? "bad" : "warn"}>{runtime.state.toUpperCase()}</Badge>}
             <Badge tone="neutral">{status?.trading_mode === "demo" ? "DEMO" : status?.is_live ? "LIVE" : "UNKNOWN"}</Badge>
             {runtime && <Badge tone={connected ? "good" : "warn"}>{connected ? "MT5 CONNECTED" : "MT5 OFFLINE"}</Badge>}
@@ -234,6 +251,9 @@ export default function App() {
 
               <ManagementCard runtime={runtime} />
               <HeartbeatCard heartbeat={heartbeat} />
+              <ActivityTicker events={events} connected={!lastErrorAt && runtime != null} />
+              <SignalChart signals={signals} positions={positions} symbol={symbol} />
+              <ExecutionsTable executions={executions} stats={orderStats} />
               <StrategyPanelCard
                 panel={strategyPanel}
                 busy={busy}
@@ -929,6 +949,355 @@ function QuotePanel({ symbol, connected }: { symbol: string; connected: boolean 
       <div><span>Ask</span><strong>{fmt(quote?.ask)}</strong></div>
       <div><span>Spread</span><strong>{fmt(quote?.spread_points, 1)} pts</strong></div>
     </div>
+  );
+}
+
+function summarisePayload(payload: Record<string, unknown> | undefined): string {
+  if (!payload || Object.keys(payload).length === 0) return "—";
+  const keep = [
+    "stage",
+    "reasons",
+    "reason",
+    "status",
+    "from",
+    "to",
+    "outcome",
+    "action",
+    "ticket",
+    "bar_time",
+    "last_processed_bar",
+    "resumed",
+    "open_positions",
+    "checked"
+  ];
+  const parts: string[] = [];
+  for (const key of keep) {
+    if (key in payload) {
+      const value = payload[key];
+      parts.push(`${key}=${Array.isArray(value) ? value.join("/") : String(value)}`);
+    }
+  }
+  return parts.length === 0 ? "—" : parts.slice(0, 4).join(" · ");
+}
+
+function ActivityTicker({ events, connected }: { events: AuditEvent[]; connected: boolean }) {
+  const [filter, setFilter] = useState<"all" | "orders" | "signals" | "positions" | "risk">("all");
+  const groups: Record<string, (e: AuditEvent) => boolean> = {
+    orders: (e) => e.event_type.includes("ORDER") || e.event_type.includes("EXECUTION"),
+    signals: (e) => e.event_type.includes("SIGNAL") || e.event_type.includes("THESIS"),
+    positions: (e) => e.event_type.includes("POSITION"),
+    risk: (e) => e.event_type.includes("RISK") || e.component === "risk"
+  };
+  const rows = (filter === "all" ? events : events.filter(groups[filter])).slice(0, 40);
+  const toneOf = (severity: string): "good" | "bad" | "warn" | "neutral" =>
+    severity === "error" || severity === "critical"
+      ? "bad"
+      : severity === "warning"
+        ? "warn"
+        : severity === "info"
+          ? "good"
+          : "neutral";
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">LIVE ACTIVITY</div>
+          <h2>What the bot is doing</h2>
+        </div>
+        <div className="button-row">
+          {(["all", "orders", "signals", "positions", "risk"] as const).map((key) => (
+            <button
+              key={key}
+              className={filter === key ? "primary" : "ghost"}
+              onClick={() => setFilter(key)}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="kv">
+        <span>
+          Showing {rows.length} of {events.length} recent events
+        </span>
+        <strong>
+          <span className={`status-dot ${connected ? "online" : "offline"}`} />{" "}
+          {connected ? "streaming" : "STALE — API not answering"}
+        </strong>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Component</th>
+              <th>Event</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="muted">
+                  No events match this filter yet.
+                </td>
+              </tr>
+            ) : (
+              rows.map((event, index) => (
+                <tr key={`${event.correlation_id}-${index}`}>
+                  <td>{new Date(event.timestamp).toLocaleTimeString()}</td>
+                  <td>{event.component}</td>
+                  <td>
+                    <Badge tone={toneOf(event.severity)}>{event.event_type}</Badge>
+                  </td>
+                  <td className="muted">
+                    {event.symbol ? `${event.symbol} · ` : ""}
+                    {summarisePayload(event.payload)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function SignalChart({
+  signals,
+  positions,
+  symbol
+}: {
+  signals: Signal[];
+  positions: Position[];
+  symbol: string;
+}) {
+  const points = [...signals]
+    .filter((s) => typeof s.entry === "number" && Number.isFinite(s.entry))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  if (points.length < 2) {
+    return (
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <div className="eyebrow">SIGNAL MAP</div>
+            <h2>{symbol} signals &amp; levels</h2>
+          </div>
+          <Badge tone="neutral">{points.length} SIGNAL(S)</Badge>
+        </div>
+        <p className="muted">
+          Not enough recorded signals to draw a series yet. The stored candle store is empty on this
+          deployment, so this card plots the bot's own signals rather than inventing a price line.
+        </p>
+      </section>
+    );
+  }
+  const entries = points.map((s) => s.entry as number);
+  const levels = positions
+    .flatMap((p) => [p.stop_loss, p.take_profit])
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  const stops = points.map((s) => s.stop_loss).filter((v): v is number => typeof v === "number");
+  const targets = points
+    .map((s) => s.take_profit)
+    .filter((v): v is number => typeof v === "number");
+  const all = [...entries, ...levels, ...stops, ...targets];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const span = max - min || 1;
+  const W = 720;
+  const H = 220;
+  const x = (i: number) => (i / Math.max(points.length - 1, 1)) * W;
+  const y = (v: number) => H - ((v - min) / span) * H;
+  const line = points
+    .map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.entry as number).toFixed(1)}`)
+    .join(" ");
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">SIGNAL MAP</div>
+          <h2>{symbol} signals &amp; levels</h2>
+        </div>
+        <Badge tone="neutral">{points.length} signals</Badge>
+      </div>
+      <div className="chart-wrap">
+        <svg viewBox={`0 0 ${W} ${H}`} className="sparkline" role="img">
+          {points.map((s, i) => {
+            const stop = typeof s.stop_loss === "number" ? s.stop_loss : null;
+            const target = typeof s.take_profit === "number" ? s.take_profit : null;
+            const buy = s.direction === "buy";
+            return (
+              <g key={`${s.signal_id}-${i}`}>
+                {stop != null && target != null ? (
+                  <rect
+                    x={x(i) - 3}
+                    y={Math.min(y(stop), y(target))}
+                    width={6}
+                    height={Math.abs(y(stop) - y(target))}
+                    className={buy ? "signal-band-buy" : "signal-band-sell"}
+                  />
+                ) : null}
+              </g>
+            );
+          })}
+          <path d={line} className="price-line" fill="none" />
+          {points.map((s, i) => (
+            <circle
+              key={`pt-${s.signal_id}-${i}`}
+              cx={x(i)}
+              cy={y(s.entry as number)}
+              r={3}
+              className={s.direction === "buy" ? "dot-buy" : "dot-sell"}
+            />
+          ))}
+          {positions.map((p, i) => (
+            <g key={p.ticket}>
+              <line
+                x1={0}
+                x2={W}
+                y1={y(p.entry_price)}
+                y2={y(p.entry_price)}
+                className="level-entry"
+              />
+              <text x={4} y={Math.max(11, y(p.entry_price) - 3)} className="chart-label">
+                {`open #${i + 1} ${p.side} @ ${fmt(p.entry_price)}`}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+      <div className="runtime-panel">
+        <div>
+          <span>Signals plotted</span>
+          <strong>{points.length}</strong>
+        </div>
+        <div>
+          <span>Entry range</span>
+          <strong>{`${fmt(min)} / ${fmt(max)}`}</strong>
+        </div>
+        <div>
+          <span>First → last</span>
+          <strong>
+            {`${new Date(points[0].timestamp).toLocaleTimeString()} → ${new Date(
+              points[points.length - 1].timestamp
+            ).toLocaleTimeString()}`}
+          </strong>
+        </div>
+        <div>
+          <span>Open positions</span>
+          <strong>{positions.length}</strong>
+        </div>
+      </div>
+      <p className="muted">
+        Each bar is one signal's stop-to-target span (green = buy, red = sell) at its entry price; the
+        line joins successive signal entries. Clusters of same-direction signals are what the risk
+        gate later refuses as <code>duplicate_position</code>.
+      </p>
+    </section>
+  );
+}
+
+function ExecutionsTable({
+  executions,
+  stats
+}: {
+  executions: Execution[];
+  stats: OrderStats | null;
+}) {
+  const byStatus = stats?.orders_by_status || {};
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <div className="eyebrow">EXECUTIONS</div>
+          <h2>Broker responses</h2>
+        </div>
+        <Badge tone="neutral">{executions.length} recorded</Badge>
+      </div>
+      {stats ? (
+        <div className="runtime-panel">
+          <div>
+            <span>Orders total</span>
+            <strong>{stats.total}</strong>
+          </div>
+          <div>
+            <span>Risk-rejected</span>
+            <strong>{stats.stats?.risk_rejected ?? 0}</strong>
+          </div>
+          <div>
+            <span>Broker-rejected</span>
+            <strong>{stats.stats?.broker_rejected ?? 0}</strong>
+          </div>
+          <div>
+            <span>Filled</span>
+            <strong>{stats.stats?.filled ?? 0}</strong>
+          </div>
+        </div>
+      ) : null}
+      {Object.keys(byStatus).length > 0 ? (
+        <div className="kv">
+          <span>Orders by status</span>
+          <strong>
+            {Object.entries(byStatus)
+              .map(([status, count]) => `${status} ×${count}`)
+              .join(" · ")}
+          </strong>
+        </div>
+      ) : null}
+      {!executions.length ? (
+        <p className="muted">
+          No broker interaction recorded yet. Every submission appears here with its exact retcode,
+          comment and whether it was actually transmitted.
+        </p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Side</th>
+                <th>Vol</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>MT5 retcode</th>
+                <th>Comment</th>
+                <th>Sent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {executions.map((row) => {
+                const response = row.mt5_response || {};
+                const filled = /fill/.test(String(row.final_status));
+                return (
+                  <tr key={row.execution_id}>
+                    <td>{new Date(row.timestamp).toLocaleTimeString()}</td>
+                    <td>{row.side ? row.side.toUpperCase() : "—"}</td>
+                    <td>{row.requested_volume}</td>
+                    <td>{fmt(row.execution_price ?? row.requested_price)}</td>
+                    <td>
+                      <Badge tone={filled ? "good" : "bad"}>{row.final_status}</Badge>
+                    </td>
+                    <td>{String(response.retcode ?? "—")}</td>
+                    <td className="muted">
+                      {String(response.comment ?? row.rejection_reason ?? "—")}
+                    </td>
+                    <td>
+                      {response.transmitted === false ? "no" : response.transmitted ? "yes" : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="muted">
+        Straight from the adapter's own record: a rejection here carries the broker retcode and
+        comment, credential-free, and a risk-gate refusal shows <code>Sent = no</code> because nothing
+        ever left the process.
+      </p>
+    </section>
   );
 }
 
